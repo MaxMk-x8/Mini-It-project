@@ -1,0 +1,212 @@
+CODENEST — PROJECT PROPOSAL (REVISED)
+
+Course: CSP1123 Mini IT Project — Trimester 2620
+Track: Web Application (Python / Flask)
+Group members: Mohammad Khan, Pritiv, Habib
+Date: 26 August 2026
+
+
+1. PROJECT CONCEPT
+
+Codenest is a Python Flask web application for university students to share study notes, ask and
+answer academic/programming questions, and build a student community. It has three pillars:
+
+- Study Notes & Resources — upload, browse, and download course material.
+- Student Q&A — ask and answer academic/programming questions.
+- Community & Moderation — posts, reports, and a student-run moderation layer.
+
+Track: Web Application, using Python/Flask, satisfying CLO1 (build a solution to a simple IT problem
+using programming tools).
+
+Per our supervisor's direction, Codenest is organised into faculty-scoped spaces (Section 2).
+
+
+2. FACULTY STRUCTURE
+
+The Q&A and Resource Hub pillars are organised by faculty. Two faculties for this phase: FCI
+(Faculty of Computer Information) and FOM (Faculty of Management). Single shared codebase and
+database, with faculty as one extra column on the resource and question tables, above the existing
+subject/course taxonomy (e.g. FCI -> Computer Science -> Data Structures, or FOM -> Marketing ->
+Consumer Behaviour).
+
+- Users select their faculty at registration; it is stored on their profile and pre-selects their
+  default faculty tab.
+- Browsing is shared: an FCI/FOM filter sits above both the Q&A list and the Resource Hub. Posting
+  always tags to one faculty.
+- Admin stays platform-wide, covering both FCI and FOM.
+- Community Moderators are faculty-scoped: an FCI moderator reviews/removes only FCI-tagged reports,
+  an FOM moderator only FOM ones, since a moderator outside their own faculty can't judge whether
+  flagged academic content is appropriate.
+- Professor answer-priority applies within their own faculty's Q&A.
+
+Community posts remain platform-wide for this phase.
+
+
+3. USER TYPES
+
+Student
+Registration requires an email ending in @student.mmu.edu.my; the Student role is auto-assigned on
+match.
+- Register, log in/out, and manage a profile
+- Upload and download study notes
+- Ask and answer questions
+- Create community posts
+- Report inappropriate content
+- Apply to become a Community Moderator
+
+Professor
+Registration using the staff domain @mmu.edu.my auto-assigns the Professor role. Admin can correct a
+mistaken registration.
+- Everything a Student can do
+- A badge shown beside their name on profile, posts, and answers
+- Answers given display priority, sorted above other answers on a question
+
+Community Moderator
+Students selected by Admin from a pool of applicants; do not have full administrative access.
+Faculty-scoped: an approved moderator's faculty (from their application form) becomes their
+moderation scope, so an FCI moderator only handles FCI reports and an FOM moderator only FOM ones.
+Applicants apply via a form (Section 4, Pritiv) that collects student ID/matric number and faculty,
+verified against their @student.mmu.edu.my account.
+- Review reported posts, questions, and resources within their own faculty
+- Remove inappropriate content within their own faculty
+- Manage discussions and basic community disputes
+- A coloured badge shown beside their name on profile, posts, and answers (distinct colour from the
+  Professor badge)
+
+Admin
+- Manage users and assign/remove Community Moderator roles
+- Approve or reject Community Moderator applications
+- Remove inappropriate content and manage resources platform-wide
+- View basic platform statistics
+
+
+4. TEAM RESPONSIBILITIES
+
+Mohammad Khan — Login & Accounts
+- Registration, login/logout, and password handling (Flask-Login)
+- Email-domain role check at registration: @student.mmu.edu.my -> Student, @mmu.edu.my -> Professor
+- On-screen verification code after signup
+- Role field on the User model: Student, Professor, Community Moderator, Admin
+- Faculty field on the User model (FCI, FOM)
+- Page/route protection via Flask-Login and role checks
+- Report table (shared by Pritiv and Habib)
+- Admin page: approve/reject Community Moderator applications (approval locks in the applicant's
+  faculty as their moderation scope); list users and roles
+- Homepage: 5 most recent notes and 5 most recent questions
+- Integration of all modules in Week 7; final testing
+
+Pritiv — Resource Hub
+- Upload/download notes, with file type/size checks
+- Categories and a faculty dropdown (FCI/FOM) on every resource
+- Search and filter resources
+- Edit/delete own resources; display uploader information
+- FCI/FOM filter at the top of the resource list
+- Report button on each resource, linked to the Report table
+- Community Moderator application form: name, reason for applying, student ID/matric number,
+  faculty
+
+Habib — Q&A & Community
+- Ask, view, and search questions, with the faculty dropdown
+- Answer questions; edit/delete own questions and answers; mark Best Answer
+- Coloured badge next to Professor and Community Moderator names; Professor answers sorted to top
+- Report button on questions/answers, linked to the Report table
+- Community posts and comments/replies
+- Popular/recent questions display
+
+The Community Moderator's Reports page (listing reported content with a remove action, filtered to
+the logged-in moderator's own faculty; Admin sees the unfiltered platform-wide list) is built by all
+three together in Week 7, alongside the homepage.
+
+
+5. CROSS-MEMBER COLLABORATION TOPICS
+
+Mohammad <-> Pritiv (Login x Resource Hub)
+- Login-protected resource actions: Mohammad — Flask-Login (Week 3); Pritiv — route protection
+  (Week 4)
+- Uploader identity on resource cards: Mohammad — user/profile data; Pritiv — renders it
+- Resource reporting: Mohammad — Report table (Week 4); Pritiv — Report button (Week 5-6)
+- Faculty filter: Mohammad — Faculty field; Pritiv — FCI/FOM dropdown (Week 3-4)
+- Community Moderator application: Mohammad — admin approve/reject page (Week 6); Pritiv —
+  student-facing form (Week 5)
+
+Mohammad <-> Habib (Login x Q&A / Community)
+- Login-protected Q&A actions: Mohammad — Flask-Login (Week 3); Habib — route protection (Week 5)
+- Reporting: shared Report table extended to Q&A; Habib — Report button (Week 5-6)
+- Best Answer marking: Mohammad — rule (owner or Moderator only); Habib — logic
+- Professor badge & answer priority: Mohammad — Professor field; Habib — badge and sorting
+
+Pritiv <-> Habib (Resource Hub x Q&A)
+Shared subject/category list across both modules. Pritiv builds the FCI/FOM filter first
+(Week 3-4); Habib reuses the same pattern (Week 5).
+
+All three
+Reports page and homepage recent-lists, built together in Week 7. All branches merged and all
+login/role checks tested across every module.
+
+
+6. PERMISSION MATRIX
+
+Action                              Student   Professor        Community Mod.   Admin
+Create question / answer            Yes       Yes              Yes              Yes
+Upload notes                        Yes       Yes              Yes              Yes
+Report content                      Yes       Yes              Yes              Yes
+Answer shown with priority badge    No        Yes (automatic)  No               No
+Coloured badge / name shown         No        Yes (automatic)  Yes (automatic)  No
+Remove inappropriate post           No        No               Yes (own fac.)   Yes (all)
+Review reports                      No        No               Yes (own fac.)   Yes (all)
+Grant/revoke Professor status       No        No               No               Yes
+Approve moderator applications      No        No               No               Yes
+Manage users                        No        No               Limited          Yes
+Remove a moderator                  No        No               No               Yes
+
+
+7. TECHNOLOGY STACK
+
+Layer                Choice
+Backend              Python + Flask
+Frontend             HTML + CSS + Bootstrap + basic JavaScript
+Database             SQLite via Flask-SQLAlchemy
+Authentication       Flask-Login
+Forms                Flask-WTF
+File uploads         Flask (validated by type/size)
+Version control      Git + GitHub (public repo, committed every 15-30 min)
+Project management   Kanbedu
+
+
+8. FIVE-WEEK DEVELOPMENT TIMELINE
+
+Before Week 3: Group formation (Google Form) and topic proposal (ProPro) — all three.
+
+Week 3
+- Mohammad: Flask skeleton, GitHub repo, Kanbedu board, Flask-Login setup, roles + faculty field on
+  the User model, on-screen verification code
+- Pritiv: Starts the FCI/FOM filter dropdown, needed for his own Week 4 build
+- Habib: Reviews Pritiv's FCI/FOM filter pattern, to reuse for Q&A in Week 5
+
+Week 4
+- Mohammad: Report table; homepage skeleton
+- Pritiv: Resource Hub build — upload/download/search/categories/edit/delete, with faculty filter
+- Habib: Question/Answer database tables; basic "ask a question" form
+
+Week 5
+- Mohammad: Profile page; testing Pritiv's Resource Hub
+- Pritiv: Community Moderator application form; Resource Hub polish
+- Habib: Q&A build — ask/answer/best-answer, faculty filter; Professor badge + sorted answers
+
+Week 6
+- Mohammad: Admin page — approve/reject moderator applications, list users & roles
+- Pritiv: Report button on resource pages
+- Habib: Report button on questions/answers
+
+Week 7
+- Mohammad: Shared Reports page; homepage; cross-module testing
+- Pritiv: Shared Reports page; "recent notes" homepage list
+- Habib: Shared Reports page; "recent questions" homepage list
+
+Weeks 2-7: Weekly supervisor progress meetings (5 formally scored) — all three.
+
+Weeks 6-7: Testing, deployment/hosting, README, final polish. Final source code submission due
+Saturday of Week 7, 11:59 pm — all three.
+
+Week 8: Presentation (12 min demo, no slides) + individual interview (8-10 min) with Supervisor and
+course Moderator — all three.
