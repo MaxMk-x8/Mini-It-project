@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ app_name }}</title>
+</head>
+<body>
+    <nav>
+        <a href="{{ url_for('home') }}">Home</a> |
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('user_dashboard') }}">My Dashboard</a> |
+            {% if current_user.is_moderator() %}
+                <a href="{{ url_for('moderator_dashboard') }}">Moderator Dashboard</a> |
+            {% endif %}
+            {% if current_user.is_admin() %}
+                <a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a> |
+            {% endif %}
+            <a href="{{ url_for('logout') }}">Logout ({{ current_user.username }})</a>
+        {% else %}
+            <a href="{{ url_for('login') }}">Login</a> |
+            <a href="{{ url_for('register') }}">Register</a>
+        {% endif %}
+    </nav>
+
+    <hr>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <p><strong>[{{ category }}]</strong> {{ message }}</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</body>
+</html>

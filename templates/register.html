@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Register</h2>
+<p>Your role (Student/Professor) is assigned automatically based on your email domain.</p>
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <p>
+        {{ form.username.label }}<br>{{ form.username() }}
+        {% for error in form.username.errors %}
+            <br><span style="color: red;">{{ error }}</span>
+        {% endfor %}
+    </p>
+    <p>
+        {{ form.email.label }}<br>{{ form.email() }} (e.g. name@student.mmu.edu.my or name@mmu.edu.my)
+        {% for error in form.email.errors %}
+            <br><span style="color: red;">{{ error }}</span>
+        {% endfor %}
+    </p>
+    <p>
+        {{ form.faculty.label }}<br>{{ form.faculty() }}
+        {% for error in form.faculty.errors %}
+            <br><span style="color: red;">{{ error }}</span>
+        {% endfor %}
+    </p>
+    <p>
+        {{ form.password.label }}<br>{{ form.password() }}
+        {% for error in form.password.errors %}
+            <br><span style="color: red;">{{ error }}</span>
+        {% endfor %}
+    </p>
+    <p>
+        {{ form.confirm_password.label }}<br>{{ form.confirm_password() }}
+        {% for error in form.confirm_password.errors %}
+            <br><span style="color: red;">{{ error }}</span>
+        {% endfor %}
+    </p>
+    <p>{{ form.submit() }}</p>
+</form>
+{% endblock %}

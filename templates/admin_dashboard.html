@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Admin Dashboard</h2>
+<p>Total Users: {{ total_users }}</p>
+
+<h3>All Users</h3>
+<table border="1" cellpadding="5">
+    <tr>
+        <th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Faculty</th>
+    </tr>
+    {% for u in all_users %}
+    <tr>
+        <td>{{ u.id }}</td>
+        <td>{{ u.username }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.role }}</td>
+        <td>{{ u.faculty }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,28 @@
+# =========================================================
+# CodeNest - Full Project Requirements
+# Install once with: pip install -r requirements.txt
+# =========================================================
+
+# Core Flask
+Flask
+
+# Database
+Flask-SQLAlchemy
+
+# Authentication / sessions
+Flask-Login
+
+# Forms + CSRF protection
+Flask-WTF
+
+# Password hashing, secure filenames (comes with Flask, listed explicitly)
+Werkzeug
+
+# Required by WTForms' Email() validator (registration form)
+email_validator
+
+# Email sending (OTP emails, answer notifications - future features)
+Flask-Mail
+
+# Environment variable loading (SECRET_KEY, email credentials, etc.)
+python-dotenv
