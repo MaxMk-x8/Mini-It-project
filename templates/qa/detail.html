@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+<p><a href="{{ url_for('qa_list') }}">&larr; Back to Q&A Discussions</a></p>
+
+<!-- Question Section -->
+<div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 25px; background-color: #fafafa;">
+    <h2>{{ question.title }}</h2>
+    <p style="font-size: 0.9em; color: #555;">
+        Faculty: <strong>{{ question.faculty }}</strong> | 
+        Category: <strong>{{ question.category }}</strong> | 
+        Asked by: <strong>{{ question.author.username }}</strong> ({{ question.author.role }}) | 
+        Posted: {{ question.created_at.strftime('%Y-%m-%d %H:%M') }} UTC
+    </p>
+    <hr>
+    <div style="white-space: pre-wrap; font-size: 1.05em; line-height: 1.5;">{{ question.content }}</div>
+</div>
+
+<hr>
+
+<!-- Answers Section -->
+<h3>Answers ({{ answers|length }})</h3>
+
+{% if answers %}
+    {% for ans in answers %}
+        <div style="border: 1px solid {% if ans.is_best_answer %}#28a745{% else %}#ccc{% endif %}; 
+                    padding: 15px; 
+                    margin-bottom: 15px; 
+                    background-color: {% if ans.is_best_answer %}#f4fff4{% else %}#fff{% endif %};">
+            
+            <div style="margin-bottom: 10px;">
+                {% if ans.is_best_answer %}
+                    <span style="background-color: #28a745; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold; font-size: 0.85em;">
+                        &#10004; BEST ANSWER
+                    </span>
+                    &nbsp;
+                {% endif %}
+
+                {% if ans.author and ans.author.is_professor() %}
+                    <span style="background-color: #0056b3; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold; font-size: 0.85em;">
+                        PROFESSOR
+                    </span>
+                    &nbsp;
+                {% endif %}
+
+                <strong>{{ ans.author.username }}</strong> ({{ ans.author.role }})
+                &bull; 
+                <span style="color: #666; font-size: 0.85em;">{{ ans.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
+            </div>
+
+            <div style="white-space: pre-wrap; margin-bottom: 15px; line-height: 1.4;">{{ ans.content }}</div>
+
+            <!-- Action Controls -->
+            <div style="font-size: 0.9em;">
+                <!-- Mark Best Answer (Only Question Author) -->
+                {% if current_user.is_authenticated and current_user.id == question.author_id %}
+                    <form method="POST" action="{{ url_for('mark_best_answer', answer_id=ans.id) }}" style="display: inline;">
+                        <button type="submit">
+                            {% if ans.is_best_answer %}
+                                Unmark Best Answer
+                            {% else %}
+                                Mark as Best Answer
+                            {% endif %}
+                        </button>
+                    </form>
+                    &nbsp;
+                {% endif %}
+
+                <!-- Edit / Delete (Only Answer Author) -->
+                {% if current_user.is_authenticated and current_user.id == ans.author_id %}
+                    <a href="{{ url_for('edit_answer', answer_id=ans.id) }}">Edit</a>
+                    &nbsp;|&nbsp;
+                    <form method="POST" action="{{ url_for('delete_answer', answer_id=ans.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this answer?');">
+                        <button type="submit" style="color: red; background: none; border: none; padding: 0; text-decoration: underline; cursor: pointer;">
+                            Delete
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+{% else %}
+    <p><em>No answers yet. Be the first to answer this question below!</em></p>
+{% endif %}
+
+<hr>
+
+<!-- Post an Answer Form -->
+<div style="margin-top: 25px;">
+    {% if current_user.is_authenticated %}
+        <h4>Your Answer</h4>
+        <form method="POST" action="{{ url_for('qa_detail', question_id=question.id) }}" style="max-width: 600px;">
+            {{ form.hidden_tag() }}
+            <div style="margin-bottom: 10px;">
+                {{ form.content(rows=6, style="width: 100%; padding: 6px;", placeholder="Type your answer here...") }}
+                {% for error in form.content.errors %}
+                    <p style="color: red; font-size: 0.85em;">{{ error }}</p>
+                {% endfor %}
+            </div>
+            <div>
+                {{ form.submit() }}
+            </div>
+        </form>
+    {% else %}
+        <p><a href="{{ url_for('login') }}">Log in</a> to post an answer to this question.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

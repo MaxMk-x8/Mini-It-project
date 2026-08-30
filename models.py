@@ -70,3 +70,57 @@ class User(UserMixin, db.Model):
         return f'<User {self.username} ({self.role} - {self.faculty})>'
 
 
+class Question(db.Model):
+    __tablename__ = 'questions'
+    __table_args__ = (
+        db.CheckConstraint(f"faculty IN {tuple(FACULTY_CODES)}", name='ck_question_faculty_valid'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(50), nullable=False, default='General')
+    faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
+    
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_questions_author_id'), nullable=False)
+    best_answer_id = db.Column(
+        db.Integer,
+        db.ForeignKey('answers.id', name='fk_questions_best_answer_id', use_alter=True),
+        nullable=True
+    )
+    
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    author = db.relationship('User', backref=db.backref('questions', lazy=True))
+    answers = db.relationship(
+        'Answer',
+        foreign_keys='Answer.question_id',
+        back_populates='question',
+        cascade='all, delete-orphan',
+        lazy=True
+    )
+    best_answer = db.relationship('Answer', foreign_keys=[best_answer_id], post_update=True)
+
+    def __repr__(self):
+        return f'<Question {self.id}: {self.title[:30]}>'
+
+
+class Answer(db.Model):
+    __tablename__ = 'answers'
+
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    is_best_answer = db.Column(db.Boolean, default=False)
+    
+    question_id = db.Column(db.Integer, db.ForeignKey('questions.id', name='fk_answers_question_id'), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_answers_author_id'), nullable=False)
+    
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    author = db.relationship('User', backref=db.backref('answers', lazy=True))
+    question = db.relationship('Question', foreign_keys=[question_id], back_populates='answers')
+
+    def __repr__(self):
+        return f'<Answer {self.id} for Question {self.question_id}>'

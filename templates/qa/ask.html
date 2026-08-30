@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<p><a href="{{ url_for('qa_list') }}">&larr; Back to Q&A Discussions</a></p>
+
+<h2>Ask a Question</h2>
+
+<form method="POST" action="{{ url_for('qa_ask') }}" style="max-width: 600px;">
+    {{ form.hidden_tag() }}
+
+    <div style="margin-bottom: 15px;">
+        {{ form.title.label }}<br>
+        {{ form.title(style="width: 100%; padding: 6px;") }}
+        {% for error in form.title.errors %}
+            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        {{ form.category.label }}<br>
+        {{ form.category(style="padding: 6px;") }}
+        {% for error in form.category.errors %}
+            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        {{ form.faculty.label }}<br>
+        {{ form.faculty(style="padding: 6px;") }}
+        {% for error in form.faculty.errors %}
+            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        {{ form.content.label }}<br>
+        {{ form.content(rows=8, style="width: 100%; padding: 6px;") }}
+        {% for error in form.content.errors %}
+            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <div>
+        {{ form.submit() }}
+        &nbsp;
+        <a href="{{ url_for('qa_list') }}">Cancel</a>
+    </div>
+</form>
+
+{% endblock %}

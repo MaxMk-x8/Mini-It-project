@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SelectField, SubmitField
+from wtforms import StringField, PasswordField, SelectField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Email, Length, EqualTo
 
 from constants import FACULTIES
@@ -27,3 +27,26 @@ class LoginForm(FlaskForm):
 class VerificationForm(FlaskForm):
     code = StringField('6-Digit Code', validators=[DataRequired(), Length(min=6, max=6)])
     submit = SubmitField('Verify')
+
+
+QUESTION_CATEGORIES = [
+    ('General', 'General'),
+    ('Assignments', 'Assignments'),
+    ('Exams', 'Exams'),
+    ('Projects', 'Projects'),
+    ('Coding', 'Coding'),
+    ('Administrative', 'Administrative')
+]
+
+
+class QuestionForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired(), Length(min=5, max=150)])
+    category = SelectField('Category', choices=QUESTION_CATEGORIES, validators=[DataRequired()])
+    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    content = TextAreaField('Question Details', validators=[DataRequired(), Length(min=10)])
+    submit = SubmitField('Post Question')
+
+
+class AnswerForm(FlaskForm):
+    content = TextAreaField('Your Answer', validators=[DataRequired(), Length(min=2)])
+    submit = SubmitField('Submit Answer')
