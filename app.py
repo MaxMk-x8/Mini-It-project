@@ -199,10 +199,36 @@ def logout():
     return redirect(url_for('home'))
 
 
-@app.route('/dashboard/user')
+@app.route('/dashboard')
 @login_required
-def user_dashboard():
-    return render_template('user_dashboard.html', user=current_user)
+def dashboard():
+    if current_user.is_professor():
+        return redirect(url_for('professor_dashboard'))
+    elif current_user.is_student():
+        return redirect(url_for('student_dashboard'))
+    elif current_user.is_moderator():
+        return redirect(url_for('moderator_dashboard'))
+    elif current_user.is_admin():
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('home'))
+
+
+@app.route('/dashboard/student')
+@login_required
+def student_dashboard():
+    if not current_user.is_student():
+        flash('Not authorized to view the student dashboard.', 'danger')
+        return redirect(url_for('dashboard'))
+    return render_template('student_dashboard.html', user=current_user)
+
+
+@app.route('/dashboard/professor')
+@login_required
+def professor_dashboard():
+    if not current_user.is_professor():
+        flash('Not authorized to view the professor dashboard.', 'danger')
+        return redirect(url_for('dashboard'))
+    return render_template('professor_dashboard.html', user=current_user)
 
 
 @app.route('/dashboard/moderator')

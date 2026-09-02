@@ -102,6 +102,19 @@ class Question(db.Model):
     )
     best_answer = db.relationship('Answer', foreign_keys=[best_answer_id], post_update=True)
 
+    def __init__(self, title=None, content=None, category='General', faculty=FACULTY_CODES[0], author_id=None, best_answer_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if title:
+            self.title = title
+        if content:
+            self.content = content
+        self.category = category
+        self.faculty = faculty
+        if author_id:
+            self.author_id = author_id
+        if best_answer_id:
+            self.best_answer_id = best_answer_id
+
     def __repr__(self):
         return f'<Question {self.id}: {self.title[:30]}>'
 
@@ -121,6 +134,16 @@ class Answer(db.Model):
     # Relationships
     author = db.relationship('User', backref=db.backref('answers', lazy=True))
     question = db.relationship('Question', foreign_keys=[question_id], back_populates='answers')
+
+    def __init__(self, content=None, question_id=None, author_id=None, is_best_answer=False, **kwargs):
+        super().__init__(**kwargs)
+        if content:
+            self.content = content
+        if question_id:
+            self.question_id = question_id
+        if author_id:
+            self.author_id = author_id
+        self.is_best_answer = is_best_answer
 
     def __repr__(self):
         return f'<Answer {self.id} for Question {self.question_id}>'

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Student Dashboard</h2>
+<p><strong>Username:</strong> {{ user.username }}</p>
+<p><strong>Email:</strong> {{ user.email }}</p>
+<p><strong>Role:</strong> {{ user.role }}</p>
+<p><strong>Faculty:</strong> {{ user.faculty }}</p>
+
+<hr>
+<h3>Student Hub</h3>
+<ul>
+    <li><strong>Q&A Forum:</strong> Ask questions, explore discussions, and find solutions in the <a href="{{ url_for('qa_list') }}">Q&A Forum</a>.</li>
+    <li><strong>Faculty Support:</strong> Receive answers with faculty insights directly from MMU Professors.</li>
+    <li><strong>Resources:</strong> Access shared study materials, guides, and programming notes.</li>
+</ul>
+{% endblock %}
