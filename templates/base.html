@@ -10,12 +10,6 @@
         <a href="{{ url_for('qa_list') }}">Q&A</a> |
         {% if current_user.is_authenticated %}
             <a href="{{ url_for('dashboard') }}">My Dashboard</a> |
-            {% if current_user.is_moderator() %}
-                <a href="{{ url_for('moderator_dashboard') }}">Moderator Dashboard</a> |
-            {% endif %}
-            {% if current_user.is_admin() %}
-                <a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a> |
-            {% endif %}
             <a href="{{ url_for('logout') }}">Logout ({{ current_user.username }})</a>
         {% else %}
             <a href="{{ url_for('login') }}">Login</a> |

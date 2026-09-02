@@ -62,12 +62,13 @@ def register():
             flash('An account with that email or username already exists.', 'danger')
             return render_template('register.html', form=form)
 
-        if email.endswith('@mmu.edu.my') and not email.endswith('@student.mmu.edu.my'):
+        if email.endswith('@student.mmu.edu.my'):
+            role = 'Student'
+        elif email.endswith('@mmu.edu.my'):
             role = 'Professor'
-        elif email.endswith('@student.mmu.edu.my'):
-            role = 'Student'
         else:
-            role = 'Student'
+            flash('Registration is restricted to official MMU emails (@student.mmu.edu.my or @mmu.edu.my).', 'danger')
+            return render_template('register.html', form=form)
 
         code = str(random.randint(100000, 999999))
 
