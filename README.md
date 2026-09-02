@@ -75,10 +75,30 @@ CodeNest is an academic collaboration web app for MMU students and lecturers to 
 
 ---
 
-## 5. Tech Stack
+## 5. Resource Hub Module
+
+* **Resource Feed (`/resources`):**
+  * Browse all shared academic resources ordered newest first.
+  * Keyword search across title, description, and filename.
+  * Faculty filtering (FCI, FOM).
+  * Category filtering (Lecture Notes, Past Year Papers, Lab Sheets, Textbooks & References, Cheatsheets & Summaries, Other).
+* **Upload Resource (`/resources/upload`):**
+  * Logged-in users can upload study resources.
+  * File validation: Allowed formats (`PDF`, `DOCX`, `PPTX`, `TXT`, `ZIP`) and 10MB size limit.
+  * Secure server-side timestamped unique naming preventing collision and path traversal.
+* **Download Resource (`/resources/download/<id>`):**
+  * Secure file downloading using `send_from_directory` with original filename preservation.
+* **Resource Management (`/resources/<id>/edit`, `/resources/<id>/delete`):**
+  * Resource uploaders and admins can edit resource metadata (title, category, faculty, description).
+  * Resource uploaders and admins can delete resources with automated database and physical file cleanup.
+
+---
+
+## 6. Tech Stack
 
 * **Backend:** Python, Flask
 * **Database:** SQLite, Flask-SQLAlchemy
 * **Auth & Forms:** Flask-Login, Flask-WTF, WTForms, email_validator
 * **Mailing:** Flask-Mail (SMTP OTP delivery)
 * **Frontend:** HTML5, Jinja2 Templates
+

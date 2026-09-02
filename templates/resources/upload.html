@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Upload a Study Resource</h2>
+
+<p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a></p>
+
+<form method="POST" action="{{ url_for('resource_upload') }}" enctype="multipart/form-data" style="max-width: 600px;">
+    {{ form.hidden_tag() }}
+
+    <div style="margin-bottom: 15px;">
+        {{ form.title.label }}<br>
+        {{ form.title(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {% for error in form.title.errors %}
+            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        {{ form.category.label }}<br>
+        {{ form.category(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {% for error in form.category.errors %}
+            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        {{ form.faculty.label }}<br>
+        {{ form.faculty(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {% for error in form.faculty.errors %}
+            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        {{ form.description.label }}<br>
+        {{ form.description(rows=4, style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {% for error in form.description.errors %}
+            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        {{ form.file.label }}<br>
+        {{ form.file() }}
+        <p style="font-size: 0.85em; color: #666; margin-top: 5px;">
+            Allowed file types: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong> (Max file size: <strong>10MB</strong>)
+        </p>
+        {% for error in form.file.errors %}
+            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <div>
+        {{ form.submit(style="padding: 10px 20px; font-weight: bold; cursor: pointer;") }}
+        &nbsp;
+        <a href="{{ url_for('resources_list') }}">Cancel</a>
+    </div>
+</form>
+
+{% endblock %}

@@ -1,11 +1,17 @@
 import os
 import random
-from flask import Flask, render_template, redirect, url_for, flash, request, abort
+import uuid
+from datetime import datetime, timezone
+from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
+from werkzeug.utils import secure_filename
 
-from models import db, User, Question, Answer
-from forms import RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, QUESTION_CATEGORIES
+from models import db, User, Question, Answer, Resource
+from forms import (
+    RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
+    QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS
+)
 from constants import FACULTIES
 from dotenv import load_dotenv
 
@@ -16,6 +22,11 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'codenest-foundation-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///codenest.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads', 'resources')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB limit
 
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
@@ -424,6 +435,186 @@ def delete_answer(answer_id):
     db.session.commit()
     flash('Your answer has been deleted.', 'info')
     return redirect(url_for('qa_detail', question_id=question_id))
+
+
+#-------------------------------
+# RESOURCE HUB MODULE ROUTES 
+#-------------------------------
+
+@app.route('/resources')
+def resources_list():
+    query_text = request.args.get('q', '').strip()
+    selected_faculty = request.args.get('faculty', '').strip()
+    selected_category = request.args.get('category', '').strip()
+
+    query = Resource.query
+
+    if query_text:
+        search_filter = f"%{query_text}%"
+        query = query.filter(
+            (Resource.title.ilike(search_filter)) | 
+            (Resource.description.ilike(search_filter)) |
+            (Resource.filename.ilike(search_filter))
+        )
+
+    if selected_faculty:
+        query = query.filter(Resource.faculty == selected_faculty)
+
+    if selected_category:
+        query = query.filter(Resource.category == selected_category)
+
+    resources = query.order_by(Resource.created_at.desc()).all()
+
+    return render_template(
+        'resources/index.html',
+        resources=resources,
+        query_text=query_text,
+        selected_faculty=selected_faculty,
+        selected_category=selected_category,
+        faculties=FACULTIES,
+        categories=RESOURCE_CATEGORIES
+    )
+
+
+@app.route('/resources/upload', methods=['GET', 'POST'])
+@login_required
+def resource_upload():
+    form = ResourceForm()
+    if request.method == 'GET' and hasattr(current_user, 'faculty') and current_user.faculty:
+        form.faculty.data = current_user.faculty
+
+    if form.validate_on_submit():
+        file = form.file.data
+        if not file or file.filename == '':
+            flash('No file selected for upload.', 'danger')
+            return render_template('resources/upload.html', form=form)
+
+        original_filename = secure_filename(file.filename)
+        if not original_filename:
+            original_filename = "unnamed_file"
+
+        file_ext = ''
+        if '.' in original_filename:
+            file_ext = original_filename.rsplit('.', 1)[1].lower()
+
+        if file_ext not in ALLOWED_EXTENSIONS:
+            flash(f"Invalid file type '.{file_ext}'. Allowed types: {', '.join(ALLOWED_EXTENSIONS).upper()}", 'danger')
+            return render_template('resources/upload.html', form=form)
+
+        # Generate unique stored filename with timestamp + random token + original name
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+        unique_token = uuid.uuid4().hex[:8]
+        stored_filename = f"{timestamp}_{unique_token}_{original_filename}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
+
+        # Save to disk
+        file.save(file_path)
+
+        # Verify file size on disk
+        file_size = os.path.getsize(file_path)
+
+        # 10MB size limit check
+        if file_size > app.config['MAX_CONTENT_LENGTH']:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            flash('File exceeds the 10MB size limit.', 'danger')
+            return render_template('resources/upload.html', form=form)
+
+        # Create database record
+        resource = Resource(
+            title=form.title.data.strip(),
+            description=form.description.data.strip() if form.description.data else '',
+            filename=original_filename,
+            stored_filename=stored_filename,
+            file_size=file_size,
+            file_type=file_ext,
+            category=form.category.data,
+            faculty=form.faculty.data,
+            uploader_id=current_user.id
+        )
+        db.session.add(resource)
+        db.session.commit()
+
+        flash(f"Resource '{resource.title}' uploaded successfully!", 'success')
+        return redirect(url_for('resources_list'))
+
+    return render_template('resources/upload.html', form=form)
+
+
+@app.route('/resources/download/<int:resource_id>')
+def resource_download(resource_id):
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], resource.stored_filename)
+    if not os.path.exists(file_path):
+        flash('The requested file is no longer available on disk.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    return send_from_directory(
+        app.config['UPLOAD_FOLDER'],
+        resource.stored_filename,
+        as_attachment=True,
+        download_name=resource.filename
+    )
+
+
+@app.route('/resources/<int:resource_id>/edit', methods=['GET', 'POST'])
+@login_required
+def resource_edit(resource_id):
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    # Only uploader or admin can edit
+    if resource.uploader_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to edit this resource.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    form = ResourceEditForm(obj=resource)
+    if form.validate_on_submit():
+        resource.title = form.title.data.strip()
+        resource.description = form.description.data.strip() if form.description.data else ''
+        resource.category = form.category.data
+        resource.faculty = form.faculty.data
+
+        db.session.commit()
+        flash('Resource details updated successfully!', 'success')
+        return redirect(url_for('resources_list'))
+
+    return render_template('resources/edit.html', form=form, resource=resource)
+
+
+@app.route('/resources/<int:resource_id>/delete', methods=['POST'])
+@login_required
+def resource_delete(resource_id):
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    # Only uploader or admin can delete
+    if resource.uploader_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to delete this resource.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    # Remove physical file from disk
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], resource.stored_filename)
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            app.logger.warning(f"Failed to remove physical file {file_path}: {e}")
+
+    # Remove database record
+    db.session.delete(resource)
+    db.session.commit()
+
+    flash(f"Resource '{resource.title}' has been deleted.", 'info')
+    return redirect(url_for('resources_list'))
 
 
 @app.context_processor

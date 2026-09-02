@@ -50,3 +50,40 @@ class QuestionForm(FlaskForm):
 class AnswerForm(FlaskForm):
     content = TextAreaField('Your Answer', validators=[DataRequired(), Length(min=2)])
     submit = SubmitField('Submit Answer')
+
+
+# -------------------------------
+# RESOURCE HUB MODULE FORMS 
+# -------------------------------
+from flask_wtf.file import FileField, FileRequired, FileAllowed
+
+RESOURCE_CATEGORIES = [
+    ('Lecture Notes', 'Lecture Notes'),
+    ('Past Year Papers', 'Past Year Papers'),
+    ('Lab Sheets', 'Lab Sheets'),
+    ('Textbooks & References', 'Textbooks & References'),
+    ('Cheatsheets & Summaries', 'Cheatsheets & Summaries'),
+    ('Other', 'Other')
+]
+
+ALLOWED_EXTENSIONS = ['pdf', 'docx', 'pptx', 'txt', 'zip']
+
+
+class ResourceForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired(), Length(min=3, max=150)])
+    category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
+    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    description = TextAreaField('Description (Optional)', validators=[Length(max=1000)])
+    file = FileField('Resource File', validators=[
+        FileRequired(message='Please select a file to upload.'),
+        FileAllowed(ALLOWED_EXTENSIONS, f'Allowed file types: {", ".join(ALLOWED_EXTENSIONS).upper()}')
+    ])
+    submit = SubmitField('Upload Resource')
+
+
+class ResourceEditForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired(), Length(min=3, max=150)])
+    category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
+    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    description = TextAreaField('Description (Optional)', validators=[Length(max=1000)])
+    submit = SubmitField('Update Resource')

@@ -8,6 +8,7 @@
     <nav>
         <a href="{{ url_for('home') }}">Home</a> |
         <a href="{{ url_for('qa_list') }}">Q&A</a> |
+        <a href="{{ url_for('resources_list') }}">Resources</a> |
         {% if current_user.is_authenticated %}
             <a href="{{ url_for('dashboard') }}">My Dashboard</a> |
             <a href="{{ url_for('logout') }}">Logout ({{ current_user.username }})</a>

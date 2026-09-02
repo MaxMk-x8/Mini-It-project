@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Resource Hub</h2>
+
+<div style="margin-bottom: 20px;">
+    {% if current_user.is_authenticated %}
+        <a href="{{ url_for('resource_upload') }}"><strong>+ Upload a Resource</strong></a>
+    {% else %}
+        <p><a href="{{ url_for('login') }}">Log in</a> to upload and share study resources.</p>
+    {% endif %}
+</div>
+
+<!-- Search & Filter Form -->
+<form method="GET" action="{{ url_for('resources_list') }}" style="margin-bottom: 25px; padding: 15px; border: 1px solid #ccc;">
+    <div>
+        <label for="q"><strong>Search:</strong></label>
+        <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in title or description..." style="width: 250px;">
+
+        &nbsp;
+        <label for="faculty"><strong>Faculty:</strong></label>
+        <select id="faculty" name="faculty">
+            <option value="">-- All Faculties --</option>
+            {% for code, name in faculties %}
+                <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+            {% endfor %}
+        </select>
+
+        &nbsp;
+        <label for="category"><strong>Category:</strong></label>
+        <select id="category" name="category">
+            <option value="">-- All Categories --</option>
+            {% for code, label in categories %}
+                <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        &nbsp;
+        <button type="submit">Filter</button>
+        {% if query_text or selected_faculty or selected_category %}
+            <a href="{{ url_for('resources_list') }}" style="margin-left: 10px;">Reset</a>
+        {% endif %}
+    </div>
+</form>
+
+<hr>
+
+<!-- Resources List -->
+<h3>Available Resources ({{ resources|length }})</h3>
+
+{% if resources %}
+    <ul style="list-style-type: none; padding-left: 0;">
+        {% for r in resources %}
+            <li style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; background-color: #fafafa;">
+                <h4>
+                    {{ r.title }}
+                    <span style="font-size: 0.8em; color: #555; font-weight: normal;">[{{ r.file_type|upper }} &bull; {{ r.formatted_size }}]</span>
+                </h4>
+                <p style="font-size: 0.9em; color: #555; margin-bottom: 8px;">
+                    Faculty: <strong>{{ r.faculty }}</strong> | 
+                    Category: <strong>{{ r.category }}</strong> | 
+                    Uploaded by: <strong>{{ r.uploader.username }}</strong> ({{ r.uploader.role }}) | 
+                    Uploaded: {{ r.created_at.strftime('%Y-%m-%d %H:%M') }} UTC
+                </p>
+                {% if r.description %}
+                    <p style="margin-bottom: 12px; color: #333;">{{ r.description }}</p>
+                {% endif %}
+                <p style="font-size: 0.85em; color: #777;">File: <em>{{ r.filename }}</em></p>
+
+                <div style="margin-top: 10px;">
+                    <a href="{{ url_for('resource_download', resource_id=r.id) }}" style="display: inline-block; padding: 5px 10px; background-color: #007bff; color: white; text-decoration: none; border-radius: 3px;"><strong>&darr; Download File</strong></a>
+                    
+                    {% if current_user.is_authenticated and (current_user.id == r.uploader_id or current_user.is_admin()) %}
+                        &nbsp;|&nbsp;
+                        <a href="{{ url_for('resource_edit', resource_id=r.id) }}">Edit</a>
+                        &nbsp;|&nbsp;
+                        <form method="POST" action="{{ url_for('resource_delete', resource_id=r.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to permanently delete this resource?');">
+                            <button type="submit" style="background: none; border: none; color: red; cursor: pointer; padding: 0; text-decoration: underline;">Delete</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>No resources found matching your criteria. {% if current_user.is_authenticated %}<a href="{{ url_for('resource_upload') }}">Upload one now</a>!{% else %}<a href="{{ url_for('login') }}">Log in</a> to upload resources.{% endif %}</p>
+{% endif %}
+
+{% endblock %}
