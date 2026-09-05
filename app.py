@@ -7,7 +7,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_mail import Mail, Message
 from werkzeug.utils import secure_filename
 
-from models import db, User, Question, Answer, Resource
+from models import db, User, Question, Answer, Resource, AnswerBestMark
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
     QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS
@@ -335,24 +335,40 @@ def qa_detail(question_id):
             flash('You must be logged in to submit an answer.', 'warning')
             return redirect(url_for('login'))
 
+        # --- Reply-to-answer feature (Habib) ---
+        parent_id_val = request.form.get('parent_answer_id')
+        parent_answer_id = None
+        if parent_id_val and parent_id_val.isdigit():
+            parent_id_int = int(parent_id_val)
+            # Verify the parent answer exists and belongs to this question
+            parent_answer = db.session.get(Answer, parent_id_int)
+            if parent_answer and parent_answer.question_id == question.id:
+                parent_answer_id = parent_id_int
+
         answer = Answer(
             content=form.content.data.strip(),
             question_id=question.id,
-            author_id=current_user.id
+            author_id=current_user.id,
+            parent_answer_id=parent_answer_id  # --- Reply-to-answer feature (Habib) ---
         )
         db.session.add(answer)
         db.session.commit()
-        flash('Your answer has been submitted!', 'success')
+        if parent_answer_id:
+            flash('Your reply has been submitted!', 'success')
+        else:
+            flash('Your answer has been submitted!', 'success')
         return redirect(url_for('qa_detail', question_id=question.id))
 
-    # Priority sorting:
-    # 1. Best Answer first
-    # 2. Professor Answers next (using current_user/user is_professor check)
+    # Priority sorting (for top-level answers):
+    # 1. Total Points (Professor endorsement = 50 pts, Student mark = 5 pts)
+    # 2. Professor Answers next (authority boost)
     # 3. Oldest to newest or chronologically
+    # --- Reply-to-answer feature (Habib) --- Filter top-level answers so replies are rendered nested
+    top_level_answers = [a for a in question.answers if a.parent_answer_id is None]
     sorted_answers = sorted(
-        question.answers,
+        top_level_answers,
         key=lambda a: (
-            1 if a.is_best_answer else 0,
+            a.total_points,
             1 if (a.author and a.author.is_professor()) else 0,
             a.created_at
         ),
@@ -371,23 +387,27 @@ def mark_best_answer(answer_id):
         return redirect(url_for('qa_list'))
 
     question = answer.question
-    # Only the author of the question can mark the best answer
-    if question.author_id != current_user.id:
-        flash('Only the author of the question can mark the best answer.', 'danger')
+
+    # Users cannot mark their own answer
+    if answer.author_id == current_user.id:
+        flash('You cannot mark your own answer as the best answer.', 'warning')
         return redirect(url_for('qa_detail', question_id=question.id))
 
-    if answer.is_best_answer:
-        # Toggle off
-        answer.is_best_answer = False
-        question.best_answer_id = None
-        flash('Best answer unmarked.', 'info')
+    # Toggle best mark (like a Facebook like / upvote)
+    existing_mark = AnswerBestMark.query.filter_by(user_id=current_user.id, answer_id=answer.id).first()
+    if existing_mark:
+        db.session.delete(existing_mark)
+        if current_user.is_professor():
+            flash('Removed your Super Excellent endorsement.', 'info')
+        else:
+            flash('Removed your Best Answer mark.', 'info')
     else:
-        # Clear previous best answers for this question
-        for other_answer in question.answers:
-            other_answer.is_best_answer = False
-        answer.is_best_answer = True
-        question.best_answer_id = answer.id
-        flash('Marked as best answer!', 'success')
+        new_mark = AnswerBestMark(user_id=current_user.id, answer_id=answer.id)
+        db.session.add(new_mark)
+        if current_user.is_professor():
+            flash('Marked as Super Excellent (+50 pts)!', 'success')
+        else:
+            flash('Marked as Best Answer (+5 pts)!', 'success')
 
     db.session.commit()
     return redirect(url_for('qa_detail', question_id=question.id))

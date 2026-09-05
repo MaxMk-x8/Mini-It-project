@@ -66,6 +66,16 @@ class User(UserMixin, db.Model):
     def is_admin(self):
         return self.role == 'Admin'
 
+    @property
+    def reputation_points(self):
+        """Sum of points earned across all answers authored by this user (50 pts per Prof mark, 5 pts per Student mark)."""
+        return sum(ans.total_points for ans in self.answers)
+
+    @property
+    def professor_endorsements_count(self):
+        """Total number of professor marks received on answers."""
+        return sum(ans.professor_marks_count for ans in self.answers)
+
     def __repr__(self):
         return f'<User {self.username} ({self.role} - {self.faculty})>'
 
@@ -129,13 +139,56 @@ class Answer(db.Model):
     question_id = db.Column(db.Integer, db.ForeignKey('questions.id', name='fk_answers_question_id'), nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_answers_author_id'), nullable=False)
     
+    # --- Reply-to-answer feature (Habib) ---
+    parent_answer_id = db.Column(db.Integer, db.ForeignKey('answers.id', name='fk_answers_parent_answer_id'), nullable=True)
+    
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     author = db.relationship('User', backref=db.backref('answers', lazy=True))
     question = db.relationship('Question', foreign_keys=[question_id], back_populates='answers')
 
-    def __init__(self, content=None, question_id=None, author_id=None, is_best_answer=False, **kwargs):
+    # --- Reply-to-answer feature (Habib) ---
+    parent_answer = db.relationship('Answer', remote_side=[id], backref=db.backref('replies', lazy=True, cascade='all, delete-orphan'))
+
+    # Best answer marks (community voting)
+    best_marks = db.relationship('AnswerBestMark', backref='answer', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def best_marks_count(self):
+        return len(self.best_marks)
+
+    @property
+    def professor_marks(self):
+        return [m for m in self.best_marks if m.user and m.user.is_professor()]
+
+    @property
+    def student_marks(self):
+        return [m for m in self.best_marks if m.user and not m.user.is_professor()]
+
+    @property
+    def professor_marks_count(self):
+        return len(self.professor_marks)
+
+    @property
+    def student_marks_count(self):
+        return len(self.student_marks)
+
+    @property
+    def has_professor_endorsement(self):
+        return self.professor_marks_count > 0
+
+    @property
+    def total_points(self):
+        # 50 points per Professor endorsement, 5 points per Student mark
+        return (self.professor_marks_count * 50) + (self.student_marks_count * 5)
+
+    def is_marked_by(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        return any(m.user_id == user.id for m in self.best_marks)
+
+    def __init__(self, content=None, question_id=None, author_id=None, is_best_answer=False, parent_answer_id=None, **kwargs):
         super().__init__(**kwargs)
         if content:
             self.content = content
@@ -144,9 +197,36 @@ class Answer(db.Model):
         if author_id:
             self.author_id = author_id
         self.is_best_answer = is_best_answer
+        # --- Reply-to-answer feature (Habib) ---
+        self.parent_answer_id = parent_answer_id
 
     def __repr__(self):
         return f'<Answer {self.id} for Question {self.question_id}>'
+
+
+class AnswerBestMark(db.Model):
+    __tablename__ = 'answer_best_marks'
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'answer_id', name='uq_user_answer_best_mark'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_answer_best_marks_user_id'), nullable=False)
+    answer_id = db.Column(db.Integer, db.ForeignKey('answers.id', name='fk_answer_best_marks_answer_id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('best_marks', lazy=True))
+
+    def __init__(self, user_id=None, answer_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if user_id:
+            self.user_id = user_id
+        if answer_id:
+            self.answer_id = answer_id
+
+    def __repr__(self):
+        return f'<AnswerBestMark user={self.user_id} answer={self.answer_id}>'
 
 
 # -------------------------------
