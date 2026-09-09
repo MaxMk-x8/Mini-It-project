@@ -70,7 +70,14 @@ def register():
         ).first()
 
         if existing_user:
-            flash('An account with that email or username already exists.', 'danger')
+            if not existing_user.is_verified:
+                flash('An account with this email/username was already registered but has not been verified yet. Please enter your code or request a new one.', 'warning')
+                return redirect(url_for('verify_code', user_id=existing_user.id))
+
+            if existing_user.email == email:
+                flash('An account with that email already exists. Please log in.', 'danger')
+            else:
+                flash('That username is already taken. Please choose another username.', 'danger')
             return render_template('register.html', form=form)
 
         if email.endswith('@student.mmu.edu.my'):

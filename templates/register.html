@@ -2,7 +2,7 @@
 {% block content %}
 <h2>Register</h2>
 <p>Your role (Student/Professor) is assigned automatically based on your email domain.</p>
-<form method="POST">
+<form method="POST" onsubmit="const btn = this.querySelector('input[type=submit]'); if (btn) { setTimeout(() => { btn.disabled = true; btn.value = 'Registering...'; }, 10); }">
     {{ form.hidden_tag() }}
     <p>
         {{ form.username.label }}<br>{{ form.username() }}
