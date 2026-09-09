@@ -91,6 +91,7 @@ class Question(db.Model):
     content = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(50), nullable=False, default='General')
     faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
+    views = db.Column(db.Integer, nullable=False, default=0)
     
     author_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_questions_author_id'), nullable=False)
     best_answer_id = db.Column(
@@ -111,8 +112,15 @@ class Question(db.Model):
         lazy=True
     )
     best_answer = db.relationship('Answer', foreign_keys=[best_answer_id], post_update=True)
+    attachments = db.relationship(
+        'QAAttachment',
+        foreign_keys='QAAttachment.question_id',
+        back_populates='question',
+        cascade='all, delete-orphan',
+        lazy=True
+    )
 
-    def __init__(self, title=None, content=None, category='General', faculty=FACULTY_CODES[0], author_id=None, best_answer_id=None, **kwargs):
+    def __init__(self, title=None, content=None, category='General', faculty=FACULTY_CODES[0], author_id=None, best_answer_id=None, views=0, **kwargs):
         super().__init__(**kwargs)
         if title:
             self.title = title
@@ -124,6 +132,7 @@ class Question(db.Model):
             self.author_id = author_id
         if best_answer_id:
             self.best_answer_id = best_answer_id
+        self.views = views
 
     def __repr__(self):
         return f'<Question {self.id}: {self.title[:30]}>'
@@ -153,6 +162,15 @@ class Answer(db.Model):
 
     # Best answer marks (community voting)
     best_marks = db.relationship('AnswerBestMark', backref='answer', lazy=True, cascade='all, delete-orphan')
+
+    # Screenshot attachments (Habib - Week 4)
+    attachments = db.relationship(
+        'QAAttachment',
+        foreign_keys='QAAttachment.answer_id',
+        back_populates='answer',
+        cascade='all, delete-orphan',
+        lazy=True
+    )
 
     @property
     def best_marks_count(self):
@@ -204,6 +222,44 @@ class Answer(db.Model):
         return f'<Answer {self.id} for Question {self.question_id}>'
 
 
+class QAAttachment(db.Model):
+    """Screenshot attachment for Questions, Answers, and Replies (Habib - Week 4)."""
+    __tablename__ = 'qa_attachments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)  # Original uploaded name
+    stored_filename = db.Column(db.String(255), nullable=False, unique=True)
+    file_size = db.Column(db.Integer, nullable=False)  # Size in bytes
+    file_type = db.Column(db.String(20), nullable=False)  # png, jpg, jpeg, webp
+
+    question_id = db.Column(db.Integer, db.ForeignKey('questions.id', name='fk_qa_attachments_question_id'), nullable=True)
+    answer_id = db.Column(db.Integer, db.ForeignKey('answers.id', name='fk_qa_attachments_answer_id'), nullable=True)
+    uploader_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_qa_attachments_uploader_id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    question = db.relationship('Question', foreign_keys=[question_id], back_populates='attachments')
+    answer = db.relationship('Answer', foreign_keys=[answer_id], back_populates='attachments')
+    uploader = db.relationship('User', backref=db.backref('qa_attachments', lazy=True))
+
+    def __init__(self, filename=None, stored_filename=None, file_size=0, file_type=None, question_id=None, answer_id=None, uploader_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if filename:
+            self.filename = filename
+        if stored_filename:
+            self.stored_filename = stored_filename
+        self.file_size = file_size
+        if file_type:
+            self.file_type = file_type
+        self.question_id = question_id
+        self.answer_id = answer_id
+        if uploader_id:
+            self.uploader_id = uploader_id
+
+    def __repr__(self):
+        return f'<QAAttachment {self.id}: {self.filename} ({self.stored_filename})>'
+
+
 class AnswerBestMark(db.Model):
     __tablename__ = 'answer_best_marks'
     __table_args__ = (
@@ -227,6 +283,7 @@ class AnswerBestMark(db.Model):
 
     def __repr__(self):
         return f'<AnswerBestMark user={self.user_id} answer={self.answer_id}>'
+
 
 
 # -------------------------------

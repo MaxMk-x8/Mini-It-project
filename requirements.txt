@@ -27,3 +27,7 @@ Flask-Mail
 
 # Environment variable loading (SECRET_KEY, email credentials, etc.)
 python-dotenv
+
+# Image processing and screenshot validation (Habib - Week 4)
+Pillow
+

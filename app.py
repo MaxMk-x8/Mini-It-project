@@ -2,15 +2,17 @@ import os
 import random
 import uuid
 from datetime import datetime, timezone
-from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory
+from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
 from werkzeug.utils import secure_filename
+from PIL import Image
 
-from models import db, User, Question, Answer, Resource, AnswerBestMark
+from models import db, User, Question, Answer, Resource, AnswerBestMark, QAAttachment
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
-    QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS
+    QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
+    ALLOWED_SCREENSHOT_EXTENSIONS, MAX_SCREENSHOT_SIZE, MAX_SCREENSHOTS_COUNT
 )
 from constants import FACULTIES
 from dotenv import load_dotenv
@@ -26,7 +28,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads', 'resources')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB limit
+
+SCREENSHOTS_FOLDER = os.path.join(app.root_path, 'uploads', 'screenshots')
+os.makedirs(SCREENSHOTS_FOLDER, exist_ok=True)
+app.config['SCREENSHOTS_FOLDER'] = SCREENSHOTS_FOLDER
+
+# Max request limit set to 20MB to support multiple 5MB screenshot uploads safely
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
+
 
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
@@ -272,14 +281,125 @@ def admin_dashboard():
 
 
 #-------------------------------
-# Q&A MODULE ROUTES (WEEKS 1-3)
+# Q&A MODULE HELPERS & ROUTES (HABIB - WEEKS 1-4)
 #-------------------------------
+
+def validate_and_save_screenshots(files, uploader_id, question_id=None, answer_id=None):
+    """
+    Validates and saves up to 3 screenshots.
+    - Validates format (PNG, JPG/JPEG, WebP)
+    - Validates max 5MB per file
+    - Validates actual image content using Pillow to reject spoofed or corrupted images
+    - Generates safe unique stored filenames
+    - Cleans up newly saved files if validation fails
+    Returns (attachments_list, error_message)
+    """
+    valid_files = [f for f in files if f and hasattr(f, 'filename') and f.filename and f.filename.strip() != '']
+    if not valid_files:
+        return [], None
+
+    if len(valid_files) > MAX_SCREENSHOTS_COUNT:
+        return None, f"You can upload a maximum of {MAX_SCREENSHOTS_COUNT} screenshots per submission."
+
+    saved_attachments = []
+    created_filepaths = []
+
+    try:
+        for file in valid_files:
+            orig_name = secure_filename(file.filename)
+            if not orig_name:
+                orig_name = "screenshot.png"
+
+            ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
+            if ext not in ALLOWED_SCREENSHOT_EXTENSIONS:
+                raise ValueError(f"Invalid image type '.{ext}'. Allowed formats: PNG, JPG, JPEG, WebP.")
+
+            # Check file size (5 MB limit)
+            file.seek(0, os.SEEK_END)
+            size = file.tell()
+            file.seek(0)
+
+            if size > MAX_SCREENSHOT_SIZE:
+                raise ValueError(f"File '{orig_name}' exceeds the 5 MB limit per image.")
+
+            if size == 0:
+                raise ValueError(f"File '{orig_name}' is empty.")
+
+            # Validate actual image content using Pillow
+            try:
+                img = Image.open(file.stream)
+                img.verify()  # Validates image format and structure
+                if img.format.lower() not in ['png', 'jpeg', 'webp']:
+                    raise ValueError(f"File '{orig_name}' contains invalid image data ({img.format}).")
+            except Exception as img_err:
+                raise ValueError(f"File '{orig_name}' is corrupted or not a valid image: {img_err}")
+
+            # Reset stream after verify()
+            file.seek(0)
+
+            # Generate unique safe stored filename
+            timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+            unique_token = uuid.uuid4().hex[:8]
+            stored_filename = f"{timestamp}_{unique_token}_{orig_name}"
+            file_path = os.path.join(app.config['SCREENSHOTS_FOLDER'], stored_filename)
+
+            # Save to disk
+            file.save(file_path)
+            created_filepaths.append(file_path)
+
+            attachment = QAAttachment(
+                filename=orig_name,
+                stored_filename=stored_filename,
+                file_size=size,
+                file_type=ext,
+                question_id=question_id,
+                answer_id=answer_id,
+                uploader_id=uploader_id
+            )
+            saved_attachments.append(attachment)
+
+        return saved_attachments, None
+
+    except Exception as e:
+        # Clean up any newly created files on disk if an error occurs
+        for path in created_filepaths:
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+        return None, str(e)
+
+
+def delete_attachment_files(attachments):
+    """Deletes physical screenshot files from disk for given QAAttachment records."""
+    for att in attachments:
+        if att and att.stored_filename:
+            file_path = os.path.join(app.config['SCREENSHOTS_FOLDER'], att.stored_filename)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    app.logger.warning(f"Failed to remove screenshot file {file_path}: {e}")
+
+
+@app.route('/uploads/screenshots/<filename>')
+def serve_screenshot(filename):
+    """Serves uploaded screenshot attachments."""
+    return send_from_directory(app.config['SCREENSHOTS_FOLDER'], filename)
+
 
 @app.route('/qa')
 def qa_list():
     query_text = request.args.get('q', '').strip()
     selected_faculty = request.args.get('faculty', '').strip()
     selected_category = request.args.get('category', '').strip()
+    sort_by = request.args.get('sort', 'newest').strip()
+    show_unanswered = request.args.get('unanswered', '').strip() == '1'
+
+    page = request.args.get('page', 1, type=int)
+    if not isinstance(page, int) or page < 1:
+        page = 1
 
     query = Question.query
 
@@ -293,14 +413,29 @@ def qa_list():
     if selected_category:
         query = query.filter(Question.category == selected_category)
 
-    questions = query.order_by(Question.created_at.desc()).all()
+    if show_unanswered:
+        # Filter for questions with 0 top-level answers (where parent_answer_id is NULL)
+        query = query.filter(~Question.answers.any(Answer.parent_answer_id.is_(None)))
+
+    if sort_by == 'views':
+        query = query.order_by(Question.views.desc(), Question.created_at.desc())
+    else:
+        sort_by = 'newest'
+        query = query.order_by(Question.created_at.desc())
+
+    # 10 questions per page
+    pagination = query.paginate(page=page, per_page=10, error_out=False)
+    questions = pagination.items
 
     return render_template(
         'qa/index.html',
         questions=questions,
+        pagination=pagination,
         query_text=query_text,
         selected_faculty=selected_faculty,
         selected_category=selected_category,
+        sort_by=sort_by,
+        show_unanswered=show_unanswered,
         faculties=FACULTIES,
         categories=QUESTION_CATEGORIES
     )
@@ -314,17 +449,38 @@ def qa_ask():
         form.faculty.data = current_user.faculty
 
     if form.validate_on_submit():
-        question = Question(
-            title=form.title.data.strip(),
-            content=form.content.data.strip(),
-            category=form.category.data,
-            faculty=form.faculty.data,
-            author_id=current_user.id
-        )
-        db.session.add(question)
-        db.session.commit()
-        flash('Your question has been posted!', 'success')
-        return redirect(url_for('qa_detail', question_id=question.id))
+        # Handle optional screenshot uploads (up to 3)
+        files = request.files.getlist('screenshots')
+        attachments, err = validate_and_save_screenshots(files, current_user.id)
+        if err:
+            flash(err, 'danger')
+            return render_template('qa/ask.html', form=form)
+
+        try:
+            question = Question(
+                title=form.title.data.strip(),
+                content=form.content.data.strip(),
+                category=form.category.data,
+                faculty=form.faculty.data,
+                author_id=current_user.id,
+                views=0
+            )
+            db.session.add(question)
+            db.session.flush()
+
+            for att in attachments:
+                att.question_id = question.id
+                db.session.add(att)
+
+            db.session.commit()
+            flash('Your question has been posted!', 'success')
+            return redirect(url_for('qa_detail', question_id=question.id))
+
+        except Exception as e:
+            db.session.rollback()
+            delete_attachment_files(attachments)
+            flash('An error occurred while saving your question. Please try again.', 'danger')
+            return render_template('qa/ask.html', form=form)
 
     return render_template('qa/ask.html', form=form)
 
@@ -352,25 +508,58 @@ def qa_detail(question_id):
             if parent_answer and parent_answer.question_id == question.id:
                 parent_answer_id = parent_id_int
 
-        answer = Answer(
-            content=form.content.data.strip(),
-            question_id=question.id,
-            author_id=current_user.id,
-            parent_answer_id=parent_answer_id  # --- Reply-to-answer feature (Habib) ---
-        )
-        db.session.add(answer)
-        db.session.commit()
-        if parent_answer_id:
-            flash('Your reply has been submitted!', 'success')
-        else:
-            flash('Your answer has been submitted!', 'success')
-        return redirect(url_for('qa_detail', question_id=question.id))
+        # Handle optional screenshots (from main answer form or reply form)
+        files = request.files.getlist('screenshots')
+        if not any(f and f.filename for f in files):
+            reply_files = request.files.getlist('reply_screenshots')
+            if any(f and f.filename for f in reply_files):
+                files = reply_files
+
+        attachments, err = validate_and_save_screenshots(files, current_user.id)
+        if err:
+            flash(err, 'danger')
+            return redirect(url_for('qa_detail', question_id=question.id))
+
+        try:
+            answer = Answer(
+                content=form.content.data.strip(),
+                question_id=question.id,
+                author_id=current_user.id,
+                parent_answer_id=parent_answer_id  # --- Reply-to-answer feature (Habib) ---
+            )
+            db.session.add(answer)
+            db.session.flush()
+
+            for att in attachments:
+                att.answer_id = answer.id
+                db.session.add(att)
+
+            db.session.commit()
+            if parent_answer_id:
+                flash('Your reply has been submitted!', 'success')
+            else:
+                flash('Your answer has been submitted!', 'success')
+            return redirect(url_for('qa_detail', question_id=question.id))
+
+        except Exception as e:
+            db.session.rollback()
+            delete_attachment_files(attachments)
+            flash('An error occurred while submitting your answer. Please try again.', 'danger')
+            return redirect(url_for('qa_detail', question_id=question.id))
+
+    # View count tracking on valid GET requests (at most once per browser session)
+    if request.method == 'GET':
+        viewed_questions = session.get('viewed_questions', [])
+        if question.id not in viewed_questions:
+            question.views = (question.views or 0) + 1
+            db.session.commit()
+            viewed_questions.append(question.id)
+            session['viewed_questions'] = viewed_questions
 
     # Priority sorting (for top-level answers):
     # 1. Total Points (Professor endorsement = 50 pts, Student mark = 5 pts)
     # 2. Professor Answers next (authority boost)
     # 3. Oldest to newest or chronologically
-    # --- Reply-to-answer feature (Habib) --- Filter top-level answers so replies are rendered nested
     top_level_answers = [a for a in question.answers if a.parent_answer_id is None]
     sorted_answers = sorted(
         top_level_answers,
@@ -458,6 +647,12 @@ def delete_answer(answer_id):
     if answer.is_best_answer or (answer.question and answer.question.best_answer_id == answer.id):
         answer.question.best_answer_id = None
 
+    # Clean up physical screenshot files for this answer and any nested replies
+    attachments_to_delete = list(answer.attachments)
+    for reply in answer.replies:
+        attachments_to_delete.extend(reply.attachments)
+    delete_attachment_files(attachments_to_delete)
+
     db.session.delete(answer)
     db.session.commit()
     flash('Your answer has been deleted.', 'info')
@@ -466,6 +661,7 @@ def delete_answer(answer_id):
 
 #-------------------------------
 # RESOURCE HUB MODULE ROUTES 
+
 #-------------------------------
 
 @app.route('/resources')
@@ -540,8 +736,8 @@ def resource_upload():
         # Verify file size on disk
         file_size = os.path.getsize(file_path)
 
-        # 10MB size limit check
-        if file_size > app.config['MAX_CONTENT_LENGTH']:
+        # 10MB size limit check (Resource Hub specific)
+        if file_size > 10 * 1024 * 1024:
             if os.path.exists(file_path):
                 os.remove(file_path)
             flash('File exceeds the 10MB size limit.', 'danger')

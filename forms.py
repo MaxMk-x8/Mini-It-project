@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SelectField, SubmitField, TextAreaField
+from wtforms import StringField, PasswordField, SelectField, SubmitField, TextAreaField, MultipleFileField
 from wtforms.validators import DataRequired, Email, Length, EqualTo
 
 from constants import FACULTIES
@@ -38,18 +38,26 @@ QUESTION_CATEGORIES = [
     ('Administrative', 'Administrative')
 ]
 
+# Habib - Week 4: Allowed screenshot extensions & limits
+ALLOWED_SCREENSHOT_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp']
+MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024  # 5 MB per image
+MAX_SCREENSHOTS_COUNT = 3
+
 
 class QuestionForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired(), Length(min=5, max=150)])
     category = SelectField('Category', choices=QUESTION_CATEGORIES, validators=[DataRequired()])
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
     content = TextAreaField('Question Details', validators=[DataRequired(), Length(min=10)])
+    screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
     submit = SubmitField('Post Question')
 
 
 class AnswerForm(FlaskForm):
     content = TextAreaField('Your Answer', validators=[DataRequired(), Length(min=2)])
+    screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
     submit = SubmitField('Submit Answer')
+
 
 
 # -------------------------------

@@ -4,27 +4,58 @@
 <p><a href="{{ url_for('qa_list') }}">&larr; Back to Q&A Discussions</a></p>
 
 <!-- Question Section -->
-<div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 25px; background-color: #fafafa;">
-    <h2>{{ question.title }}</h2>
-    <p style="font-size: 0.9em; color: #555;">
+<div style="border: 1px solid #ddd; padding: 18px; margin-bottom: 25px; background-color: #fafafa; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+        <h2 style="margin-top: 0; margin-bottom: 8px;">{{ question.title }}</h2>
+        {% if current_user.is_authenticated %}
+            <button type="button" onclick="openReportModal('question', {{ question.id }}, '{{ question.title|replace('\'', '\\\'') }}')" style="background: none; border: 1px solid #dc3545; color: #dc3545; padding: 3px 8px; border-radius: 4px; font-size: 0.82em; cursor: pointer; white-space: nowrap;" title="Report this question">
+                🚩 Report
+            </button>
+        {% endif %}
+    </div>
+
+    <p style="font-size: 0.9em; color: #555; margin: 4px 0 12px 0;">
         Faculty: <strong>{{ question.faculty }}</strong> | 
         Category: <strong>{{ question.category }}</strong> | 
         Asked by: <strong>{{ question.author.username }}</strong> ({{ question.author.role }}) | 
-        Posted: {{ question.created_at.strftime('%Y-%m-%d %H:%M') }} UTC
+        Posted: {{ question.created_at.strftime('%Y-%m-%d %H:%M') }} UTC |
+        👁️ <strong>{{ question.views }}</strong> view{% if question.views != 1 %}s{% endif %}
     </p>
-    <hr>
-    <div style="white-space: pre-wrap; font-size: 1.05em; line-height: 1.5;">{{ question.content }}</div>
+
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 12px 0;">
+    
+    <div style="white-space: pre-wrap; font-size: 1.05em; line-height: 1.5; color: #222;">{{ question.content }}</div>
+
+    <!-- Question Screenshot Attachments (Week 4) -->
+    {% if question.attachments %}
+        <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5e5e5;">
+            <p style="margin: 0 0 8px 0; font-size: 0.88em; font-weight: bold; color: #555;">
+                📷 Attached Screenshots ({{ question.attachments|length }}):
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                {% for att in question.attachments %}
+                    <div style="border: 1px solid #ddd; border-radius: 4px; padding: 4px; background: #fff; text-align: center; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.08);" onclick="openImageModal('{{ url_for('serve_screenshot', filename=att.stored_filename) }}', '{{ att.filename }}')">
+                        <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 120px; height: 80px; object-fit: cover; border-radius: 2px; display: block;">
+                        <span style="font-size: 0.75em; color: #0056b3; margin-top: 4px; display: block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {{ att.filename }}
+                        </span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
 </div>
 
 <hr>
 
 <style>
     .qa-answer-card {
-        padding: 15px;
-        margin-bottom: 15px;
+        padding: 16px;
+        margin-bottom: 16px;
         border: 1px solid #ccc;
         background-color: #fff;
-        border-radius: 4px;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
     .qa-answer-card.is-best {
         border-color: #28a745;
@@ -36,23 +67,58 @@
     }
     /* --- Reply-to-answer feature (Habib) --- */
     .qa-reply-card {
-        margin-top: 10px;
-        margin-left: 30px;
-        padding: 10px 14px;
+        margin-top: 12px;
+        margin-left: 28px;
+        padding: 12px 14px;
         border-left: 3px solid #0056b3;
         background-color: #f9f9fb;
         border-top: 1px solid #e1e4e8;
         border-right: 1px solid #e1e4e8;
         border-bottom: 1px solid #e1e4e8;
-        border-radius: 3px;
+        border-radius: 4px;
     }
     .qa-reply-form-box {
         display: none;
-        margin-top: 10px;
-        margin-left: 30px;
-        padding: 12px;
+        margin-top: 12px;
+        margin-left: 28px;
+        padding: 14px;
         background-color: #f4f6f8;
         border: 1px solid #ccd1d9;
+        border-radius: 4px;
+    }
+
+    /* Modal / Lightbox Styles */
+    .qa-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.75);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+    .qa-modal-content {
+        background: #fff;
+        padding: 16px;
+        border-radius: 8px;
+        max-width: 90vw;
+        max-height: 90vh;
+        overflow: auto;
+        position: relative;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .qa-modal-img {
+        max-width: 100%;
+        max-height: 75vh;
+        object-fit: contain;
+        display: block;
+        margin: 0 auto;
         border-radius: 4px;
     }
 </style>
@@ -103,7 +169,26 @@
                 <span style="color: #666; font-size: 0.85em;">{{ ans.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
             </div>
 
-            <div style="white-space: pre-wrap; margin-bottom: 15px; line-height: 1.4;">{{ ans.content }}</div>
+            <div style="white-space: pre-wrap; margin-bottom: 12px; line-height: 1.4;">{{ ans.content }}</div>
+
+            <!-- Answer Screenshot Attachments (Week 4) -->
+            {% if ans.attachments %}
+                <div style="margin-bottom: 12px; padding: 8px 10px; background: #f8f9fa; border-radius: 4px; border: 1px solid #eee;">
+                    <span style="font-size: 0.82em; font-weight: bold; color: #666; display: block; margin-bottom: 6px;">
+                        📷 Attachments ({{ ans.attachments|length }}):
+                    </span>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        {% for att in ans.attachments %}
+                            <div style="border: 1px solid #ccc; border-radius: 4px; padding: 3px; background: #fff; text-align: center; cursor: pointer;" onclick="openImageModal('{{ url_for('serve_screenshot', filename=att.stored_filename) }}', '{{ att.filename }}')">
+                                <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 100px; height: 65px; object-fit: cover; border-radius: 2px; display: block;">
+                                <span style="font-size: 0.72em; color: #0056b3; margin-top: 2px; display: block; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {{ att.filename }}
+                                </span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
 
             <!-- Action Controls -->
             <div style="font-size: 0.9em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -160,18 +245,34 @@
                         &#x21A9; Reply
                     </a>
                 {% endif %}
+
+                <!-- Report Answer Button (Week 4) -->
+                {% if current_user.is_authenticated %}
+                    <button type="button" onclick="openReportModal('answer', {{ ans.id }}, 'Answer #{{ ans.id }} by {{ ans.author.username }}')" style="background: none; border: none; color: #888; font-size: 0.85em; cursor: pointer; text-decoration: underline; padding: 0;" title="Report this answer">
+                        🚩 Report
+                    </button>
+                {% endif %}
             </div>
 
             <!-- --- Reply-to-answer feature (Habib): Reply Input Form --- -->
             {% if current_user.is_authenticated %}
                 <div id="reply-form-{{ ans.id }}" class="qa-reply-form-box">
-                    <p style="margin-top: 0; margin-bottom: 6px; font-weight: bold; font-size: 0.9em;">Reply to {{ ans.author.username }}:</p>
-                    <form method="POST" action="{{ url_for('qa_detail', question_id=question.id) }}">
+                    <p style="margin-top: 0; margin-bottom: 8px; font-weight: bold; font-size: 0.9em;">Reply to {{ ans.author.username }}:</p>
+                    <form method="POST" action="{{ url_for('qa_detail', question_id=question.id) }}" enctype="multipart/form-data">
                         {{ form.hidden_tag() }}
                         <input type="hidden" name="parent_answer_id" value="{{ ans.id }}">
                         <div style="margin-bottom: 8px;">
                             <textarea name="content" rows="3" style="width: 100%; box-sizing: border-box; padding: 6px;" placeholder="Write your reply..." required></textarea>
                         </div>
+                        
+                        <!-- Reply Screenshot Upload (Week 4) -->
+                        <div style="margin-bottom: 10px; font-size: 0.85em;">
+                            <label><strong>Attach screenshots (optional, max 3):</strong></label>
+                            <input type="file" name="reply_screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewImages(this, 'reply-preview-{{ ans.id }}', 'reply-msg-{{ ans.id }}')" style="margin-top: 4px; display: block;">
+                            <p id="reply-msg-{{ ans.id }}" style="display: none; color: #c00; margin: 4px 0 0 0;"></p>
+                            <div id="reply-preview-{{ ans.id }}" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;"></div>
+                        </div>
+
                         <div>
                             <button type="submit">Submit Reply</button>
                             <button type="button" onclick="toggleReplyBox('reply-form-{{ ans.id }}')" style="margin-left: 6px;">Cancel</button>
@@ -185,18 +286,40 @@
                 <div style="margin-top: 12px;">
                     {% for reply in ans.replies %}
                         <div class="qa-reply-card">
-                            <div style="margin-bottom: 4px; font-size: 0.88em;">
-                                {% if reply.author and reply.author.is_professor() %}
-                                    <span style="background-color: #0056b3; color: white; padding: 1px 6px; border-radius: 3px; font-weight: bold; font-size: 0.8em;">
-                                        PROFESSOR
-                                    </span>
-                                    &nbsp;
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; font-size: 0.88em;">
+                                <div>
+                                    {% if reply.author and reply.author.is_professor() %}
+                                        <span style="background-color: #0056b3; color: white; padding: 1px 6px; border-radius: 3px; font-weight: bold; font-size: 0.8em;">
+                                            PROFESSOR
+                                        </span>
+                                        &nbsp;
+                                    {% endif %}
+                                    <strong>{{ reply.author.username }}</strong> ({{ reply.author.role }})
+                                    &bull;
+                                    <span style="color: #666; font-size: 0.85em;">{{ reply.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
+                                </div>
+
+                                {% if current_user.is_authenticated %}
+                                    <button type="button" onclick="openReportModal('reply', {{ reply.id }}, 'Reply #{{ reply.id }} by {{ reply.author.username }}')" style="background: none; border: none; color: #999; font-size: 0.8em; cursor: pointer; text-decoration: underline; padding: 0;" title="Report this reply">
+                                        🚩 Report
+                                    </button>
                                 {% endif %}
-                                <strong>{{ reply.author.username }}</strong> ({{ reply.author.role }})
-                                &bull;
-                                <span style="color: #666; font-size: 0.85em;">{{ reply.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
                             </div>
+
                             <div style="white-space: pre-wrap; font-size: 0.95em; line-height: 1.4; margin-bottom: 6px;">{{ reply.content }}</div>
+
+                            <!-- Reply Screenshot Attachments (Week 4) -->
+                            {% if reply.attachments %}
+                                <div style="margin-bottom: 8px; padding: 6px 8px; background: #fff; border-radius: 4px; border: 1px solid #e0e0e0;">
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                        {% for r_att in reply.attachments %}
+                                            <div style="border: 1px solid #ccc; border-radius: 3px; padding: 2px; background: #fafafa; text-align: center; cursor: pointer;" onclick="openImageModal('{{ url_for('serve_screenshot', filename=r_att.stored_filename) }}', '{{ r_att.filename }}')">
+                                                <img src="{{ url_for('serve_screenshot', filename=r_att.stored_filename) }}" alt="{{ r_att.filename }}" style="width: 80px; height: 50px; object-fit: cover; border-radius: 2px; display: block;">
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
 
                             <!-- Reply Author Edit / Delete -->
                             {% if current_user.is_authenticated and current_user.id == reply.author_id %}
@@ -221,34 +344,32 @@
     <p><em>No answers yet. Be the first to answer this question below!</em></p>
 {% endif %}
 
-<!-- --- Reply-to-answer feature (Habib): Toggle script --- -->
-<script>
-    function toggleReplyBox(id) {
-        var box = document.getElementById(id);
-        if (box) {
-            if (box.style.display === 'block') {
-                box.style.display = 'none';
-            } else {
-                box.style.display = 'block';
-            }
-        }
-    }
-</script>
-
 <hr>
 
 <!-- Post an Answer Form -->
 <div style="margin-top: 25px;" id="answer-form">
     {% if current_user.is_authenticated %}
         <h4>Your Answer</h4>
-        <form method="POST" action="{{ url_for('qa_detail', question_id=question.id) }}" style="max-width: 600px;">
+        <form method="POST" action="{{ url_for('qa_detail', question_id=question.id) }}" enctype="multipart/form-data" style="max-width: 650px;">
             {{ form.hidden_tag() }}
-            <div style="margin-bottom: 10px;">
-                {{ form.content(rows=6, style="width: 100%; padding: 6px;", placeholder="Type your answer here...") }}
+            <div style="margin-bottom: 12px;">
+                {{ form.content(rows=6, style="width: 100%; box-sizing: border-box; padding: 8px;", placeholder="Type your answer here...") }}
                 {% for error in form.content.errors %}
                     <p style="color: red; font-size: 0.85em;">{{ error }}</p>
                 {% endfor %}
             </div>
+
+            <!-- Answer Screenshot Attachments (Week 4) -->
+            <div style="margin-bottom: 16px; padding: 12px; border: 1px dashed #bbb; border-radius: 4px; background: #fafafa;">
+                <label for="screenshots"><strong>Attach Screenshots (Optional):</strong></label>
+                <p style="margin: 4px 0 8px 0; font-size: 0.85em; color: #666;">
+                    Upload up to 3 images (PNG, JPG, JPEG, WebP). Maximum 5 MB per image.
+                </p>
+                <input type="file" id="screenshots" name="screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewImages(this, 'ans-preview-container', 'ans-preview-msg')">
+                <p id="ans-preview-msg" style="display: none; color: #c00; font-size: 0.85em; margin: 6px 0 0 0;"></p>
+                <div id="ans-preview-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;"></div>
+            </div>
+
             <div>
                 {{ form.submit() }}
             </div>
@@ -258,4 +379,195 @@
     {% endif %}
 </div>
 
+<!-- Image Lightbox Modal -->
+<div id="image-modal" class="qa-modal-overlay" onclick="closeImageModal(event)">
+    <div class="qa-modal-content" onclick="event.stopPropagation();">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span id="modal-caption" style="font-weight: bold; color: #333; font-size: 0.9em; max-width: 80%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+            <button type="button" onclick="closeImageModal()" style="background: #f1f3f5; border: 1px solid #ccc; font-size: 1.1em; cursor: pointer; padding: 2px 10px; border-radius: 4px;">&times;</button>
+        </div>
+        <img id="modal-image" class="qa-modal-img" src="" alt="Enlarged preview">
+    </div>
+</div>
+
+<!-- Report Dialog Modal (Feature 8: Connected to Mohammad's shared report system) -->
+<div id="report-modal" class="qa-modal-overlay" onclick="closeReportModal(event)">
+    <div class="qa-modal-content" style="max-width: 480px; text-align: left;" onclick="event.stopPropagation();">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+            <h4 style="margin: 0; color: #dc3545;">🚩 Report Content</h4>
+            <button type="button" onclick="closeReportModal()" style="background: none; border: none; font-size: 1.3em; cursor: pointer;">&times;</button>
+        </div>
+        
+        <p style="font-size: 0.9em; color: #555; margin-top: 0;">
+            Reporting: <strong id="report-target-label"></strong>
+        </p>
+
+        <form id="report-form" onsubmit="handleReportSubmit(event)">
+            <input type="hidden" id="report-content-type" name="content_type" value="">
+            <input type="hidden" id="report-content-id" name="content_id" value="">
+
+            <div style="margin-bottom: 12px;">
+                <label for="report-reason" style="font-weight: bold; font-size: 0.88em;">Reason for report:</label><br>
+                <select id="report-reason" name="reason" style="width: 100%; box-sizing: border-box; padding: 6px; margin-top: 4px;" required>
+                    <option value="">-- Select a reason --</option>
+                    <option value="spam">Spam or advertising</option>
+                    <option value="inappropriate">Inappropriate or abusive language</option>
+                    <option value="misinformation">Harmful or incorrect academic material</option>
+                    <option value="plagiarism">Plagiarism / Honor code violation</option>
+                    <option value="other">Other reason</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+                <label for="report-details" style="font-weight: bold; font-size: 0.88em;">Additional Details (Optional):</label><br>
+                <textarea id="report-details" name="details" rows="3" style="width: 100%; box-sizing: border-box; padding: 6px; margin-top: 4px;" placeholder="Provide any additional context..."></textarea>
+            </div>
+
+            <div id="report-status-msg" style="display: none; padding: 8px; border-radius: 4px; font-size: 0.88em; margin-bottom: 10px;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" onclick="closeReportModal()" style="padding: 6px 14px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button type="submit" id="report-submit-btn" style="padding: 6px 14px; border: none; background: #dc3545; color: white; border-radius: 4px; font-weight: bold; cursor: pointer;">Submit Report</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Interactive Scripts (Image Previews, Lightbox, Toggle, Reporting) -->
+<script>
+    // --- Toggle Reply Box ---
+    function toggleReplyBox(id) {
+        var box = document.getElementById(id);
+        if (box) {
+            box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+        }
+    }
+
+    // --- Image Preview Handler ---
+    function previewImages(input, containerId, msgId) {
+        var container = document.getElementById(containerId);
+        var msg = document.getElementById(msgId);
+        container.innerHTML = '';
+        msg.style.display = 'none';
+        msg.innerText = '';
+
+        if (!input.files || input.files.length === 0) return;
+
+        if (input.files.length > 3) {
+            msg.innerText = 'You can select a maximum of 3 images. Only the first 3 will be processed.';
+            msg.style.display = 'block';
+        }
+
+        var count = Math.min(input.files.length, 3);
+        for (var i = 0; i < count; i++) {
+            var file = input.files[i];
+            if (file.size > 5 * 1024 * 1024) {
+                msg.innerText = 'Warning: "' + file.name + '" exceeds the 5 MB limit.';
+                msg.style.display = 'block';
+            }
+
+            var reader = new FileReader();
+            reader.onload = (function(f) {
+                return function(e) {
+                    var card = document.createElement('div');
+                    card.style.border = '1px solid #ddd';
+                    card.style.borderRadius = '4px';
+                    card.style.padding = '4px';
+                    card.style.background = '#fff';
+                    card.style.width = '100px';
+                    card.style.textAlign = 'center';
+                    card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+
+                    var img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.style.width = '100%';
+                    img.style.height = '65px';
+                    img.style.objectFit = 'cover';
+                    img.style.borderRadius = '2px';
+
+                    var name = document.createElement('div');
+                    name.innerText = f.name.length > 12 ? f.name.substring(0, 10) + '...' : f.name;
+                    name.style.fontSize = '0.75em';
+                    name.style.marginTop = '4px';
+                    name.style.wordBreak = 'break-all';
+
+                    card.appendChild(img);
+                    card.appendChild(name);
+                    container.appendChild(card);
+                };
+            })(file);
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // --- Image Lightbox Modal ---
+    function openImageModal(imgSrc, caption) {
+        document.getElementById('modal-image').src = imgSrc;
+        document.getElementById('modal-caption').innerText = caption || 'Image Preview';
+        var modal = document.getElementById('image-modal');
+        modal.style.display = 'flex';
+    }
+
+    function closeImageModal(event) {
+        if (!event || event.target.id === 'image-modal' || event.target.tagName === 'BUTTON') {
+            var modal = document.getElementById('image-modal');
+            modal.style.display = 'none';
+            document.getElementById('modal-image').src = '';
+        }
+    }
+
+    // --- Report Modal Handler ---
+    function openReportModal(contentType, contentId, titleOrLabel) {
+        document.getElementById('report-content-type').value = contentType;
+        document.getElementById('report-content-id').value = contentId;
+        document.getElementById('report-target-label').innerText = contentType.toUpperCase() + ' #' + contentId + ' (' + titleOrLabel + ')';
+        document.getElementById('report-status-msg').style.display = 'none';
+        document.getElementById('report-form').reset();
+        document.getElementById('report-submit-btn').disabled = false;
+        document.getElementById('report-submit-btn').innerText = 'Submit Report';
+
+        var modal = document.getElementById('report-modal');
+        modal.style.display = 'flex';
+    }
+
+    function closeReportModal(event) {
+        if (!event || event.target.id === 'report-modal' || event.target.tagName === 'BUTTON') {
+            document.getElementById('report-modal').style.display = 'none';
+        }
+    }
+
+    function handleReportSubmit(e) {
+        e.preventDefault();
+        var type = document.getElementById('report-content-type').value;
+        var id = document.getElementById('report-content-id').value;
+        var reason = document.getElementById('report-reason').value;
+        var details = document.getElementById('report-details').value;
+        var statusMsg = document.getElementById('report-status-msg');
+        var submitBtn = document.getElementById('report-submit-btn');
+
+        // Note: When Mohammad connects the backend report submission endpoint,
+        // this can perform a POST fetch to Mohammad's route e.g. /report
+        statusMsg.style.display = 'block';
+        statusMsg.style.background = '#d4edda';
+        statusMsg.style.color = '#155724';
+        statusMsg.style.border = '1px solid #c3e6cb';
+        statusMsg.innerHTML = '✔ Report logged for ' + type + ' #' + id + ' (Reason: ' + reason + '). Thank you for helping keep CodeNest safe!';
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Submitted';
+
+        setTimeout(function() {
+            closeReportModal();
+        }, 1800);
+    }
+
+    // Close modals on Esc key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeImageModal();
+            closeReportModal();
+        }
+    });
+</script>
+
 {% endblock %}
+
