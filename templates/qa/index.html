@@ -12,42 +12,77 @@
 </div>
 
 <!-- Search & Filter Form -->
-<form method="GET" action="{{ url_for('qa_list') }}" style="margin-bottom: 25px; padding: 15px; border: 1px solid #ccc;">
-    <div>
-        <label for="q"><strong>Search:</strong></label>
-        <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in title or content..." style="width: 250px;">
+<form method="GET" action="{{ url_for('qa_list') }}" style="margin-bottom: 25px; padding: 15px; border: 1px solid #ccc; background-color: #fcfcfc; border-radius: 4px;">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+        <div>
+            <label for="q"><strong>Search:</strong></label>
+            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in title or content..." style="width: 220px; padding: 4px;">
+        </div>
 
-        &nbsp;
-        <label for="faculty"><strong>Faculty:</strong></label>
-        <select id="faculty" name="faculty">
-            <option value="">-- All Faculties --</option>
-            {% for code, name in faculties %}
-                <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
-            {% endfor %}
-        </select>
+        <div>
+            <label for="faculty"><strong>Faculty:</strong></label>
+            <select id="faculty" name="faculty" style="padding: 4px;">
+                <option value="">-- All Faculties --</option>
+                {% for code, name in faculties %}
+                    <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
 
-        &nbsp;
-        <label for="category"><strong>Category:</strong></label>
-        <select id="category" name="category">
-            <option value="">-- All Categories --</option>
-            {% for code, label in categories %}
-                <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
+        <div>
+            <label for="category"><strong>Category:</strong></label>
+            <select id="category" name="category" style="padding: 4px;">
+                <option value="">-- All Categories --</option>
+                {% for code, label in categories %}
+                    <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
 
-        &nbsp;
-        <button type="submit">Filter</button>
-        {% if query_text or selected_faculty or selected_category %}
-            <a href="{{ url_for('qa_list') }}" style="margin-left: 10px;">Reset</a>
-        {% endif %}
+        <div>
+            <label for="sort"><strong>Sort by:</strong></label>
+            <select id="sort" name="sort" style="padding: 4px;">
+                <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest</option>
+                <option value="views" {% if sort_by == 'views' %}selected{% endif %}>Most Viewed</option>
+            </select>
+        </div>
+
+        <div style="display: flex; align-items: center; margin-top: 2px;">
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                <input type="checkbox" name="unanswered" value="1" {% if show_unanswered %}checked{% endif %}>
+                <strong>Unanswered only</strong>
+            </label>
+        </div>
+
+        <div>
+            <button type="submit" style="padding: 5px 12px; cursor: pointer;">Filter</button>
+            {% if query_text or selected_faculty or selected_category or sort_by != 'newest' or show_unanswered %}
+                <a href="{{ url_for('qa_list') }}" style="margin-left: 8px;">Reset</a>
+            {% endif %}
+        </div>
     </div>
 </form>
 
 <hr>
 
-<!-- Questions List -->
-<h3>Questions ({{ questions|length }})</h3>
+<!-- Questions Header -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <h3 style="margin: 0;">
+        Questions 
+        {% if pagination %}
+            ({{ pagination.total }})
+        {% else %}
+            ({{ questions|length }})
+        {% endif %}
+    </h3>
+    {% if pagination and pagination.pages > 1 %}
+        <span style="color: #666; font-size: 0.9em;">
+            Page {{ pagination.page }} of {{ pagination.pages }}
+        </span>
+    {% endif %}
+</div>
 
+<!-- Questions List -->
 {% if questions %}
     <div style="display: flex; flex-direction: column; gap: 15px;">
         {% for q in questions %}
@@ -58,18 +93,26 @@
                             {{ q.title }}
                         </a>
                     </h4>
-                    {% if q.best_answer_id %}
-                        <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">
-                            RESOLVED
-                        </span>
-                    {% endif %}
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        {% if q.attachments|length > 0 %}
+                            <span style="background: #e9ecef; color: #495057; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;" title="{{ q.attachments|length }} image attachment(s)">
+                                📷 {{ q.attachments|length }}
+                            </span>
+                        {% endif %}
+                        {% if q.best_answer_id %}
+                            <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">
+                                RESOLVED
+                            </span>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <p style="font-size: 0.85em; color: #666; margin: 4px 0 10px 0;">
                     Faculty: <strong>{{ q.faculty }}</strong> | 
                     Category: <strong>{{ q.category }}</strong> | 
                     Asked by: <strong>{{ q.author.username }}</strong> ({{ q.author.role }}) | 
-                    Posted: {{ q.created_at.strftime('%Y-%m-%d %H:%M') }} UTC
+                    Posted: {{ q.created_at.strftime('%Y-%m-%d %H:%M') }} UTC |
+                    👁️ <strong>{{ q.views }}</strong> view{% if q.views != 1 %}s{% endif %}
                 </p>
 
                 <div style="font-size: 0.95em; color: #333; margin-bottom: 12px; line-height: 1.4;">
@@ -94,8 +137,51 @@
             </div>
         {% endfor %}
     </div>
+
+    <!-- Pagination Controls (Week 4) -->
+    {% if pagination and pagination.pages > 1 %}
+        <div style="display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 30px; margin-bottom: 20px;">
+            {% if pagination.has_prev %}
+                <a href="{{ url_for('qa_list', page=pagination.prev_num, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by, unanswered='1' if show_unanswered else None) }}" style="padding: 6px 12px; border: 1px solid #ccc; background-color: #fff; color: #0056b3; text-decoration: none; border-radius: 4px;">
+                    &laquo; Previous
+                </a>
+            {% else %}
+                <span style="padding: 6px 12px; border: 1px solid #e0e0e0; color: #aaa; border-radius: 4px; background-color: #f9f9f9;">
+                    &laquo; Previous
+                </span>
+            {% endif %}
+
+            {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+                {% if p %}
+                    {% if p == pagination.page %}
+                        <span style="padding: 6px 12px; border: 1px solid #0056b3; background-color: #0056b3; color: white; border-radius: 4px; font-weight: bold;">
+                            {{ p }}
+                        </span>
+                    {% else %}
+                        <a href="{{ url_for('qa_list', page=p, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by, unanswered='1' if show_unanswered else None) }}" style="padding: 6px 12px; border: 1px solid #ccc; background-color: #fff; color: #0056b3; text-decoration: none; border-radius: 4px;">
+                            {{ p }}
+                        </a>
+                    {% endif %}
+                {% else %}
+                    <span style="padding: 6px 8px; color: #888;">...</span>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+                <a href="{{ url_for('qa_list', page=pagination.next_num, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by, unanswered='1' if show_unanswered else None) }}" style="padding: 6px 12px; border: 1px solid #ccc; background-color: #fff; color: #0056b3; text-decoration: none; border-radius: 4px;">
+                    Next &raquo;
+                </a>
+            {% else %}
+                <span style="padding: 6px 12px; border: 1px solid #e0e0e0; color: #aaa; border-radius: 4px; background-color: #f9f9f9;">
+                    Next &raquo;
+                </span>
+            {% endif %}
+        </div>
+    {% endif %}
+
 {% else %}
     <p>No questions found matching your criteria. Be the first to <a href="{{ url_for('qa_ask') }}">ask one</a>!</p>
 {% endif %}
 
 {% endblock %}
+

@@ -5,12 +5,12 @@
 
 <h2>Ask a Question</h2>
 
-<form method="POST" action="{{ url_for('qa_ask') }}" style="max-width: 600px;">
+<form method="POST" action="{{ url_for('qa_ask') }}" enctype="multipart/form-data" style="max-width: 650px;">
     {{ form.hidden_tag() }}
 
     <div style="margin-bottom: 15px;">
         {{ form.title.label }}<br>
-        {{ form.title(style="width: 100%; padding: 6px;") }}
+        {{ form.title(style="width: 100%; box-sizing: border-box; padding: 6px;") }}
         {% for error in form.title.errors %}
             <p style="color: red; font-size: 0.85em;">{{ error }}</p>
         {% endfor %}
@@ -34,10 +34,22 @@
 
     <div style="margin-bottom: 15px;">
         {{ form.content.label }}<br>
-        {{ form.content(rows=8, style="width: 100%; padding: 6px;") }}
+        {{ form.content(rows=8, style="width: 100%; box-sizing: border-box; padding: 6px;") }}
         {% for error in form.content.errors %}
             <p style="color: red; font-size: 0.85em;">{{ error }}</p>
         {% endfor %}
+    </div>
+
+    <!-- Screenshot Attachments (Week 4) -->
+    <div style="margin-bottom: 20px; padding: 12px; border: 1px dashed #bbb; border-radius: 4px; background: #fafafa;">
+        <label for="screenshots"><strong>Attach Screenshots (Optional):</strong></label>
+        <p style="margin: 4px 0 8px 0; font-size: 0.85em; color: #666;">
+            Upload up to 3 images (PNG, JPG, JPEG, WebP). Maximum 5 MB per image.
+        </p>
+        <input type="file" id="screenshots" name="screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewImages(this, 'ask-preview-container', 'ask-preview-msg')">
+        
+        <p id="ask-preview-msg" style="display: none; color: #c00; font-size: 0.85em; margin: 6px 0 0 0;"></p>
+        <div id="ask-preview-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;"></div>
     </div>
 
     <div>
@@ -47,4 +59,63 @@
     </div>
 </form>
 
+<script>
+    function previewImages(input, containerId, msgId) {
+        var container = document.getElementById(containerId);
+        var msg = document.getElementById(msgId);
+        container.innerHTML = '';
+        msg.style.display = 'none';
+        msg.innerText = '';
+
+        if (!input.files || input.files.length === 0) return;
+
+        if (input.files.length > 3) {
+            msg.innerText = 'You can select a maximum of 3 images. Only the first 3 will be processed.';
+            msg.style.display = 'block';
+        }
+
+        var count = Math.min(input.files.length, 3);
+        for (var i = 0; i < count; i++) {
+            var file = input.files[i];
+            if (file.size > 5 * 1024 * 1024) {
+                msg.innerText = 'Warning: "' + file.name + '" exceeds the 5 MB limit.';
+                msg.style.display = 'block';
+            }
+
+            var reader = new FileReader();
+            reader.onload = (function(f) {
+                return function(e) {
+                    var card = document.createElement('div');
+                    card.style.border = '1px solid #ddd';
+                    card.style.borderRadius = '4px';
+                    card.style.padding = '4px';
+                    card.style.background = '#fff';
+                    card.style.width = '100px';
+                    card.style.textAlign = 'center';
+                    card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+
+                    var img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.style.width = '100%';
+                    img.style.height = '70px';
+                    img.style.objectFit = 'cover';
+                    img.style.borderRadius = '2px';
+
+                    var name = document.createElement('div');
+                    name.innerText = f.name.length > 12 ? f.name.substring(0, 10) + '...' : f.name;
+                    name.style.fontSize = '0.75em';
+                    name.style.marginTop = '4px';
+                    name.style.wordBreak = 'break-all';
+
+                    card.appendChild(img);
+                    card.appendChild(name);
+                    container.appendChild(card);
+                };
+            })(file);
+            reader.readAsDataURL(file);
+        }
+    }
+</script>
+
 {% endblock %}
+
