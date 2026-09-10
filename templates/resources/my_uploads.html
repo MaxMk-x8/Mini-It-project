@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>My Uploads</h2>
+<p style="color: #64748b;">Manage your uploaded academic study materials and complete notes folder collections.</p>
+
+<div style="margin-bottom: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+    <a href="{{ url_for('resource_upload') }}" style="display: inline-block; padding: 7px 14px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">+ Upload Single File</a>
+    <a href="{{ url_for('resource_upload_folder') }}" style="display: inline-block; padding: 7px 14px; background-color: #059669; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">📁 + Upload Notes Folder</a>
+    <a href="{{ url_for('resources_list') }}" style="display: inline-block; padding: 7px 14px; background-color: #f1f5f9; color: #1e293b; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 4px;">&larr; Back to Resource Hub</a>
+</div>
+
+<!-- Search, Filter & Sort Form -->
+<form method="GET" action="{{ url_for('my_uploads') }}" style="margin-bottom: 25px; padding: 15px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #f8fafc;">
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <div>
+            <label for="q"><strong>Search:</strong></label><br>
+            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in your uploads..." style="padding: 6px; width: 220px;">
+        </div>
+
+        <div>
+            <label for="faculty"><strong>Faculty:</strong></label><br>
+            <select id="faculty" name="faculty" style="padding: 6px;">
+                <option value="">-- All Faculties --</option>
+                {% for code, name in faculties %}
+                    <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="category"><strong>Category:</strong></label><br>
+            <select id="category" name="category" style="padding: 6px;">
+                <option value="">-- All Categories --</option>
+                {% for code, label in categories %}
+                    <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="sort"><strong>Sort By:</strong></label><br>
+            <select id="sort" name="sort" style="padding: 6px;">
+                <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>Newest First</option>
+                <option value="downloads" {% if selected_sort == 'downloads' %}selected{% endif %}>Most Downloaded</option>
+                <option value="rating" {% if selected_sort == 'rating' %}selected{% endif %}>Highest Rated</option>
+            </select>
+        </div>
+
+        <div style="align-self: flex-end;">
+            <button type="submit" style="padding: 7px 16px; font-weight: bold; background-color: #1e293b; color: white; border: none; border-radius: 4px; cursor: pointer;">Filter</button>
+            {% if query_text or selected_faculty or selected_category or selected_sort != 'newest' %}
+                <a href="{{ url_for('my_uploads') }}" style="margin-left: 8px; color: #64748b;">Reset</a>
+            {% endif %}
+        </div>
+    </div>
+</form>
+
+<hr>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <h3 style="margin: 0;">My Uploaded Items ({{ total_items }})</h3>
+    <small style="color: #64748b;">Page {{ page }} of {{ total_pages }}</small>
+</div>
+
+{% if items %}
+    <ul style="list-style-type: none; padding-left: 0;">
+        {% for item in items %}
+            <li style="margin-bottom: 20px; padding: 18px; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap;">
+                    <div>
+                        <h4 style="margin: 0 0 6px 0; font-size: 1.15rem;">
+                            {% if item.is_collection or item.resources is defined %}
+                                <span style="display: inline-block; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-right: 6px;">📁 NOTES FOLDER</span>
+                                <a href="{{ url_for('collection_detail', collection_id=item.id) }}" style="color: #0f172a; text-decoration: none;"><strong>{{ item.title }}</strong></a>
+                            {% else %}
+                                {% set ext = item.file_type|lower %}
+                                <span style="display: inline-block; background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-right: 6px;">
+                                    {% if ext == 'pdf' %}📄 PDF
+                                    {% elif ext == 'docx' %}📝 DOCX
+                                    {% elif ext == 'pptx' %}📊 PPTX
+                                    {% elif ext == 'txt' %}📃 TXT
+                                    {% elif ext == 'zip' %}📦 ZIP
+                                    {% else %}📄 {{ ext|upper }}
+                                    {% endif %}
+                                </span>
+                                {{ item.title }}
+                                <span style="font-size: 0.8em; color: #64748b; font-weight: normal;">({{ item.formatted_size }})</span>
+                            {% endif %}
+                        </h4>
+
+                        <p style="font-size: 0.875rem; color: #64748b; margin: 4px 0 8px 0;">
+                            Faculty: <strong>{{ item.faculty }}</strong> | 
+                            Category: <strong>{{ item.category }}</strong> | 
+                            Uploaded: {{ item.created_at.strftime('%Y-%m-%d %H:%M') }} UTC
+                        </p>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div style="display: flex; gap: 8px; align-items: center; font-size: 0.875rem;">
+                        <span style="background-color: #eff6ff; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; border: 1px solid #bfdbfe;">
+                            📥 <strong>{{ item.download_count or 0 }}</strong> downloads
+                        </span>
+
+                        <span style="background-color: #fefce8; color: #a16207; padding: 4px 8px; border-radius: 4px; border: 1px solid #fef08a;">
+                            {% if item.average_rating %}
+                                ★ <strong>{{ item.average_rating }}</strong> / 5.0 ({{ item.rating_count }} {{ 'rating' if item.rating_count == 1 else 'ratings' }})
+                            {% else %}
+                                <em>Not rated yet</em>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                {% if item.description %}
+                    <p style="margin: 8px 0 12px 0; color: #334155; font-size: 0.95rem;">{{ item.description }}</p>
+                {% endif %}
+
+                {% if item.is_collection or item.resources is defined %}
+                    <p style="font-size: 0.875rem; color: #475569; margin: 6px 0;">
+                        Contains <strong>{{ item.file_count }}</strong> files ({{ item.formatted_total_size }})
+                    </p>
+                {% else %}
+                    <p style="font-size: 0.85rem; color: #64748b; margin: 4px 0;">
+                        Original File: <em>{{ item.filename }}</em>
+                    </p>
+                {% endif %}
+
+                <!-- Management Controls -->
+                <div style="margin-top: 14px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+                    {% if item.is_collection or item.resources is defined %}
+                        <a href="{{ url_for('collection_detail', collection_id=item.id) }}" style="display: inline-block; padding: 5px 10px; background-color: #059669; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                            📁 View Collection
+                        </a>
+                        <a href="{{ url_for('collection_edit', collection_id=item.id) }}" style="color: #2563eb; font-size: 0.9rem;">Edit Metadata</a>
+                        <form method="POST" action="{{ url_for('collection_delete', collection_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this collection and all its files?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.9rem;">Delete</button>
+                        </form>
+                    {% else %}
+                        <a href="{{ url_for('resource_download', resource_id=item.id) }}" style="display: inline-block; padding: 5px 10px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                            📥 Download File
+                        </a>
+                        <a href="{{ url_for('resource_edit', resource_id=item.id) }}" style="color: #2563eb; font-size: 0.9rem;">Edit Details</a>
+                        <form method="POST" action="{{ url_for('resource_delete', resource_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this resource?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.9rem;">Delete</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+        <div style="margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap;">
+            {% if page > 1 %}
+                <a href="{{ url_for('my_uploads', page=page-1, q=query_text, faculty=selected_faculty, category=selected_category, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">&laquo; Previous</a>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == page %}
+                    <span style="padding: 6px 12px; background-color: #2563eb; color: white; border-radius: 4px; font-weight: bold;">{{ p }}</span>
+                {% else %}
+                    <a href="{{ url_for('my_uploads', page=p, q=query_text, faculty=selected_faculty, category=selected_category, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page < total_pages %}
+                <a href="{{ url_for('my_uploads', page=page+1, q=query_text, faculty=selected_faculty, category=selected_category, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">Next &raquo;</a>
+            {% endif %}
+        </div>
+    {% endif %}
+
+{% else %}
+    <div style="padding: 30px; text-align: center; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+        <p style="color: #64748b; font-size: 1.05rem;">You haven't uploaded any study materials yet.</p>
+        <a href="{{ url_for('resource_upload') }}" style="color: #2563eb; font-weight: bold;">Upload a single file</a> or 
+        <a href="{{ url_for('resource_upload_folder') }}" style="color: #059669; font-weight: bold;">Upload a notes folder collection</a>!
+    </div>
+{% endif %}
+
+{% endblock %}

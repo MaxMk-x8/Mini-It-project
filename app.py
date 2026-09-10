@@ -9,10 +9,11 @@ from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from PIL import Image
 
-from models import db, User, Question, Answer, Resource, AnswerBestMark, QAAttachment, Report, ModeratorApplication, BannedEmail, UserWarning
+from models import db, User, Question, Answer, Resource, ResourceRating, ResourceCollection, AnswerBestMark, QAAttachment, Report, ModeratorApplication, BannedEmail, UserWarning
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
     QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
+    RatingForm, CollectionForm, CollectionEditForm,
     ALLOWED_SCREENSHOT_EXTENSIONS, MAX_SCREENSHOT_SIZE, MAX_SCREENSHOTS_COUNT,
     ChangePasswordForm, LogoutForm, ReportActionForm,
     ModeratorApplicationForm, ModeratorApplicationReviewForm,
@@ -38,8 +39,9 @@ SCREENSHOTS_FOLDER = os.path.join(app.root_path, 'uploads', 'screenshots')
 os.makedirs(SCREENSHOTS_FOLDER, exist_ok=True)
 app.config['SCREENSHOTS_FOLDER'] = SCREENSHOTS_FOLDER
 
-# Max request limit set to 20MB to support multiple 5MB screenshot uploads safely
-app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
+# Max request limit set to 60MB to support complete folder uploads (up to 50MB) and screenshots safely
+app.config['MAX_CONTENT_LENGTH'] = 60 * 1024 * 1024
+
 
 
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
@@ -1576,42 +1578,276 @@ def delete_answer(answer_id):
 
 
 #-------------------------------
-# RESOURCE HUB MODULE ROUTES 
+# RESOURCE HUB MODULE ROUTES (WEEK 4)
 #-------------------------------
+
+# Configuration Limits for Collections & Uploads
+MAX_COLLECTION_FILES = 50
+MAX_COLLECTION_TOTAL_SIZE = 50 * 1024 * 1024  # 50 MB total per collection
+MAX_INDIVIDUAL_FILE_SIZE = 10 * 1024 * 1024   # 10 MB per file
+RESOURCES_PER_PAGE = 10
+
+
+def sort_feed_items(items, sort_mode='newest'):
+    """
+    Sorts a combined list of standalone resources and collections.
+    - 'newest': newest creation date first
+    - 'downloads': most downloads first, tie-breaker newest first
+    - 'rating': highest average rating first, then rating count, unrated last, tie-breaker newest first
+    """
+    if sort_mode == 'downloads':
+        return sorted(
+            items,
+            key=lambda x: (
+                x.download_count or 0,
+                x.created_at if x.created_at else datetime.min.replace(tzinfo=timezone.utc)
+            ),
+            reverse=True
+        )
+    elif sort_mode == 'rating':
+        def rating_key(x):
+            has_rating = 1 if (x.average_rating is not None) else 0
+            avg_r = x.average_rating if x.average_rating is not None else 0.0
+            count_r = x.rating_count or 0
+            created = x.created_at if x.created_at else datetime.min.replace(tzinfo=timezone.utc)
+            return (has_rating, avg_r, count_r, created)
+        return sorted(items, key=rating_key, reverse=True)
+    else:  # newest
+        return sorted(
+            items,
+            key=lambda x: x.created_at if x.created_at else datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True
+        )
+
+
+def sanitize_relative_path(raw_path, base_filename):
+    """
+    Sanitizes browser-supplied folder relative path to prevent path traversal.
+    Rejects '..', null bytes, or absolute paths.
+    """
+    if not raw_path:
+        return secure_filename(base_filename)
+
+    clean_path = raw_path.replace('\\', '/').strip('/')
+    segments = clean_path.split('/')
+    safe_segments = []
+
+    for seg in segments:
+        seg = seg.strip()
+        if not seg or seg == '.':
+            continue
+        if seg == '..' or '\x00' in seg:
+            return None  # Path traversal attempt
+        safe_seg = secure_filename(seg)
+        if safe_seg:
+            safe_segments.append(safe_seg)
+
+    if not safe_segments:
+        return secure_filename(base_filename)
+
+    return '/'.join(safe_segments)
+
 
 @app.route('/resources')
 def resources_list():
     query_text = request.args.get('q', '').strip()
     selected_faculty = request.args.get('faculty', '').strip()
     selected_category = request.args.get('category', '').strip()
+    selected_sort = request.args.get('sort', 'newest').strip()
 
-    query = Resource.query
+    try:
+        page = int(request.args.get('page', 1))
+        if page < 1:
+            page = 1
+    except (ValueError, TypeError):
+        page = 1
 
+    # 1. Fetch standalone resources (not part of any collection)
+    res_query = Resource.query.filter(Resource.collection_id.is_(None))
     if query_text:
         search_filter = f"%{query_text}%"
-        query = query.filter(
+        res_query = res_query.filter(
             (Resource.title.ilike(search_filter)) | 
             (Resource.description.ilike(search_filter)) |
             (Resource.filename.ilike(search_filter))
         )
-
     if selected_faculty:
-        query = query.filter(Resource.faculty == selected_faculty)
-
+        res_query = res_query.filter(Resource.faculty == selected_faculty)
     if selected_category:
-        query = query.filter(Resource.category == selected_category)
+        res_query = res_query.filter(Resource.category == selected_category)
 
-    resources = query.order_by(Resource.created_at.desc()).all()
+    standalone_resources = res_query.all()
+
+    # 2. Fetch collections (Notes collections)
+    col_query = ResourceCollection.query
+    if query_text:
+        search_filter = f"%{query_text}%"
+        col_query = col_query.filter(
+            (ResourceCollection.title.ilike(search_filter)) | 
+            (ResourceCollection.description.ilike(search_filter))
+        )
+    if selected_faculty:
+        col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
+    if selected_category:
+        col_query = col_query.filter(ResourceCollection.category == selected_category)
+
+    collections = col_query.all()
+
+    # 3. Combine and sort unified feed items
+    all_items = standalone_resources + collections
+    sorted_items = sort_feed_items(all_items, selected_sort)
+
+    # 4. Pagination
+    total_items = len(sorted_items)
+    total_pages = max(1, (total_items + RESOURCES_PER_PAGE - 1) // RESOURCES_PER_PAGE)
+    if page > total_pages and total_items > 0:
+        page = total_pages
+
+    start_idx = (page - 1) * RESOURCES_PER_PAGE
+    end_idx = start_idx + RESOURCES_PER_PAGE
+    paged_items = sorted_items[start_idx:end_idx]
+
+    rating_form = RatingForm()
 
     return render_template(
         'resources/index.html',
-        resources=resources,
+        items=paged_items,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
         query_text=query_text,
         selected_faculty=selected_faculty,
         selected_category=selected_category,
+        selected_sort=selected_sort,
         faculties=FACULTIES,
-        categories=RESOURCE_CATEGORIES
+        categories=RESOURCE_CATEGORIES,
+        rating_form=rating_form
     )
+
+
+@app.route('/resources/my-uploads')
+@login_required
+def my_uploads():
+    query_text = request.args.get('q', '').strip()
+    selected_faculty = request.args.get('faculty', '').strip()
+    selected_category = request.args.get('category', '').strip()
+    selected_sort = request.args.get('sort', 'newest').strip()
+
+    try:
+        page = int(request.args.get('page', 1))
+        if page < 1:
+            page = 1
+    except (ValueError, TypeError):
+        page = 1
+
+    # Fetch user's standalone resources
+    res_query = Resource.query.filter(
+        Resource.uploader_id == current_user.id,
+        Resource.collection_id.is_(None)
+    )
+    if query_text:
+        search_filter = f"%{query_text}%"
+        res_query = res_query.filter(
+            (Resource.title.ilike(search_filter)) | 
+            (Resource.description.ilike(search_filter)) |
+            (Resource.filename.ilike(search_filter))
+        )
+    if selected_faculty:
+        res_query = res_query.filter(Resource.faculty == selected_faculty)
+    if selected_category:
+        res_query = res_query.filter(Resource.category == selected_category)
+
+    user_resources = res_query.all()
+
+    # Fetch user's collections
+    col_query = ResourceCollection.query.filter(ResourceCollection.uploader_id == current_user.id)
+    if query_text:
+        search_filter = f"%{query_text}%"
+        col_query = col_query.filter(
+            (ResourceCollection.title.ilike(search_filter)) | 
+            (ResourceCollection.description.ilike(search_filter))
+        )
+    if selected_faculty:
+        col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
+    if selected_category:
+        col_query = col_query.filter(ResourceCollection.category == selected_category)
+
+    user_collections = col_query.all()
+
+    all_items = user_resources + user_collections
+    sorted_items = sort_feed_items(all_items, selected_sort)
+
+    total_items = len(sorted_items)
+    total_pages = max(1, (total_items + RESOURCES_PER_PAGE - 1) // RESOURCES_PER_PAGE)
+    if page > total_pages and total_items > 0:
+        page = total_pages
+
+    start_idx = (page - 1) * RESOURCES_PER_PAGE
+    end_idx = start_idx + RESOURCES_PER_PAGE
+    paged_items = sorted_items[start_idx:end_idx]
+
+    rating_form = RatingForm()
+
+    return render_template(
+        'resources/my_uploads.html',
+        items=paged_items,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        query_text=query_text,
+        selected_faculty=selected_faculty,
+        selected_category=selected_category,
+        selected_sort=selected_sort,
+        faculties=FACULTIES,
+        categories=RESOURCE_CATEGORIES,
+        rating_form=rating_form
+    )
+
+
+@app.route('/resources/<int:resource_id>/rate', methods=['POST'])
+@login_required
+def resource_rate(resource_id):
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    # Prevent users from rating their own uploads
+    if resource.uploader_id == current_user.id:
+        flash('You cannot rate your own uploaded resource.', 'warning')
+        return redirect(request.referrer or url_for('resources_list'))
+
+    form = RatingForm()
+    if form.validate_on_submit():
+        rating_val = int(form.rating.data)
+        if not (1 <= rating_val <= 5):
+            flash('Rating must be between 1 and 5 stars.', 'danger')
+            return redirect(request.referrer or url_for('resources_list'))
+
+        # Check for existing rating by current_user on this resource
+        existing_rating = ResourceRating.query.filter_by(
+            resource_id=resource.id,
+            user_id=current_user.id
+        ).first()
+
+        if existing_rating:
+            existing_rating.rating = rating_val
+            existing_rating.updated_at = datetime.now(timezone.utc)
+            flash(f"Your rating for '{resource.title}' has been updated to {rating_val} star(s)!", 'success')
+        else:
+            new_rating = ResourceRating(
+                rating=rating_val,
+                resource_id=resource.id,
+                user_id=current_user.id
+            )
+            db.session.add(new_rating)
+            flash(f"Thank you! You rated '{resource.title}' {rating_val} star(s).", 'success')
+
+        db.session.commit()
+    else:
+        flash('Invalid rating submission. Please try again.', 'danger')
+
+    return redirect(request.referrer or url_for('resources_list'))
 
 
 @app.route('/resources/upload', methods=['GET', 'POST'])
@@ -1651,8 +1887,8 @@ def resource_upload():
         # Verify file size on disk
         file_size = os.path.getsize(file_path)
 
-        # 10MB size limit check (Resource Hub specific)
-        if file_size > 10 * 1024 * 1024:
+        # 10MB individual size limit check
+        if file_size > MAX_INDIVIDUAL_FILE_SIZE:
             if os.path.exists(file_path):
                 os.remove(file_path)
             flash('File exceeds the 10MB size limit.', 'danger')
@@ -1668,7 +1904,8 @@ def resource_upload():
             file_type=file_ext,
             category=form.category.data,
             faculty=form.faculty.data,
-            uploader_id=current_user.id
+            uploader_id=current_user.id,
+            download_count=0
         )
         db.session.add(resource)
         db.session.commit()
@@ -1677,6 +1914,219 @@ def resource_upload():
         return redirect(url_for('resources_list'))
 
     return render_template('resources/upload.html', form=form)
+
+
+@app.route('/resources/upload-folder', methods=['GET', 'POST'])
+@login_required
+def resource_upload_folder():
+    form = CollectionForm()
+    if request.method == 'GET' and hasattr(current_user, 'faculty') and current_user.faculty:
+        form.faculty.data = current_user.faculty
+
+    if form.validate_on_submit():
+        raw_files = request.files.getlist('files')
+        valid_selected_files = [f for f in raw_files if f and f.filename and f.filename.strip() != '']
+
+        if not valid_selected_files:
+            flash('Please select a folder containing notes files to upload.', 'danger')
+            return render_template('resources/upload_folder.html', form=form)
+
+        if len(valid_selected_files) > MAX_COLLECTION_FILES:
+            flash(f'The selected folder contains too many files ({len(valid_selected_files)}). Maximum allowed is {MAX_COLLECTION_FILES} files per collection.', 'danger')
+            return render_template('resources/upload_folder.html', form=form)
+
+        valid_files_to_save = []
+        skipped_files = []
+        total_collection_size = 0
+        seen_relative_paths = set()
+
+        for file_obj in valid_selected_files:
+            raw_filename = file_obj.filename.strip()
+            
+            # Extract base filename and relative path
+            clean_rel = raw_filename.replace('\\', '/').strip('/')
+            base_filename = os.path.basename(clean_rel)
+            
+            safe_rel_path = sanitize_relative_path(clean_rel, base_filename)
+            if not safe_rel_path:
+                skipped_files.append((raw_filename, 'Unsafe path characters or directory traversal detected'))
+                continue
+
+            if safe_rel_path in seen_relative_paths:
+                skipped_files.append((raw_filename, 'Duplicate relative file path in folder'))
+                continue
+
+            file_ext = ''
+            if '.' in base_filename:
+                file_ext = base_filename.rsplit('.', 1)[1].lower()
+
+            if file_ext not in ALLOWED_EXTENSIONS:
+                skipped_files.append((raw_filename, f"Invalid format '.{file_ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS).upper()}"))
+                continue
+
+            # Read file stream size safely without memory exhaustion
+            file_obj.seek(0, os.SEEK_END)
+            file_size = file_obj.tell()
+            file_obj.seek(0)
+
+            if file_size == 0:
+                skipped_files.append((raw_filename, 'File is empty (0 bytes)'))
+                continue
+
+            if file_size > MAX_INDIVIDUAL_FILE_SIZE:
+                skipped_files.append((raw_filename, f'Exceeds individual 10MB limit ({file_size / (1024*1024):.1f} MB)'))
+                continue
+
+            if total_collection_size + file_size > MAX_COLLECTION_TOTAL_SIZE:
+                skipped_files.append((raw_filename, f'Exceeds 50MB collection total size limit'))
+                continue
+
+            seen_relative_paths.add(safe_rel_path)
+            total_collection_size += file_size
+            valid_files_to_save.append((file_obj, safe_rel_path, base_filename, file_ext, file_size))
+
+        if not valid_files_to_save:
+            reasons = "; ".join([f"{name} ({reason})" for name, reason in skipped_files])
+            flash(f'No valid files could be uploaded from the selected folder. Reasons: {reasons}', 'danger')
+            return render_template('resources/upload_folder.html', form=form)
+
+        # Create collection parent container
+        collection = ResourceCollection(
+            title=form.title.data.strip(),
+            description=form.description.data.strip() if form.description.data else '',
+            category=form.category.data,
+            faculty=form.faculty.data,
+            uploader_id=current_user.id
+        )
+        db.session.add(collection)
+        db.session.flush()  # Obtain collection.id
+
+        saved_disk_files = []
+        try:
+            for file_obj, safe_rel_path, base_filename, file_ext, file_size in valid_files_to_save:
+                timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+                unique_token = uuid.uuid4().hex[:8]
+                clean_sec_name = secure_filename(base_filename) or "notes_file"
+                stored_filename = f"{timestamp}_{unique_token}_{clean_sec_name}"
+                disk_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
+
+                file_obj.save(disk_path)
+                saved_disk_files.append(disk_path)
+
+                member_resource = Resource(
+                    title=base_filename,
+                    description='',
+                    filename=base_filename,
+                    stored_filename=stored_filename,
+                    file_size=file_size,
+                    file_type=file_ext,
+                    category=collection.category,
+                    faculty=collection.faculty,
+                    uploader_id=current_user.id,
+                    collection_id=collection.id,
+                    relative_path=safe_rel_path,
+                    download_count=0
+                )
+                db.session.add(member_resource)
+
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            # Clean up saved files on disk
+            for disk_file in saved_disk_files:
+                if os.path.exists(disk_file):
+                    try:
+                        os.remove(disk_file)
+                    except Exception:
+                        pass
+            flash(f'An unexpected error occurred while saving the collection: {e}', 'danger')
+            return render_template('resources/upload_folder.html', form=form)
+
+        flash(f"Notes Collection '{collection.title}' uploaded successfully with {len(valid_files_to_save)} file(s)!", 'success')
+        if skipped_files:
+            skipped_summary = "; ".join([f"{name}: {reason}" for name, reason in skipped_files])
+            flash(f"Notice: {len(skipped_files)} file(s) were skipped: {skipped_summary}", 'warning')
+
+        return redirect(url_for('collection_detail', collection_id=collection.id))
+
+    return render_template('resources/upload_folder.html', form=form)
+
+
+@app.route('/resources/collection/<int:collection_id>')
+def collection_detail(collection_id):
+    collection = db.session.get(ResourceCollection, collection_id)
+    if not collection:
+        flash('Notes collection not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    rating_form = RatingForm()
+    return render_template(
+        'resources/collection_detail.html',
+        collection=collection,
+        rating_form=rating_form
+    )
+
+
+@app.route('/resources/collection/<int:collection_id>/edit', methods=['GET', 'POST'])
+@login_required
+def collection_edit(collection_id):
+    collection = db.session.get(ResourceCollection, collection_id)
+    if not collection:
+        flash('Collection not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    if collection.uploader_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to edit this collection.', 'danger')
+        return redirect(url_for('collection_detail', collection_id=collection.id))
+
+    form = CollectionEditForm(obj=collection)
+    if form.validate_on_submit():
+        collection.title = form.title.data.strip()
+        collection.description = form.description.data.strip() if form.description.data else ''
+        collection.category = form.category.data
+        collection.faculty = form.faculty.data
+
+        # Synchronize faculty and category across member resources
+        for member in collection.resources:
+            member.category = collection.category
+            member.faculty = collection.faculty
+
+        db.session.commit()
+        flash(f"Collection '{collection.title}' details updated successfully!", 'success')
+        return redirect(url_for('collection_detail', collection_id=collection.id))
+
+    return render_template('resources/collection_edit.html', form=form, collection=collection)
+
+
+@app.route('/resources/collection/<int:collection_id>/delete', methods=['POST'])
+@login_required
+def collection_delete(collection_id):
+    collection = db.session.get(ResourceCollection, collection_id)
+    if not collection:
+        flash('Collection not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    if collection.uploader_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to delete this collection.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    # Remove physical files for all member resources from disk
+    removed_count = 0
+    for member in collection.resources:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], member.stored_filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                removed_count += 1
+            except Exception as e:
+                app.logger.warning(f"Failed to remove member file {file_path}: {e}")
+
+    collection_title = collection.title
+    db.session.delete(collection)
+    db.session.commit()
+
+    flash(f"Notes collection '{collection_title}' and its {removed_count} member file(s) have been deleted.", 'info')
+    return redirect(url_for('resources_list'))
 
 
 @app.route('/resources/download/<int:resource_id>')
@@ -1690,6 +2140,12 @@ def resource_download(resource_id):
     if not os.path.exists(file_path):
         flash('The requested file is no longer available on disk.', 'danger')
         return redirect(url_for('resources_list'))
+
+    # Atomic download count increment (only after confirming physical file exists)
+    Resource.query.filter_by(id=resource.id).update({
+        Resource.download_count: Resource.download_count + 1
+    })
+    db.session.commit()
 
     return send_from_directory(
         app.config['UPLOAD_FOLDER'],
@@ -1747,7 +2203,7 @@ def resource_delete(resource_id):
         except Exception as e:
             app.logger.warning(f"Failed to remove physical file {file_path}: {e}")
 
-    # Remove database record
+    # Remove database record (cascades to ratings)
     db.session.delete(resource)
     db.session.commit()
 
@@ -1758,6 +2214,7 @@ def resource_delete(resource_id):
 @app.context_processor
 def inject_global_vars():
     return dict(app_name="Codenest")
+
 
 
 # -------------------------------
@@ -1802,10 +2259,25 @@ def check_account_restrictions():
 
 
 
+def auto_migrate_week4():
+    """Safely upgrades existing database tables and columns if not present."""
+    try:
+        from migrate_week4 import migrate_database
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        if 'codenest.db' in db_uri:
+            db_path = os.path.join(app.root_path, 'instance', 'codenest.db')
+            migrate_database(db_path)
+    except Exception as e:
+        app.logger.warning(f"Auto-migration notice: {e}")
+
+
+
 #-------------------------------
 #GLOBAL APP RUN
 #-------------------------------
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        auto_migrate_week4()
     app.run(debug=True, port=int(os.environ.get('PORT', 5050)))
+

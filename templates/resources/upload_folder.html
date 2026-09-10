@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>📁 Upload Complete Notes Folder (Collection)</h2>
+<p style="color: #64748b;">Select an entire directory from your computer to upload as a structured notes collection. Subfolder hierarchies will be preserved.</p>
+
+<p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a> | <a href="{{ url_for('resource_upload') }}">Upload single file instead</a></p>
+
+<!-- Informational Limits & Guidelines Box -->
+<div style="max-width: 650px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.9rem; color: #166534;">
+    <strong>📌 Notes Collection Upload Rules:</strong>
+    <ul style="margin: 6px 0 0 0; padding-left: 20px;">
+        <li>Allowed File Types: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong></li>
+        <li>Individual File Limit: <strong>10 MB</strong> per file</li>
+        <li>Total Collection Limit: <strong>50 MB</strong> max total</li>
+        <li>File Count Limit: <strong>50 files</strong> maximum per collection</li>
+        <li><em>Browser Note:</em> Folder selection is supported in all modern desktop browsers (Chrome, Edge, Firefox, Safari). Non-allowed file formats will be safely reported and skipped.</li>
+    </ul>
+</div>
+
+<form method="POST" action="{{ url_for('resource_upload_folder') }}" enctype="multipart/form-data" style="max-width: 650px;">
+    {{ form.hidden_tag() }}
+
+    <div style="margin-bottom: 16px;">
+        {{ form.title.label }}<br>
+        {{ form.title(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;", placeholder="e.g. Data Structures & Algorithms - Complete Lecture Notes 2026") }}
+        {% for error in form.title.errors %}
+            <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 16px;">
+        {{ form.category.label }}<br>
+        {{ form.category(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;") }}
+        {% for error in form.category.errors %}
+            <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 16px;">
+        {{ form.faculty.label }}<br>
+        {{ form.faculty(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;") }}
+        {% for error in form.faculty.errors %}
+            <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 16px;">
+        {{ form.description.label }}<br>
+        {{ form.description(rows=4, style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;", placeholder="Optional description of this collection (topics covered, weeks, chapters)...") }}
+        {% for error in form.description.errors %}
+            <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 24px; padding: 16px; border: 2px dashed #94a3b8; border-radius: 6px; background-color: #f8fafc;">
+        <label for="files"><strong>📁 Select Notes Folder:</strong></label><br>
+        <input type="file" id="files" name="files" webkitdirectory directory multiple required style="margin-top: 8px;">
+        <p style="font-size: 0.85rem; color: #64748b; margin: 8px 0 0 0;">
+            Click above to select a folder from your computer. All allowed files inside subfolders will be uploaded into this collection.
+        </p>
+    </div>
+
+    <div>
+        {{ form.submit(style="padding: 10px 24px; font-weight: bold; background-color: #059669; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;") }}
+        &nbsp;
+        <a href="{{ url_for('resources_list') }}" style="color: #64748b; text-decoration: none;">Cancel</a>
+    </div>
+</form>
+
+{% endblock %}

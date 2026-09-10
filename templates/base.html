@@ -22,6 +22,7 @@
         <a href="{{ url_for('qa_list') }}">Q&A</a> |
         <a href="{{ url_for('resources_list') }}">Resources</a> |
         {% if current_user.is_authenticated %}
+            <a href="{{ url_for('my_uploads') }}">My Uploads</a> |
             <a href="{{ url_for('inbox') }}">Inbox{% if current_user.unread_warnings_count > 0 %} <span style="background: #ef4444; color: white; border-radius: 9999px; padding: 1px 7px; font-size: 0.75rem; font-weight: bold;">{{ current_user.unread_warnings_count }}</span>{% endif %}</a> |
             <a href="{{ url_for('settings') }}" title="Settings" aria-label="Settings">☰</a>
         {% else %}

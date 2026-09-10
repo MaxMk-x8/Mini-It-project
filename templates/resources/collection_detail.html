@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+<p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a> | <a href="{{ url_for('my_uploads') }}">My Uploads</a></p>
+
+<!-- Collection Header Card -->
+<div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <span style="display: inline-block; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-bottom: 8px;">📁 NOTES COLLECTION</span>
+            <h2 style="margin: 0 0 8px 0; color: #0f172a;">{{ collection.title }}</h2>
+            <p style="margin: 0; color: #64748b; font-size: 0.9rem;">
+                Faculty: <strong>{{ collection.faculty }}</strong> | 
+                Category: <strong>{{ collection.category }}</strong> | 
+                Uploaded by: <strong>{{ collection.uploader.username }}</strong> ({{ collection.uploader.role }}) | 
+                Created: {{ collection.created_at.strftime('%Y-%m-%d %H:%M') }} UTC
+            </p>
+        </div>
+
+        <!-- Aggregate Statistics -->
+        <div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem;">
+            <span style="background-color: #eff6ff; color: #1d4ed8; padding: 6px 12px; border-radius: 4px; border: 1px solid #bfdbfe;">
+                📥 <strong>{{ collection.download_count }}</strong> total downloads
+            </span>
+            <span style="background-color: #fefce8; color: #a16207; padding: 6px 12px; border-radius: 4px; border: 1px solid #fef08a;">
+                {% if collection.average_rating %}
+                    ★ <strong>{{ collection.average_rating }}</strong> / 5.0 ({{ collection.rating_count }} {{ 'rating' if collection.rating_count == 1 else 'ratings' }})
+                {% else %}
+                    <em>Not rated yet</em>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    {% if collection.description %}
+        <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e8f0; color: #334155;">
+            <p style="margin: 0; font-size: 0.95rem;">{{ collection.description }}</p>
+        </div>
+    {% endif %}
+
+    <!-- Management Controls -->
+    {% if current_user.is_authenticated and (current_user.id == collection.uploader_id or current_user.is_admin()) %}
+        <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #e2e8f0; display: flex; gap: 14px; align-items: center;">
+            <a href="{{ url_for('collection_edit', collection_id=collection.id) }}" style="color: #2563eb; font-weight: bold; text-decoration: none;">✏️ Edit Collection Details</a>
+            <form method="POST" action="{{ url_for('collection_delete', collection_id=collection.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to permanently delete this collection and ALL member files?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; font-weight: bold; text-decoration: underline;">🗑️ Delete Entire Collection</button>
+            </form>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Collection Member Files List -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <h3 style="margin: 0;">Files in this Collection ({{ collection.file_count }} files &bull; {{ collection.formatted_total_size }})</h3>
+</div>
+
+{% if collection.resources %}
+    <table class="table-bordered" style="width: 100%; border-collapse: collapse; background-color: #ffffff;">
+        <thead>
+            <tr style="background-color: #f1f5f9;">
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">File / Subfolder Path</th>
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 90px;">Size</th>
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Downloads</th>
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 160px;">Rating</th>
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 220px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in collection.resources %}
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1;">
+                        {% set ext = r.file_type|lower %}
+                        <span style="font-size: 1.1rem; margin-right: 6px;">
+                            {% if ext == 'pdf' %}📄
+                            {% elif ext == 'docx' %}📝
+                            {% elif ext == 'pptx' %}📊
+                            {% elif ext == 'txt' %}📃
+                            {% elif ext == 'zip' %}📦
+                            {% else %}📄
+                            {% endif %}
+                        </span>
+                        <strong>{{ r.relative_path or r.filename }}</strong>
+                        <br>
+                        <small style="color: #64748b;">Uploaded {{ r.created_at.strftime('%Y-%m-%d') }}</small>
+                    </td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-size: 0.9rem; color: #475569;">
+                        {{ r.formatted_size }}
+                    </td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-size: 0.9rem; color: #1d4ed8;">
+                        📥 {{ r.download_count or 0 }}
+                    </td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-size: 0.85rem;">
+                        {% if r.average_rating %}
+                            ★ <strong>{{ r.average_rating }}</strong> ({{ r.rating_count }})
+                        {% else %}
+                            <span style="color: #94a3b8;">Not rated</span>
+                        {% endif %}
+
+                        {% if current_user.is_authenticated and current_user.id != r.uploader_id %}
+                            {% set my_rating = r.user_rating(current_user) %}
+                            <form method="POST" action="{{ url_for('resource_rate', resource_id=r.id) }}" style="margin-top: 4px; display: flex; justify-content: center; gap: 4px; align-items: center;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <select name="rating" style="padding: 2px 4px; font-size: 0.75rem;">
+                                    <option value="5" {% if my_rating == 5 %}selected{% endif %}>5★</option>
+                                    <option value="4" {% if my_rating == 4 %}selected{% endif %}>4★</option>
+                                    <option value="3" {% if my_rating == 3 %}selected{% endif %}>3★</option>
+                                    <option value="2" {% if my_rating == 2 %}selected{% endif %}>2★</option>
+                                    <option value="1" {% if my_rating == 1 %}selected{% endif %}>1★</option>
+                                </select>
+                                <button type="submit" style="padding: 2px 6px; font-size: 0.75rem; cursor: pointer;">Rate</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: right;">
+                        <a href="{{ url_for('resource_download', resource_id=r.id) }}" style="display: inline-block; padding: 4px 10px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
+                            📥 Download
+                        </a>
+                        {% if current_user.is_authenticated and (current_user.id == r.uploader_id or current_user.is_admin()) %}
+                            &nbsp;
+                            <form method="POST" action="{{ url_for('resource_delete', resource_id=r.id) }}" style="display: inline;" onsubmit="return confirm('Delete this individual file from the collection?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.85rem;">Delete</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p style="color: #64748b;">This collection currently contains no files.</p>
+{% endif %}
+
+{% endblock %}

@@ -109,6 +109,35 @@ class ResourceEditForm(FlaskForm):
     submit = SubmitField('Update Resource')
 
 
+class RatingForm(FlaskForm):
+    rating = SelectField('Your Rating', choices=[
+        (5, '★★★★★ (5 - Excellent)'),
+        (4, '★★★★☆ (4 - Very Good)'),
+        (3, '★★★☆☆ (3 - Good)'),
+        (2, '★★☆☆☆ (2 - Fair)'),
+        (1, '★☆☆☆☆ (1 - Poor)')
+    ], coerce=int, validators=[DataRequired(message='Please choose a rating (1 to 5 stars).')])
+    submit = SubmitField('Submit Rating')
+
+
+class CollectionForm(FlaskForm):
+    title = StringField('Collection Title', validators=[DataRequired(), Length(min=3, max=150), NoProfanity()])
+    category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
+    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
+    files = MultipleFileField('Notes Folder / Files')
+    submit = SubmitField('Upload Notes Collection')
+
+
+class CollectionEditForm(FlaskForm):
+    title = StringField('Collection Title', validators=[DataRequired(), Length(min=3, max=150), NoProfanity()])
+    category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
+    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
+    submit = SubmitField('Update Collection')
+
+
+
 # -------------------------------
 # SETTINGS & AUTH FORMS 
 # -------------------------------

@@ -416,8 +416,116 @@ class AnswerBestMark(db.Model):
 
 
 # -------------------------------
-# RESOURCE HUB MODULE 
+# RESOURCE HUB MODULE (WEEK 4)
 # -------------------------------
+
+class ResourceRating(db.Model):
+    __tablename__ = 'resource_ratings'
+    __table_args__ = (
+        db.CheckConstraint('rating >= 1 AND rating <= 5', name='ck_rating_range'),
+        db.UniqueConstraint('user_id', 'resource_id', name='uq_resource_user_rating'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    rating = db.Column(db.Integer, nullable=False)
+    resource_id = db.Column(db.Integer, db.ForeignKey('resources.id', name='fk_resource_ratings_resource_id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_resource_ratings_user_id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    resource = db.relationship('Resource', backref=db.backref('ratings', cascade='all, delete-orphan', lazy=True))
+    user = db.relationship('User', backref=db.backref('resource_ratings', lazy=True))
+
+    def __init__(self, rating=None, resource_id=None, user_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if rating:
+            self.rating = rating
+        if resource_id:
+            self.resource_id = resource_id
+        if user_id:
+            self.user_id = user_id
+
+    def __repr__(self):
+        return f'<ResourceRating user={self.user_id} resource={self.resource_id} rating={self.rating}>'
+
+
+class ResourceCollection(db.Model):
+    """Collection for complete folder uploads (Notes Collections)."""
+    __tablename__ = 'resource_collections'
+    __table_args__ = (
+        db.CheckConstraint(f"faculty IN {tuple(FACULTY_CODES)}", name='ck_collection_faculty_valid'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    category = db.Column(db.String(50), nullable=False, default='Lecture Notes')
+    faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
+    uploader_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_collections_uploader_id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    uploader = db.relationship('User', backref=db.backref('resource_collections', lazy=True))
+    resources = db.relationship(
+        'Resource',
+        backref=db.backref('collection', lazy=True),
+        cascade='all, delete-orphan',
+        lazy=True,
+        order_by='Resource.relative_path'
+    )
+
+    def __init__(self, title=None, description=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if title:
+            self.title = title
+        if description:
+            self.description = description
+        self.category = category
+        self.faculty = faculty
+        if uploader_id:
+            self.uploader_id = uploader_id
+
+    @property
+    def download_count(self):
+        """Total downloads across all member resources."""
+        return sum(r.download_count or 0 for r in self.resources)
+
+    @property
+    def rating_count(self):
+        """Total number of ratings across all member resources."""
+        return sum(r.rating_count for r in self.resources)
+
+    @property
+    def average_rating(self):
+        """Average rating derived from all member resources."""
+        all_ratings = [rating.rating for r in self.resources for rating in r.ratings]
+        if not all_ratings:
+            return None
+        return round(sum(all_ratings) / len(all_ratings), 1)
+
+    @property
+    def file_count(self):
+        return len(self.resources)
+
+    @property
+    def total_size_bytes(self):
+        return sum(r.file_size or 0 for r in self.resources)
+
+    @property
+    def formatted_total_size(self):
+        size = self.total_size_bytes
+        if not size:
+            return '0 B'
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}" if unit != 'B' else f"{int(size)} B"
+            size /= 1024.0
+        return f"{size:.1f} TB"
+
+    def __repr__(self):
+        return f'<ResourceCollection {self.id}: {self.title} ({self.file_count} files)>'
+
 
 class Resource(db.Model):
     __tablename__ = 'resources'
@@ -435,13 +543,18 @@ class Resource(db.Model):
     category = db.Column(db.String(50), nullable=False, default='Lecture Notes')
     faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
 
+    # Week 4 Additions
+    download_count = db.Column(db.Integer, nullable=False, default=0)
+    collection_id = db.Column(db.Integer, db.ForeignKey('resource_collections.id', name='fk_resources_collection_id', ondelete='CASCADE'), nullable=True)
+    relative_path = db.Column(db.String(500), nullable=True)  # Preserved relative folder path for collections
+
     uploader_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_resources_uploader_id'), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     uploader = db.relationship('User', backref=db.backref('resources', lazy=True))
 
-    def __init__(self, title=None, description=None, filename=None, stored_filename=None, file_size=0, file_type=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, **kwargs):
+    def __init__(self, title=None, description=None, filename=None, stored_filename=None, file_size=0, file_type=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, download_count=0, collection_id=None, relative_path=None, **kwargs):
         super().__init__(**kwargs)
         if title:
             self.title = title
@@ -458,6 +571,9 @@ class Resource(db.Model):
         self.faculty = faculty
         if uploader_id:
             self.uploader_id = uploader_id
+        self.download_count = download_count
+        self.collection_id = collection_id
+        self.relative_path = relative_path
 
     @property
     def formatted_size(self):
@@ -471,8 +587,30 @@ class Resource(db.Model):
             size /= 1024.0
         return f"{size:.1f} TB"
 
+    @property
+    def average_rating(self):
+        """Returns average rating as float rounded to 1 decimal, or None if no ratings."""
+        if not self.ratings:
+            return None
+        return round(sum(r.rating for r in self.ratings) / len(self.ratings), 1)
+
+    @property
+    def rating_count(self):
+        """Returns total number of user ratings."""
+        return len(self.ratings)
+
+    def user_rating(self, user):
+        """Returns the rating given by a specific user, or None."""
+        if not user or not user.is_authenticated:
+            return None
+        for r in self.ratings:
+            if r.user_id == user.id:
+                return r.rating
+        return None
+
     def __repr__(self):
         return f'<Resource {self.id}: {self.title} ({self.filename})>'
+
 
 
 # -------------------------------
