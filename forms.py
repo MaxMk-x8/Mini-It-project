@@ -131,7 +131,7 @@ class LogoutForm(FlaskForm):
 
 
 # -------------------------------
-# REPORTING & MODERATION FORMS (MOHAMMAD - WEEK 4)
+# REPORTING & MODERATION FORMS 
 # -------------------------------
 
 REPORT_REASONS = [

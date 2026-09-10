@@ -435,7 +435,7 @@ def resend_reset_code(user_id):
 
 
 # -------------------------------
-# SETTINGS & AUTH ROUTES (MOHAMMAD - WEEK 4)
+# SETTINGS & AUTH ROUTES 
 # -------------------------------
 
 @app.route('/settings')
@@ -603,7 +603,7 @@ def admin_dashboard():
 
 
 # -------------------------------
-# REPORTING & MODERATION ROUTES (MOHAMMAD - WEEK 4)
+# REPORTING & MODERATION ROUTES 
 # -------------------------------
 
 @app.route('/report', methods=['POST'])
@@ -1143,7 +1143,7 @@ def mark_warning_read(warning_id):
 
 
 #-------------------------------
-# Q&A MODULE HELPERS & ROUTES (HABIB - WEEKS 1-4)
+# Q&A MODULE HELPERS & ROUTES 
 #-------------------------------
 
 def validate_and_save_screenshots(files, uploader_id, question_id=None, answer_id=None):
@@ -1523,7 +1523,6 @@ def delete_answer(answer_id):
 
 #-------------------------------
 # RESOURCE HUB MODULE ROUTES 
-
 #-------------------------------
 
 @app.route('/resources')

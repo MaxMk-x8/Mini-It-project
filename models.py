@@ -292,7 +292,7 @@ class Answer(db.Model):
     # Best answer marks (community voting)
     best_marks = db.relationship('AnswerBestMark', backref='answer', lazy=True, cascade='all, delete-orphan')
 
-    # Screenshot attachments (Habib - Week 4)
+    # Screenshot attachments (Habib)
     attachments = db.relationship(
         'QAAttachment',
         foreign_keys='QAAttachment.answer_id',
@@ -476,7 +476,7 @@ class Resource(db.Model):
 
 
 # -------------------------------
-# REPORTING & MODERATION MODULE (MOHAMMAD - WEEK 4)
+# REPORTING & MODERATION MODULE 
 # -------------------------------
 
 class Report(db.Model):
