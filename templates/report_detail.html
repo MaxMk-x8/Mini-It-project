@@ -28,7 +28,7 @@
         {% endif %}
     </p>
     <p><strong>Reason:</strong> {{ report.reason }}</p>
-    <p><strong>Reporter:</strong> {{ report.reporter.username }} ({{ report.reporter.role }}) on {{ report.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</p>
+    <p><strong>Reporter:</strong> {{ report.reporter.username if report.reporter else 'Deleted User' }} ({{ report.reporter.role if report.reporter else 'User' }}) on {{ report.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</p>
     <p><strong>Additional Details:</strong></p>
     <blockquote style="background: #fff; border-left: 3px solid #ccc; padding: 8px 12px; margin: 0 0 10px 0;">
         {{ report.details if report.details else 'No additional details provided.' }}
@@ -46,12 +46,14 @@
             <div style="background: #f9f9f9; padding: 10px; border: 1px solid #eee;">{{ target_content.content }}</div>
             <p><a href="{{ url_for('qa_detail', question_id=target_content.id) }}" target="_blank">View Live Question Page &rarr;</a></p>
         {% elif report.content_type in ('answer', 'reply') %}
-            <p><strong>Question:</strong> <a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank">{{ target_content.question.title }}</a></p>
+            <p><strong>Question:</strong> {% if target_content.question %}<a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank">{{ target_content.question.title }}</a>{% else %}<em>(Question removed)</em>{% endif %}</p>
             <p><strong>Type:</strong> {{ 'Reply' if target_content.parent_answer_id else 'Top-Level Answer' }}</p>
-            <p><strong>Author:</strong> {{ target_content.author.username }}</p>
+            <p><strong>Author:</strong> {{ target_content.author.username if target_content.author else 'Unknown' }}</p>
             <p><strong>Content:</strong></p>
             <div style="background: #f9f9f9; padding: 10px; border: 1px solid #eee;">{{ target_content.content }}</div>
-            <p><a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank">View in Question Discussion &rarr;</a></p>
+            {% if target_content.question %}
+                <p><a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank">View in Question Discussion &rarr;</a></p>
+            {% endif %}
         {% elif report.content_type == 'resource' %}
             <p><strong>Title:</strong> {{ target_content.title }}</p>
             <p><strong>Filename:</strong> {{ target_content.filename }} ({{ target_content.formatted_size }})</p>

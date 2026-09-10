@@ -22,7 +22,7 @@
 </div>
 
 {% if reports %}
-<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+<table class="table-bordered" style="margin-bottom: 25px;">
     <thead style="background: #f3f4f6;">
         <tr>
             <th>ID</th>
@@ -44,7 +44,7 @@
             <td>{{ r.content_type|capitalize }} (#{{ r.content_id }})</td>
             <td>{{ r.content_snippet or '-' }}</td>
             <td><span style="color: #b91c1c;">{{ r.reason }}</span></td>
-            <td>{{ r.reporter.username }}</td>
+            <td>{{ r.reporter.username if r.reporter else 'Deleted User' }}</td>
             <td>
                 {% if r.status == 'pending' %}
                     <span style="color: #d97706; font-weight: bold;">PENDING</span>
@@ -84,7 +84,7 @@
 </div>
 
 {% if moderator_applications %}
-<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+<table class="table-bordered" style="margin-bottom: 25px;">
     <thead style="background: #f3f4f6;">
         <tr>
             <th>ID</th>
@@ -102,7 +102,7 @@
         <tr>
             <td>#{{ app.id }}</td>
             <td><strong>{{ app.faculty }}</strong></td>
-            <td>{{ app.applicant.username }} ({{ app.applicant.email }})</td>
+            <td>{{ app.applicant.username if app.applicant else 'Unknown' }} ({{ app.applicant.email if app.applicant else 'Unknown' }})</td>
             <td>{{ app.full_name }}</td>
             <td><code>{{ app.matric_number }}</code></td>
             <td>{{ app.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
@@ -131,7 +131,7 @@
 <hr>
 
 <h3>All Users &amp; Discipline Management</h3>
-<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+<table class="table-bordered" style="margin-bottom: 25px;">
     <thead style="background: #f3f4f6;">
         <tr>
             <th>ID</th>
@@ -152,8 +152,8 @@
             <td>
                 {% if u.role == 'Admin' %}
                     <span style="color: #6366f1; font-weight: bold;">Admin</span>
-                {% elif u.role == 'Moderator' %}
-                    <span style="color: #0284c7; font-weight: bold;">Moderator</span>
+                {% elif u.role in ('Community Moderator', 'Moderator') %}
+                    <span style="color: #0284c7; font-weight: bold;">Community Moderator</span>
                 {% elif u.role == 'Professor' %}
                     <span style="color: #0d9488; font-weight: bold;">Professor</span>
                 {% else %}
@@ -196,9 +196,9 @@
                                 </form>
                             {% endif %}
 
-                            <button type="button" onclick="openBanModal('{{ u.id }}', '{{ u.username|escape }}')" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Ban</button>
+                            <button type="button" data-user-id="{{ u.id }}" data-username="{{ u.username }}" onclick="openBanModal(this.dataset.userId, this.dataset.username)" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Ban</button>
 
-                            <button type="button" onclick="openWarnModal('{{ u.id }}', '{{ u.username|escape }}')" style="background: #ea580c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Warn</button>
+                            <button type="button" data-user-id="{{ u.id }}" data-username="{{ u.username }}" onclick="openWarnModal(this.dataset.userId, this.dataset.username)" style="background: #ea580c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Warn</button>
                         {% endif %}
                     </div>
                 {% endif %}
@@ -214,7 +214,7 @@
 <p style="color: #4b5563;">Emails listed below are blacklisted permanently. Users cannot log in or register a new account using any of these emails.</p>
 
 {% if banned_emails %}
-<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+<table class="table-bordered" style="margin-bottom: 25px;">
     <thead style="background: #fee2e2;">
         <tr>
             <th>ID</th>
@@ -290,7 +290,8 @@
 <script>
 function openBanModal(userId, username) {
     var form = document.getElementById('banForm');
-    form.action = "{{ url_for('admin_dashboard') }}/user/" + userId + "/ban";
+    var banUrlTemplate = "{{ url_for('admin_ban_user', user_id=0) }}";
+    form.action = banUrlTemplate.replace('/0/ban', '/' + encodeURIComponent(userId) + '/ban');
     document.getElementById('banUsername').textContent = username;
     document.getElementById('ban_reason').value = 'Violation of platform policies and community standards.';
     var modal = document.getElementById('banModal');
@@ -307,7 +308,8 @@ function openBanModal(userId, username) {
 
 function openWarnModal(userId, username) {
     var form = document.getElementById('warnForm');
-    form.action = "/user/" + userId + "/warn";
+    var warnUrlTemplate = "{{ url_for('issue_warning', user_id=0) }}";
+    form.action = warnUrlTemplate.replace('/0/warn', '/' + encodeURIComponent(userId) + '/warn');
     document.getElementById('warnUsername').textContent = username;
     document.getElementById('warn_message').value = '';
     var modal = document.getElementById('warnModal');

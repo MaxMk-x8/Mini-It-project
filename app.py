@@ -3,7 +3,7 @@ import random
 import uuid
 from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory, session, jsonify
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user, AnonymousUserMixin
 from flask_mail import Mail, Message
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
@@ -14,11 +14,11 @@ from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
     QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
     ALLOWED_SCREENSHOT_EXTENSIONS, MAX_SCREENSHOT_SIZE, MAX_SCREENSHOTS_COUNT,
-    ChangePasswordForm, LogoutForm, ReportForm, ReportActionForm,
+    ChangePasswordForm, LogoutForm, ReportActionForm,
     ModeratorApplicationForm, ModeratorApplicationReviewForm,
     ForgotPasswordForm, ResetPasswordForm, BanUserForm, SuspendUserForm, IssueWarningForm
 )
-from constants import FACULTIES, FACULTY_CODES, contains_profanity
+from constants import FACULTIES, FACULTY_CODES
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -53,8 +53,41 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 db.init_app(app)
 mail = Mail(app)
 
+class AnonymousUser(AnonymousUserMixin):
+    username = 'Anonymous'
+    faculty = None
+    role = 'Anonymous'
+
+    def is_student(self):
+        return False
+
+    def is_professor(self):
+        return False
+
+    def is_moderator(self):
+        return False
+
+    def is_admin(self):
+        return False
+
+    def is_suspended(self):
+        return False
+
+    @property
+    def unread_warnings_count(self):
+        return 0
+
+    @property
+    def has_pending_moderator_application(self):
+        return False
+
+    @property
+    def moderator_applications(self):
+        return []
+
 login_manager = LoginManager()
 login_manager.init_app(app)
+login_manager.anonymous_user = AnonymousUser
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'warning'
@@ -186,6 +219,8 @@ def verify_code(user_id):
 
             user.is_verified = True
             user.verification_code = None
+            user.verification_code_created_at = None
+            user.verification_resend_available_at = None
             user.verification_attempts = 0
             user.reset_login_lockout()
             db.session.commit()
@@ -221,7 +256,7 @@ def resend_code(user_id):
         return redirect(url_for('login'))
 
     now = datetime.now(timezone.utc)
-    if user.verification_resend_available_at:
+    if user.verification_code and user.verification_resend_available_at:
         avail = user.verification_resend_available_at
         if avail.tzinfo is None:
             avail = avail.replace(tzinfo=timezone.utc)
@@ -327,9 +362,16 @@ def forgot_password():
                 flash('This account has been permanently banned.', 'danger')
                 return render_template('forgot_password.html', form=form)
 
+            is_susp, susp_date, susp_reason = user.get_suspension_status()
+            if is_susp:
+                date_str = susp_date.strftime('%Y-%m-%d %H:%M UTC') if hasattr(susp_date, 'strftime') else str(susp_date)
+                reason_str = f" Reason: {susp_reason}" if susp_reason else ""
+                flash(f'Your account is temporarily suspended until {date_str}.{reason_str}', 'danger')
+                return render_template('forgot_password.html', form=form)
+
             now = datetime.now(timezone.utc)
-            # Check resend cooldown (30s)
-            if user.reset_resend_available_at:
+            # Check resend cooldown (30s) only if a reset code is currently active
+            if user.reset_code and user.reset_resend_available_at:
                 avail = user.reset_resend_available_at
                 if avail.tzinfo is None:
                     avail = avail.replace(tzinfo=timezone.utc)
@@ -382,6 +424,8 @@ def reset_password(user_id):
         if is_valid:
             user.set_password(form.new_password.data)
             user.reset_code = None
+            user.reset_code_created_at = None
+            user.reset_resend_available_at = None
             user.reset_attempts = 0
             user.reset_login_lockout()
             db.session.commit()
@@ -932,6 +976,10 @@ def moderator_application_action(app_id):
         application.admin_note = admin_note
 
         applicant_user = application.applicant
+        if not applicant_user:
+            flash('Applicant user account no longer exists.', 'danger')
+            return redirect(url_for('admin_dashboard'))
+
         if decision == 'approve':
             application.status = 'approved'
             applicant_user.role = 'Community Moderator'
@@ -1094,6 +1142,10 @@ def issue_warning(user_id):
     if not target_user:
         flash('User not found.', 'danger')
         return redirect(request.referrer or url_for('home'))
+
+    if target_user.is_admin():
+        flash('Cannot issue disciplinary warnings to an Administrator.', 'danger')
+        return redirect(request.referrer or url_for('admin_dashboard'))
 
     if current_user.is_moderator() and not current_user.is_admin():
         if target_user.faculty != current_user.faculty:
@@ -1339,6 +1391,7 @@ def qa_ask():
             return redirect(url_for('qa_detail', question_id=question.id))
 
         except Exception as e:
+            app.logger.error(f"Error saving question: {e}")
             db.session.rollback()
             delete_attachment_files(attachments)
             flash('An error occurred while saving your question. Please try again.', 'danger')
@@ -1404,6 +1457,7 @@ def qa_detail(question_id):
             return redirect(url_for('qa_detail', question_id=question.id))
 
         except Exception as e:
+            app.logger.error(f"Error submitting answer: {e}")
             db.session.rollback()
             delete_attachment_files(attachments)
             flash('An error occurred while submitting your answer. Please try again.', 'danger')

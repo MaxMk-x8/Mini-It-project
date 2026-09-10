@@ -8,7 +8,7 @@
 
 <h3>Pending Reports Queue ({{ assigned_faculty }})</h3>
 {% if pending_reports %}
-<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+<table class="table-bordered" style="margin-bottom: 25px;">
     <thead style="background: #f3f4f6;">
         <tr>
             <th>ID</th>
@@ -27,7 +27,7 @@
             <td><strong>{{ r.content_type|capitalize }}</strong> (#{{ r.content_id }})</td>
             <td>{{ r.content_snippet or '(No preview)' }}</td>
             <td><span style="color: #b91c1c;">{{ r.reason }}</span></td>
-            <td>{{ r.reporter.username }}</td>
+            <td>{{ r.reporter.username if r.reporter else 'Deleted User' }}</td>
             <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             <td>
                 <a href="{{ url_for('report_detail', report_id=r.id) }}" style="font-weight: bold;">Review &amp; Act &rarr;</a>
@@ -44,7 +44,7 @@
 
 <h3>Recently Handled Reports ({{ assigned_faculty }})</h3>
 {% if resolved_reports %}
-<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%;">
+<table class="table-bordered">
     <thead style="background: #f3f4f6;">
         <tr>
             <th>ID</th>
