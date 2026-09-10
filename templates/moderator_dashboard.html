@@ -1,6 +1,89 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Moderator Dashboard</h2>
-<p>Welcome, {{ user.username }} ({{ user.faculty }})</p>
-<p>Report management features go here later.</p>
+<h2>Community Moderator Dashboard</h2>
+<p>Welcome, <strong>{{ user.username }}</strong>. Your assigned moderation faculty is <strong>{{ assigned_faculty }}</strong>.</p>
+<p><em>You are authorized to review and act on reports originating from {{ assigned_faculty }} content only.</em></p>
+
+<hr>
+
+<h3>Pending Reports Queue ({{ assigned_faculty }})</h3>
+{% if pending_reports %}
+<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+    <thead style="background: #f3f4f6;">
+        <tr>
+            <th>ID</th>
+            <th>Type</th>
+            <th>Content Snippet</th>
+            <th>Reason</th>
+            <th>Reported By</th>
+            <th>Submitted</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in pending_reports %}
+        <tr>
+            <td>#{{ r.id }}</td>
+            <td><strong>{{ r.content_type|capitalize }}</strong> (#{{ r.content_id }})</td>
+            <td>{{ r.content_snippet or '(No preview)' }}</td>
+            <td><span style="color: #b91c1c;">{{ r.reason }}</span></td>
+            <td>{{ r.reporter.username }}</td>
+            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+                <a href="{{ url_for('report_detail', report_id=r.id) }}" style="font-weight: bold;">Review &amp; Act &rarr;</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color: #16a34a;">✔ No pending reports in the {{ assigned_faculty }} queue.</p>
+{% endif %}
+
+<hr>
+
+<h3>Recently Handled Reports ({{ assigned_faculty }})</h3>
+{% if resolved_reports %}
+<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%;">
+    <thead style="background: #f3f4f6;">
+        <tr>
+            <th>ID</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Handled By</th>
+            <th>Decision Note</th>
+            <th>Resolved At</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in resolved_reports %}
+        <tr>
+            <td>#{{ r.id }}</td>
+            <td>{{ r.content_type|capitalize }} (#{{ r.content_id }})</td>
+            <td>
+                {% if r.status == 'resolved' %}
+                    <span style="color: #059669; font-weight: bold;">RESOLVED</span>
+                {% elif r.status == 'dismissed' %}
+                    <span style="color: #6b7280; font-weight: bold;">DISMISSED</span>
+                {% elif r.status == 'content_removed' %}
+                    <span style="color: #dc2626; font-weight: bold;">REMOVED</span>
+                {% else %}
+                    {{ r.status }}
+                {% endif %}
+            </td>
+            <td>{{ r.reviewer.username if r.reviewer else 'Unknown' }}</td>
+            <td>{{ r.decision_note or '-' }}</td>
+            <td>{{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') if r.reviewed_at else '-' }}</td>
+            <td>
+                <a href="{{ url_for('report_detail', report_id=r.id) }}">View</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No handled reports recorded for {{ assigned_faculty }} yet.</p>
+{% endif %}
+
 {% endblock %}

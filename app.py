@@ -1,25 +1,30 @@
 import os
 import random
 import uuid
-from datetime import datetime, timezone
-from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory, session
+from datetime import datetime, timezone, timedelta
+from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory, session, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from PIL import Image
 
-from models import db, User, Question, Answer, Resource, AnswerBestMark, QAAttachment
+from models import db, User, Question, Answer, Resource, AnswerBestMark, QAAttachment, Report, ModeratorApplication, BannedEmail, UserWarning
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
     QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
-    ALLOWED_SCREENSHOT_EXTENSIONS, MAX_SCREENSHOT_SIZE, MAX_SCREENSHOTS_COUNT
+    ALLOWED_SCREENSHOT_EXTENSIONS, MAX_SCREENSHOT_SIZE, MAX_SCREENSHOTS_COUNT,
+    ChangePasswordForm, LogoutForm, ReportForm, ReportActionForm,
+    ModeratorApplicationForm, ModeratorApplicationReviewForm,
+    ForgotPasswordForm, ResetPasswordForm, BanUserForm, SuspendUserForm, IssueWarningForm
 )
-from constants import FACULTIES
+from constants import FACULTIES, FACULTY_CODES, contains_profanity
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'codenest-foundation-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///codenest.db'
@@ -74,6 +79,10 @@ def register():
     if form.validate_on_submit():
         email = form.email.data.strip().lower()
 
+        if BannedEmail.query.filter_by(email=email).first():
+            flash('This email address has been permanently banned from CodeNest.', 'danger')
+            return render_template('register.html', form=form)
+
         existing_user = User.query.filter(
             (User.email == email) | (User.username == form.username.data.strip())
         ).first()
@@ -98,6 +107,7 @@ def register():
             return render_template('register.html', form=form)
 
         code = str(random.randint(100000, 999999))
+        now = datetime.now(timezone.utc)
 
         user = User(
             username=form.username.data.strip(),
@@ -107,6 +117,9 @@ def register():
             verification_code=code,
             is_verified=False
         )
+        user.verification_code_created_at = now
+        user.verification_attempts = 0
+        user.verification_resend_available_at = now + timedelta(seconds=30)
         user.set_password(form.password.data)
 
         db.session.add(user)
@@ -139,6 +152,17 @@ def verify_code(user_id):
         flash('User not found.', 'danger')
         return redirect(url_for('register'))
 
+    if user.is_banned:
+        flash('This account has been permanently banned from CodeNest.', 'danger')
+        return redirect(url_for('login'))
+
+    is_susp, susp_date, susp_reason = user.get_suspension_status()
+    if is_susp:
+        date_str = susp_date.strftime('%Y-%m-%d %H:%M UTC') if hasattr(susp_date, 'strftime') else str(susp_date)
+        reason_str = f" Reason: {susp_reason}" if susp_reason else ""
+        flash(f'Your account is temporarily suspended until {date_str}.{reason_str}', 'danger')
+        return redirect(url_for('login'))
+
     if user.is_verified:
         flash('Your account is already verified.', 'info')
         if current_user.is_authenticated:
@@ -147,31 +171,70 @@ def verify_code(user_id):
 
     form = VerificationForm()
     if form.validate_on_submit():
-        if form.code.data.strip() == user.verification_code:
+        is_valid, err_msg = user.is_verification_code_valid(form.code.data.strip())
+        if is_valid:
+            if user.is_banned:
+                flash('This account has been permanently banned from CodeNest.', 'danger')
+                return redirect(url_for('login'))
+
+            is_susp, susp_date, susp_reason = user.get_suspension_status()
+            if is_susp:
+                date_str = susp_date.strftime('%Y-%m-%d %H:%M UTC') if hasattr(susp_date, 'strftime') else str(susp_date)
+                reason_str = f" Reason: {susp_reason}" if susp_reason else ""
+                flash(f'Your account is temporarily suspended until {date_str}.{reason_str}', 'danger')
+                return redirect(url_for('login'))
+
             user.is_verified = True
+            user.verification_code = None
+            user.verification_attempts = 0
+            user.reset_login_lockout()
             db.session.commit()
             login_user(user)
             flash(f'Account verified successfully! Welcome, {user.username}!', 'success')
             return redirect(url_for('home'))
         else:
-            flash('Invalid verification code.', 'danger')
+            flash(err_msg, 'danger')
 
     return render_template('verify_code.html', form=form, user=user)
 
 
-@app.route('/resend-code/<int:user_id>')
+@app.route('/resend-code/<int:user_id>', methods=['GET', 'POST'])
 def resend_code(user_id):
     user = db.session.get(User, user_id)
     if not user:
         flash('User not found.', 'danger')
         return redirect(url_for('register'))
 
+    if user.is_banned:
+        flash('This account has been permanently banned from CodeNest.', 'danger')
+        return redirect(url_for('login'))
+
+    is_susp, susp_date, susp_reason = user.get_suspension_status()
+    if is_susp:
+        date_str = susp_date.strftime('%Y-%m-%d %H:%M UTC') if hasattr(susp_date, 'strftime') else str(susp_date)
+        reason_str = f" Reason: {susp_reason}" if susp_reason else ""
+        flash(f'Your account is temporarily suspended until {date_str}.{reason_str}', 'danger')
+        return redirect(url_for('login'))
+
     if user.is_verified:
         flash('Your account is already verified.', 'info')
         return redirect(url_for('login'))
 
+    now = datetime.now(timezone.utc)
+    if user.verification_resend_available_at:
+        avail = user.verification_resend_available_at
+        if avail.tzinfo is None:
+            avail = avail.replace(tzinfo=timezone.utc)
+        if now < avail:
+            remaining = int((avail - now).total_seconds())
+            flash(f'Please wait {max(1, remaining)} seconds before requesting a new verification code.', 'warning')
+            return redirect(url_for('verify_code', user_id=user.id))
+
     code = str(random.randint(100000, 999999))
     user.verification_code = code
+    user.verification_code_created_at = now
+    user.verification_attempts = 0
+    user.verification_resend_available_at = now + timedelta(seconds=30)
     db.session.commit()
 
     # Log new verification code to console for local development
@@ -183,9 +246,9 @@ def resend_code(user_id):
             sender=app.config['MAIL_USERNAME'],
             recipients=[user.email]
         )
-        msg.body = f'Hi {user.username},\n\nYour new CodeNest verification code is: {code}\n\nEnter this code to activate your account.'
+        msg.body = f'Hi {user.username},\n\nYour new CodeNest verification code is: {code}\n\nEnter this code to activate your account. This code expires in 5 minutes.'
         mail.send(msg)
-        flash('A new verification code has been sent to your email.', 'info')
+        flash('A new verification code has been sent to your email (expires in 5 minutes).', 'info')
     except Exception as e:
         flash(f'Failed to send verification email: {e}. [Dev Mode Code: {code}]', 'warning')
 
@@ -206,22 +269,218 @@ def login():
             (User.email == credential.lower()) | (User.username == credential)
         ).first()
 
-        if user and user.check_password(password):
-            if not user.is_verified:
-                flash('Please verify your account before logging in.', 'warning')
-                return redirect(url_for('verify_code', user_id=user.id))
-            login_user(user)
-            flash(f'Welcome back, {user.username}!', 'success')
-            return redirect(url_for('home'))
+        if user:
+            if user.is_banned:
+                flash('This account has been permanently banned from CodeNest.', 'danger')
+                return render_template('login.html', form=form)
+
+            is_susp, susp_date, susp_reason = user.get_suspension_status()
+            if is_susp:
+                date_str = susp_date.strftime('%Y-%m-%d %H:%M UTC') if hasattr(susp_date, 'strftime') else str(susp_date)
+                reason_str = f" Reason: {susp_reason}" if susp_reason else ""
+                flash(f'Your account is temporarily suspended until {date_str}.{reason_str}', 'danger')
+                return render_template('login.html', form=form)
+
+            is_locked, remaining_sec = user.is_locked_out()
+            if is_locked:
+                flash(f'Account temporarily locked due to multiple failed login attempts. Please try again in {remaining_sec} seconds.', 'danger')
+                return render_template('login.html', form=form)
+
+            if user.check_password(password):
+                user.reset_login_lockout()
+                if not user.is_verified:
+                    flash('Please verify your account before logging in.', 'warning')
+                    return redirect(url_for('verify_code', user_id=user.id))
+                login_user(user)
+                flash(f'Welcome back, {user.username}!', 'success')
+                return redirect(url_for('home'))
+            else:
+                is_locked, lockout_or_left = user.record_failed_login(max_attempts=5, lockout_seconds=60)
+                if is_locked:
+                    flash('Account temporarily locked for 60 seconds due to 5 consecutive failed login attempts.', 'danger')
+                else:
+                    flash(f'Invalid email/username or password. {lockout_or_left} attempts remaining before temporary lockout.', 'danger')
         else:
             flash('Invalid email/username or password.', 'danger')
 
     return render_template('login.html', form=form)
 
 
-@app.route('/logout')
+# -------------------------------
+# FORGOT & RESET PASSWORD ROUTES
+# -------------------------------
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        credential = form.email_or_username.data.strip().lower()
+        user = User.query.filter(
+            (User.email == credential) | (User.username == form.email_or_username.data.strip())
+        ).first()
+
+        if user:
+            if user.is_banned:
+                flash('This account has been permanently banned.', 'danger')
+                return render_template('forgot_password.html', form=form)
+
+            now = datetime.now(timezone.utc)
+            # Check resend cooldown (30s)
+            if user.reset_resend_available_at:
+                avail = user.reset_resend_available_at
+                if avail.tzinfo is None:
+                    avail = avail.replace(tzinfo=timezone.utc)
+                if now < avail:
+                    remaining = int((avail - now).total_seconds())
+                    flash(f'Please wait {max(1, remaining)} seconds before requesting another reset code.', 'warning')
+                    return redirect(url_for('reset_password', user_id=user.id))
+
+            code = str(random.randint(100000, 999999))
+            user.reset_code = code
+            user.reset_code_created_at = now
+            user.reset_attempts = 0
+            user.reset_resend_available_at = now + timedelta(seconds=30)
+            db.session.commit()
+
+            print(f"\n========================================\n[CodeNest Password Reset OTP] Reset code for {user.username} ({user.email}): {code}\n========================================\n", flush=True)
+
+            try:
+                msg = Message(
+                    subject='CodeNest - Password Reset Code',
+                    sender=app.config['MAIL_USERNAME'],
+                    recipients=[user.email]
+                )
+                msg.body = f'Hi {user.username},\n\nYour CodeNest password reset code is: {code}\n\nThis code expires in 5 minutes. If you did not request this, please ignore this email.'
+                mail.send(msg)
+                flash('A 6-digit password reset code has been sent to your email.', 'info')
+            except Exception as e:
+                flash(f'Failed to send reset email: {e}. [Dev Mode Code: {code}]', 'warning')
+
+            return redirect(url_for('reset_password', user_id=user.id))
+        else:
+            flash('No account found with that email or username.', 'danger')
+
+    return render_template('forgot_password.html', form=form)
+
+
+@app.route('/reset-password/<int:user_id>', methods=['GET', 'POST'])
+def reset_password(user_id):
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        is_valid, err_msg = user.is_reset_code_valid(form.code.data.strip())
+        if is_valid:
+            user.set_password(form.new_password.data)
+            user.reset_code = None
+            user.reset_attempts = 0
+            user.reset_login_lockout()
+            db.session.commit()
+            flash('Password reset successful! You may now log in with your new password.', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash(err_msg, 'danger')
+
+    return render_template('reset_password.html', form=form, user=user)
+
+
+@app.route('/resend-reset-code/<int:user_id>', methods=['GET', 'POST'])
+def resend_reset_code(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    now = datetime.now(timezone.utc)
+    if user.reset_resend_available_at:
+        avail = user.reset_resend_available_at
+        if avail.tzinfo is None:
+            avail = avail.replace(tzinfo=timezone.utc)
+        if now < avail:
+            remaining = int((avail - now).total_seconds())
+            flash(f'Please wait {max(1, remaining)} seconds before requesting a new reset code.', 'warning')
+            return redirect(url_for('reset_password', user_id=user.id))
+
+    code = str(random.randint(100000, 999999))
+    user.reset_code = code
+    user.reset_code_created_at = now
+    user.reset_attempts = 0
+    user.reset_resend_available_at = now + timedelta(seconds=30)
+    db.session.commit()
+
+    print(f"\n========================================\n[CodeNest Password Reset OTP] New reset code for {user.username} ({user.email}): {code}\n========================================\n", flush=True)
+
+    try:
+        msg = Message(
+            subject='CodeNest - Password Reset Code',
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[user.email]
+        )
+        msg.body = f'Hi {user.username},\n\nYour new CodeNest password reset code is: {code}\n\nThis code expires in 5 minutes.'
+        mail.send(msg)
+        flash('A new password reset code has been sent to your email.', 'info')
+    except Exception as e:
+        flash(f'Failed to send reset email: {e}. [Dev Mode Code: {code}]', 'warning')
+
+    return redirect(url_for('reset_password', user_id=user.id))
+
+
+# -------------------------------
+# SETTINGS & AUTH ROUTES (MOHAMMAD - WEEK 4)
+# -------------------------------
+
+@app.route('/settings')
+@login_required
+def settings():
+    logout_form = LogoutForm()
+    return render_template('settings.html', logout_form=logout_form)
+
+
+@app.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        current_pw = form.current_password.data
+        new_pw = form.new_password.data
+
+        if not current_user.check_password(current_pw):
+            flash('Current password is incorrect.', 'danger')
+            return render_template('change_password.html', form=form)
+
+        if current_pw == new_pw:
+            flash('New password must be different from current password.', 'danger')
+            return render_template('change_password.html', form=form)
+
+        current_user.set_password(new_pw)
+        db.session.commit()
+        flash('Your password has been changed successfully.', 'success')
+        return redirect(url_for('settings'))
+
+    return render_template('change_password.html', form=form)
+
+
+@app.route('/logout', methods=['GET', 'POST'])
 @login_required
 def logout():
+    if request.method == 'GET':
+        flash('Logout must be performed via Settings.', 'warning')
+        return redirect(url_for('settings'))
+
+    form = LogoutForm()
+    if not form.validate_on_submit():
+        flash('Invalid logout request or expired CSRF token.', 'danger')
+        return redirect(url_for('settings'))
+
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('home'))
@@ -265,7 +524,21 @@ def moderator_dashboard():
     if not current_user.is_moderator():
         flash('Not authorized to view the moderator dashboard.', 'danger')
         return redirect(url_for('home'))
-    return render_template('moderator_dashboard.html', user=current_user)
+
+    assigned_faculty = current_user.faculty
+    pending_reports = Report.query.filter_by(faculty=assigned_faculty, status='pending').order_by(Report.created_at.desc()).all()
+    resolved_reports = Report.query.filter(
+        Report.faculty == assigned_faculty,
+        Report.status != 'pending'
+    ).order_by(Report.reviewed_at.desc()).limit(30).all()
+
+    return render_template(
+        'moderator_dashboard.html',
+        user=current_user,
+        assigned_faculty=assigned_faculty,
+        pending_reports=pending_reports,
+        resolved_reports=resolved_reports
+    )
 
 
 @app.route('/dashboard/admin')
@@ -277,7 +550,596 @@ def admin_dashboard():
 
     total_users = User.query.count()
     all_users = User.query.all()
-    return render_template('admin_dashboard.html', user=current_user, total_users=total_users, all_users=all_users)
+
+    selected_faculty = request.args.get('faculty', '').strip()
+    status_filter = request.args.get('status', 'pending').strip()
+
+    reports_query = Report.query
+    if selected_faculty in FACULTY_CODES:
+        reports_query = reports_query.filter(Report.faculty == selected_faculty)
+
+    if status_filter == 'pending':
+        reports = reports_query.filter_by(status='pending').order_by(Report.created_at.desc()).all()
+    elif status_filter == 'handled':
+        reports = reports_query.filter(Report.status != 'pending').order_by(Report.reviewed_at.desc()).all()
+    else:
+        status_filter = 'all'
+        reports = reports_query.order_by(Report.created_at.desc()).all()
+
+    app_status_filter = request.args.get('app_status', 'pending').strip()
+    apps_query = ModeratorApplication.query
+    if selected_faculty in FACULTY_CODES:
+        apps_query = apps_query.filter(ModeratorApplication.faculty == selected_faculty)
+
+    if app_status_filter == 'pending':
+        moderator_applications = apps_query.filter_by(status='pending').order_by(ModeratorApplication.created_at.desc()).all()
+    elif app_status_filter == 'handled':
+        moderator_applications = apps_query.filter(ModeratorApplication.status != 'pending').order_by(ModeratorApplication.reviewed_at.desc()).all()
+    else:
+        app_status_filter = 'all'
+        moderator_applications = apps_query.order_by(ModeratorApplication.created_at.desc()).all()
+
+    banned_emails = BannedEmail.query.order_by(BannedEmail.created_at.desc()).all()
+    ban_form = BanUserForm()
+    suspend_form = SuspendUserForm()
+    warn_form = IssueWarningForm()
+
+    return render_template(
+        'admin_dashboard.html',
+        user=current_user,
+        total_users=total_users,
+        all_users=all_users,
+        reports=reports,
+        moderator_applications=moderator_applications,
+        app_status_filter=app_status_filter,
+        selected_faculty=selected_faculty,
+        status_filter=status_filter,
+        faculties=FACULTIES,
+        banned_emails=banned_emails,
+        ban_form=ban_form,
+        suspend_form=suspend_form,
+        warn_form=warn_form
+    )
+
+
+# -------------------------------
+# REPORTING & MODERATION ROUTES (MOHAMMAD - WEEK 4)
+# -------------------------------
+
+@app.route('/report', methods=['POST'])
+@login_required
+def submit_report():
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+
+    content_type = (request.form.get('content_type') or '').strip().lower()
+    content_id_raw = request.form.get('content_id')
+    reason = (request.form.get('reason') or '').strip()
+    details = (request.form.get('details') or '').strip()
+
+    if not content_type or not content_id_raw or not reason:
+        msg = 'Missing required report parameters.'
+        if is_ajax:
+            return jsonify({'success': False, 'error': msg}), 400
+        flash(msg, 'danger')
+        return redirect(request.referrer or url_for('home'))
+
+    try:
+        content_id = int(content_id_raw)
+    except ValueError:
+        msg = 'Invalid content ID.'
+        if is_ajax:
+            return jsonify({'success': False, 'error': msg}), 400
+        flash(msg, 'danger')
+        return redirect(request.referrer or url_for('home'))
+
+    # Validate content exists and determine faculty strictly on the server
+    target_faculty = None
+    content_snippet = None
+
+    if content_type == 'question':
+        question = db.session.get(Question, content_id)
+        if not question:
+            msg = 'The question being reported does not exist.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': msg}), 404
+            flash(msg, 'danger')
+            return redirect(request.referrer or url_for('home'))
+        target_faculty = question.faculty
+        content_snippet = f"Question: {question.title}"
+
+    elif content_type in ('answer', 'reply'):
+        answer = db.session.get(Answer, content_id)
+        if not answer or not answer.question:
+            msg = 'The answer/reply being reported does not exist.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': msg}), 404
+            flash(msg, 'danger')
+            return redirect(request.referrer or url_for('home'))
+        target_faculty = answer.question.faculty
+        prefix = "Reply" if answer.parent_answer_id else "Answer"
+        content_snippet = f"{prefix} on '{answer.question.title}': {answer.content[:80]}"
+
+    elif content_type == 'resource':
+        resource = db.session.get(Resource, content_id)
+        if not resource:
+            msg = 'The resource being reported does not exist.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': msg}), 404
+            flash(msg, 'danger')
+            return redirect(request.referrer or url_for('home'))
+        target_faculty = resource.faculty
+        content_snippet = f"Resource: {resource.title}"
+
+    else:
+        msg = 'Unsupported content type for reporting.'
+        if is_ajax:
+            return jsonify({'success': False, 'error': msg}), 400
+        flash(msg, 'danger')
+        return redirect(request.referrer or url_for('home'))
+
+    # Check for duplicate pending report by the same user
+    existing = Report.query.filter_by(
+        reporter_id=current_user.id,
+        content_type=content_type,
+        content_id=content_id,
+        status='pending'
+    ).first()
+    if existing:
+        msg = 'You already have a pending report for this item. Our moderation team is reviewing it.'
+        if is_ajax:
+            return jsonify({'success': False, 'error': msg}), 400
+        flash(msg, 'warning')
+        return redirect(request.referrer or url_for('home'))
+
+    report = Report(
+        reporter_id=current_user.id,
+        content_type=content_type,
+        content_id=content_id,
+        faculty=target_faculty,
+        reason=reason,
+        details=details,
+        content_snippet=content_snippet,
+        status='pending'
+    )
+    db.session.add(report)
+    db.session.commit()
+
+    success_msg = f'Report submitted successfully for {content_type} #{content_id}. Routed to {target_faculty} moderation.'
+    if is_ajax:
+        return jsonify({'success': True, 'message': success_msg})
+    flash(success_msg, 'success')
+    return redirect(request.referrer or url_for('home'))
+
+
+@app.route('/reports/<int:report_id>')
+@login_required
+def report_detail(report_id):
+    report = db.session.get(Report, report_id)
+    if not report:
+        flash('Report not found.', 'danger')
+        if current_user.is_admin():
+            return redirect(url_for('admin_dashboard'))
+        elif current_user.is_moderator():
+            return redirect(url_for('moderator_dashboard'))
+        return redirect(url_for('home'))
+
+    # Authorization Check:
+    # Admin can access any report.
+    # Moderator can access ONLY if report.faculty == current_user.faculty.
+    # Others: Forbidden (403).
+    if not (current_user.is_admin() or (current_user.is_moderator() and report.faculty == current_user.faculty)):
+        abort(403)
+
+    target_content = report.get_target_content()
+    form = ReportActionForm()
+
+    return render_template(
+        'report_detail.html',
+        report=report,
+        target_content=target_content,
+        form=form
+    )
+
+
+@app.route('/reports/<int:report_id>/action', methods=['POST'])
+@login_required
+def report_action(report_id):
+    report = db.session.get(Report, report_id)
+    if not report:
+        flash('Report not found.', 'danger')
+        return redirect(url_for('home'))
+
+    # Authorization Check:
+    if not (current_user.is_admin() or (current_user.is_moderator() and report.faculty == current_user.faculty)):
+        abort(403)
+
+    # Prevent conflicting actions if report has already been handled
+    if report.status != 'pending':
+        flash('This report has already been handled and cannot be modified.', 'warning')
+        return redirect(url_for('report_detail', report_id=report.id))
+
+    form = ReportActionForm()
+    if not form.validate_on_submit():
+        flash('Invalid action submission or missing CSRF token.', 'danger')
+        return redirect(url_for('report_detail', report_id=report.id))
+
+    action = form.action.data
+    decision_note = form.decision_note.data.strip() if form.decision_note.data else ''
+
+    if action not in ('resolve', 'dismiss', 'remove_content'):
+        flash('Invalid moderation action selected.', 'danger')
+        return redirect(url_for('report_detail', report_id=report.id))
+
+    now_utc = datetime.now(timezone.utc)
+
+    if action == 'resolve':
+        report.status = 'resolved'
+        report.action_taken = 'resolved'
+    elif action == 'dismiss':
+        report.status = 'dismissed'
+        report.action_taken = 'dismissed'
+    elif action == 'remove_content':
+        report.status = 'content_removed'
+        report.action_taken = 'content_removed'
+
+        # Execute content removal using existing helpers & attachment cleanup
+        if report.content_type == 'question':
+            q = db.session.get(Question, report.content_id)
+            if q:
+                attachments = list(q.attachments)
+                for ans in q.answers:
+                    attachments.extend(ans.attachments)
+                delete_attachment_files(attachments)
+                q.best_answer_id = None
+                db.session.delete(q)
+
+        elif report.content_type in ('answer', 'reply'):
+            ans = db.session.get(Answer, report.content_id)
+            if ans:
+                if ans.is_best_answer or (ans.question and ans.question.best_answer_id == ans.id):
+                    ans.question.best_answer_id = None
+                attachments = list(ans.attachments)
+                for r in ans.replies:
+                    attachments.extend(r.attachments)
+                delete_attachment_files(attachments)
+                db.session.delete(ans)
+
+        elif report.content_type == 'resource':
+            res = db.session.get(Resource, report.content_id)
+            if res:
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], res.stored_filename)
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        app.logger.warning(f"Failed to remove resource file: {e}")
+                db.session.delete(res)
+
+        # Update any other pending reports for the exact same content to prevent conflicting actions
+        other_reports = Report.query.filter(
+            Report.content_type == report.content_type,
+            Report.content_id == report.content_id,
+            Report.id != report.id,
+            Report.status == 'pending'
+        ).all()
+        for other in other_reports:
+            other.status = 'content_removed'
+            other.action_taken = 'content_removed'
+            other.reviewed_by_id = current_user.id
+            other.reviewed_at = now_utc
+            other.decision_note = f"Content was removed when handling Report #{report.id}: {decision_note}"
+
+    report.reviewed_by_id = current_user.id
+    report.reviewed_at = now_utc
+    report.decision_note = decision_note
+
+    db.session.commit()
+    flash(f'Report #{report.id} successfully updated (Action: {report.action_taken}).', 'success')
+
+    if current_user.is_admin():
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('moderator_dashboard'))
+
+
+# -------------------------------
+# MODERATOR APPLICATION MODULE ROUTES
+# -------------------------------
+
+@app.route('/moderator/apply', methods=['GET', 'POST'])
+@login_required
+def moderator_apply():
+    if not current_user.is_student():
+        flash('Only students can apply to become a Community Moderator.', 'warning')
+        return redirect(url_for('dashboard'))
+
+    if current_user.has_pending_moderator_application:
+        flash('You already have a pending moderator application. Please wait for an administrator to review it.', 'info')
+        return redirect(url_for('moderator_status'))
+
+    form = ModeratorApplicationForm()
+    if request.method == 'GET':
+        form.faculty.data = current_user.faculty
+
+    if form.validate_on_submit():
+        application = ModeratorApplication(
+            user_id=current_user.id,
+            full_name=form.full_name.data.strip(),
+            matric_number=form.matric_number.data.strip(),
+            faculty=form.faculty.data,
+            reason=form.reason.data.strip(),
+            status='pending'
+        )
+        db.session.add(application)
+        db.session.commit()
+        flash('Your application has been submitted successfully! An administrator will review it.', 'success')
+        return redirect(url_for('moderator_status'))
+
+    return render_template('moderator_apply.html', form=form)
+
+
+@app.route('/moderator/application-status')
+@login_required
+def moderator_status():
+    applications = ModeratorApplication.query.filter_by(user_id=current_user.id).order_by(ModeratorApplication.created_at.desc()).all()
+    latest_app = applications[0] if applications else None
+    return render_template('moderator_status.html', applications=applications, latest_app=latest_app)
+
+
+@app.route('/dashboard/admin/application/<int:app_id>')
+@login_required
+def moderator_application_detail(app_id):
+    if not current_user.is_admin():
+        flash('Not authorized to view moderator applications.', 'danger')
+        return redirect(url_for('home'))
+
+    application = db.session.get(ModeratorApplication, app_id)
+    if not application:
+        flash('Application not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    review_form = ModeratorApplicationReviewForm()
+    return render_template(
+        'moderator_application_detail.html',
+        application=application,
+        applicant=application.applicant,
+        form=review_form
+    )
+
+
+@app.route('/dashboard/admin/application/<int:app_id>/action', methods=['POST'])
+@login_required
+def moderator_application_action(app_id):
+    if not current_user.is_admin():
+        flash('Not authorized to perform this action.', 'danger')
+        return redirect(url_for('home'))
+
+    application = db.session.get(ModeratorApplication, app_id)
+    if not application:
+        flash('Application not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    if application.status != 'pending':
+        flash('This application has already been reviewed.', 'warning')
+        return redirect(url_for('moderator_application_detail', app_id=app_id))
+
+    form = ModeratorApplicationReviewForm()
+    if form.validate_on_submit():
+        decision = form.action.data
+        admin_note = (form.admin_note.data or '').strip()
+
+        application.reviewed_by_id = current_user.id
+        application.reviewed_at = datetime.now(timezone.utc)
+        application.admin_note = admin_note
+
+        applicant_user = application.applicant
+        if decision == 'approve':
+            application.status = 'approved'
+            applicant_user.role = 'Community Moderator'
+            applicant_user.faculty = application.faculty
+            flash(f"Application approved! '{applicant_user.username}' is now a Community Moderator for {application.faculty}.", 'success')
+        else:
+            application.status = 'rejected'
+            flash(f"Application for '{applicant_user.username}' has been rejected.", 'info')
+
+        db.session.commit()
+        return redirect(url_for('admin_dashboard'))
+
+    flash('Invalid review form submission.', 'danger')
+    return redirect(url_for('moderator_application_detail', app_id=app_id))
+
+
+# -------------------------------
+# USER DISCIPLINE & INBOX ROUTES
+# -------------------------------
+
+@app.route('/dashboard/admin/user/<int:user_id>/ban', methods=['POST'])
+@login_required
+def admin_ban_user(user_id):
+    if not current_user.is_admin():
+        abort(403)
+
+    target_user = db.session.get(User, user_id)
+    if not target_user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    if target_user.is_admin():
+        flash('Cannot ban an Administrator.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    form = BanUserForm()
+    reason = form.reason.data.strip() if (form.validate_on_submit() and form.reason.data) else (request.form.get('reason', '').strip() or 'Violation of platform policies')
+
+    target_user.is_banned = True
+
+    existing_ban = BannedEmail.query.filter_by(email=target_user.email.lower()).first()
+    if not existing_ban:
+        banned_record = BannedEmail(
+            email=target_user.email.lower(),
+            username_snapshot=target_user.username,
+            reason=reason,
+            banned_by_id=current_user.id
+        )
+        db.session.add(banned_record)
+
+    db.session.commit()
+    flash(f"User '{target_user.username}' ({target_user.email}) has been permanently banned and their email blacklisted.", 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/dashboard/admin/user/<int:user_id>/unban', methods=['POST'])
+@login_required
+def admin_unban_user(user_id):
+    if not current_user.is_admin():
+        abort(403)
+
+    target_user = db.session.get(User, user_id)
+    if not target_user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    target_user.is_banned = False
+
+    banned_record = BannedEmail.query.filter_by(email=target_user.email.lower()).first()
+    if banned_record:
+        db.session.delete(banned_record)
+
+    db.session.commit()
+    flash(f"User '{target_user.username}' has been unbanned. Account access and email registration restored.", 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/dashboard/admin/banned-email/<int:banned_id>/unban', methods=['POST'])
+@login_required
+def admin_unban_email(banned_id):
+    if not current_user.is_admin():
+        abort(403)
+
+    banned_record = db.session.get(BannedEmail, banned_id)
+    if not banned_record:
+        flash('Banned email record not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    user = User.query.filter_by(email=banned_record.email.lower()).first()
+    if user:
+        user.is_banned = False
+
+    email_str = banned_record.email
+    db.session.delete(banned_record)
+    db.session.commit()
+    flash(f"Email '{email_str}' has been unbanned and removed from the blacklist.", 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/dashboard/admin/user/<int:user_id>/suspend', methods=['POST'])
+@login_required
+def admin_suspend_user(user_id):
+    if not current_user.is_admin():
+        abort(403)
+
+    target_user = db.session.get(User, user_id)
+    if not target_user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    if target_user.is_admin():
+        flash('Cannot suspend an Administrator.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    form = SuspendUserForm()
+    if form.validate_on_submit():
+        days = form.days.data or 30
+        reason = form.reason.data.strip() if form.reason.data else 'Account temporarily suspended by administration'
+    else:
+        try:
+            days = int(request.form.get('days', 30))
+        except (ValueError, TypeError):
+            days = 30
+        reason = request.form.get('reason', '').strip() or 'Account temporarily suspended by administration'
+
+    target_user.suspended_until = datetime.now(timezone.utc) + timedelta(days=days)
+    target_user.suspension_reason = reason
+    db.session.commit()
+
+    flash(f"User '{target_user.username}' has been suspended for {days} days.", 'warning')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/dashboard/admin/user/<int:user_id>/unsuspend', methods=['POST'])
+@login_required
+def admin_unsuspend_user(user_id):
+    if not current_user.is_admin():
+        abort(403)
+
+    target_user = db.session.get(User, user_id)
+    if not target_user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    target_user.suspended_until = None
+    target_user.suspension_reason = None
+    db.session.commit()
+
+    flash(f"Suspension for user '{target_user.username}' has been lifted.", 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/user/<int:user_id>/warn', methods=['POST'])
+@login_required
+def issue_warning(user_id):
+    if not (current_user.is_admin() or current_user.is_moderator()):
+        abort(403)
+
+    target_user = db.session.get(User, user_id)
+    if not target_user:
+        flash('User not found.', 'danger')
+        return redirect(request.referrer or url_for('home'))
+
+    if current_user.is_moderator() and not current_user.is_admin():
+        if target_user.faculty != current_user.faculty:
+            flash(f"Moderators can only issue warnings to users in their own faculty ({current_user.faculty}).", 'danger')
+            return redirect(request.referrer or url_for('moderator_dashboard'))
+
+    message = request.form.get('message', '').strip()
+    if not message or len(message) < 5:
+        flash('Warning message must be at least 5 characters long.', 'danger')
+        return redirect(request.referrer or url_for('home'))
+
+    sender_role = 'Administrator' if current_user.is_admin() else f'{current_user.faculty} Community Moderator'
+    warning = UserWarning(
+        user_id=target_user.id,
+        issued_by_id=current_user.id,
+        sender_role=sender_role,
+        faculty=current_user.faculty,
+        title='Official Account Warning',
+        message=message
+    )
+    db.session.add(warning)
+    db.session.commit()
+
+    flash(f"Official warning sent to '{target_user.username}'. It will appear in their Inbox.", 'success')
+    return redirect(request.referrer or url_for('home'))
+
+
+@app.route('/inbox')
+@login_required
+def inbox():
+    warnings = UserWarning.query.filter_by(user_id=current_user.id).order_by(UserWarning.created_at.desc()).all()
+    return render_template('inbox.html', warnings=warnings)
+
+
+@app.route('/inbox/<int:warning_id>/read', methods=['POST'])
+@login_required
+def mark_warning_read(warning_id):
+    warning = db.session.get(UserWarning, warning_id)
+    if not warning or warning.user_id != current_user.id:
+        abort(404)
+
+    warning.is_read = True
+    db.session.commit()
+    flash('Warning marked as acknowledged.', 'info')
+    return redirect(url_for('inbox'))
+
 
 
 #-------------------------------
@@ -843,6 +1705,47 @@ def resource_delete(resource_id):
 @app.context_processor
 def inject_global_vars():
     return dict(app_name="Codenest")
+
+
+# -------------------------------
+# BAN & SUSPENSION ENFORCEMENT HOOK
+# -------------------------------
+@app.before_request
+def check_account_restrictions():
+    if current_user.is_authenticated:
+        try:
+            db.session.refresh(current_user)
+        except Exception:
+            pass
+
+        is_restricted = False
+        message = ""
+
+        if current_user.is_banned:
+            is_restricted = True
+            message = "This account has been permanently banned from CodeNest."
+        else:
+            is_susp, susp_date, susp_reason = current_user.get_suspension_status()
+            if is_susp:
+                is_restricted = True
+                date_str = susp_date.strftime('%Y-%m-%d %H:%M UTC') if hasattr(susp_date, 'strftime') else str(susp_date)
+                reason_str = f" Reason: {susp_reason}" if susp_reason else ""
+                message = f"Your account is temporarily suspended until {date_str}.{reason_str}"
+
+        if is_restricted:
+            logout_user()
+            session.clear()
+
+            is_ajax = (
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+                or request.is_json
+                or request.accept_mimetypes.best == 'application/json'
+            )
+            if is_ajax:
+                return jsonify({'error': message, 'status': 'restricted'}), 403
+
+            flash(message, 'danger')
+            return redirect(url_for('login'))
 
 
 

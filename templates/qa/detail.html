@@ -205,6 +205,7 @@
                         </span>
                     {% else %}
                         <form method="POST" action="{{ url_for('mark_best_answer', answer_id=ans.id) }}" style="display: inline; margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             {% if current_user.is_professor() %}
                                 <button type="submit" style="cursor: pointer; padding: 4px 12px; border-radius: 4px; font-size: 0.88em; font-weight: bold; {% if ans.is_marked_by(current_user) %}background-color: #d4af37; color: #212529; border: 1px solid #b8860b;{% else %}background-color: #fffdf5; color: #856404; border: 1px solid #d4af37;{% endif %}">
                                     {% if ans.is_marked_by(current_user) %}
@@ -232,6 +233,7 @@
                         <a href="{{ url_for('edit_answer', answer_id=ans.id) }}">Edit</a>
                         &nbsp;|&nbsp;
                         <form method="POST" action="{{ url_for('delete_answer', answer_id=ans.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this answer?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" style="color: red; background: none; border: none; padding: 0; text-decoration: underline; cursor: pointer;">
                                 Delete
                             </button>
@@ -327,6 +329,7 @@
                                     <a href="{{ url_for('edit_answer', answer_id=reply.id) }}">Edit</a>
                                     &nbsp;|&nbsp;
                                     <form method="POST" action="{{ url_for('delete_answer', answer_id=reply.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this reply?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" style="color: red; background: none; border: none; padding: 0; text-decoration: underline; cursor: pointer;">
                                             Delete
                                         </button>
@@ -403,6 +406,7 @@
         </p>
 
         <form id="report-form" onsubmit="handleReportSubmit(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" id="report-content-type" name="content_type" value="">
             <input type="hidden" id="report-content-id" name="content_id" value="">
 
@@ -538,26 +542,54 @@
 
     function handleReportSubmit(e) {
         e.preventDefault();
-        var type = document.getElementById('report-content-type').value;
-        var id = document.getElementById('report-content-id').value;
-        var reason = document.getElementById('report-reason').value;
-        var details = document.getElementById('report-details').value;
+        var form = document.getElementById('report-form');
         var statusMsg = document.getElementById('report-status-msg');
         var submitBtn = document.getElementById('report-submit-btn');
 
-        // Note: When Mohammad connects the backend report submission endpoint,
-        // this can perform a POST fetch to Mohammad's route e.g. /report
-        statusMsg.style.display = 'block';
-        statusMsg.style.background = '#d4edda';
-        statusMsg.style.color = '#155724';
-        statusMsg.style.border = '1px solid #c3e6cb';
-        statusMsg.innerHTML = '✔ Report logged for ' + type + ' #' + id + ' (Reason: ' + reason + '). Thank you for helping keep CodeNest safe!';
         submitBtn.disabled = true;
-        submitBtn.innerText = 'Submitted';
+        submitBtn.innerText = 'Submitting...';
 
-        setTimeout(function() {
-            closeReportModal();
-        }, 1800);
+        fetch("{{ url_for('submit_report') }}", {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(function(res) {
+            return res.json().then(function(data) {
+                return { status: res.status, data: data };
+            });
+        })
+        .then(function(result) {
+            statusMsg.style.display = 'block';
+            if (result.status === 200 && result.data.success) {
+                statusMsg.style.background = '#d4edda';
+                statusMsg.style.color = '#155724';
+                statusMsg.style.border = '1px solid #c3e6cb';
+                statusMsg.innerHTML = '✔ ' + result.data.message;
+                submitBtn.innerText = 'Submitted';
+                setTimeout(function() {
+                    closeReportModal();
+                }, 1800);
+            } else {
+                statusMsg.style.background = '#f8d7da';
+                statusMsg.style.color = '#721c24';
+                statusMsg.style.border = '1px solid #f5c6cb';
+                statusMsg.innerHTML = '✖ ' + (result.data.error || 'Failed to submit report.');
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Submit Report';
+            }
+        })
+        .catch(function(err) {
+            statusMsg.style.display = 'block';
+            statusMsg.style.background = '#f8d7da';
+            statusMsg.style.color = '#721c24';
+            statusMsg.style.border = '1px solid #f5c6cb';
+            statusMsg.innerHTML = '✖ An unexpected error occurred. Please try again.';
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Submit Report';
+        });
     }
 
     // Close modals on Esc key

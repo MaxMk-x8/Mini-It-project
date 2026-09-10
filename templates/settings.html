@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Settings</h2>
+
+<p>Logged in as: <strong>{{ current_user.username }}</strong> ({{ current_user.role }} - {{ current_user.faculty }})</p>
+
+<ul>
+    <li>
+        <a href="{{ url_for('dashboard') }}">My Dashboard</a>
+    </li>
+    <li>
+        <a href="{{ url_for('change_password') }}">Change Password</a>
+    </li>
+    {% if current_user.is_student() %}
+    <li>
+        {% if current_user.has_pending_moderator_application %}
+            <a href="{{ url_for('moderator_status') }}">Moderator Application (Pending Review)</a>
+        {% else %}
+            <a href="{{ url_for('moderator_apply') }}">Apply as Community Moderator</a>
+        {% endif %}
+    </li>
+    {% elif current_user.moderator_applications %}
+    <li>
+        <a href="{{ url_for('moderator_status') }}">Moderator Application Record</a>
+    </li>
+    {% endif %}
+    <li style="margin-top: 10px;">
+        <form method="POST" action="{{ url_for('logout') }}" style="display: inline;">
+            {{ logout_form.hidden_tag() }}
+            <button type="submit">Logout</button>
+        </form>
+    </li>
+</ul>
+{% endblock %}

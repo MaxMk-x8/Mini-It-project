@@ -10,8 +10,8 @@
         <a href="{{ url_for('qa_list') }}">Q&A</a> |
         <a href="{{ url_for('resources_list') }}">Resources</a> |
         {% if current_user.is_authenticated %}
-            <a href="{{ url_for('dashboard') }}">My Dashboard</a> |
-            <a href="{{ url_for('logout') }}">Logout ({{ current_user.username }})</a>
+            <a href="{{ url_for('inbox') }}">Inbox{% if current_user.unread_warnings_count > 0 %} <span style="background: #ef4444; color: white; border-radius: 9999px; padding: 1px 7px; font-size: 0.75rem; font-weight: bold;">{{ current_user.unread_warnings_count }}</span>{% endif %}</a> |
+            <a href="{{ url_for('settings') }}" title="Settings" aria-label="Settings">☰</a>
         {% else %}
             <a href="{{ url_for('login') }}">Login</a> |
             <a href="{{ url_for('register') }}">Register</a>
@@ -19,6 +19,14 @@
     </nav>
 
     <hr>
+
+    {% if current_user.is_authenticated and current_user.unread_warnings_count > 0 %}
+        <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
+            <p style="margin: 0; color: #991b1b; font-weight: bold;">
+                ⚠️ You have {{ current_user.unread_warnings_count }} official warning(s) in your <a href="{{ url_for('inbox') }}" style="color: #b91c1c; text-decoration: underline;">Inbox</a>. Please review and acknowledge them.
+            </p>
+        </div>
+    {% endif %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}

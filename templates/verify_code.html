@@ -2,16 +2,21 @@
 {% block content %}
 <h2>Verify Your Account</h2>
 <p>A 6-digit code has been sent to <strong>{{ user.email }}</strong>. Check your inbox (and spam folder).</p>
+<p style="color: #64748b; font-size: 0.9rem;">
+    ⏱ <strong>Validity:</strong> 5 minutes from generation. &bull; 
+    🎯 <strong>Attempts remaining:</strong> <span style="font-weight: bold; color: {% if (user.verification_attempts or 0) >= 3 %}#dc2626{% else %}#16a34a{% endif %};">{{ 5 - (user.verification_attempts or 0) }} / 5</span>
+</p>
 <form method="POST">
     {{ form.hidden_tag() }}
     <p>
         {{ form.code.label }}<br>
-        {{ form.code() }}
+        {{ form.code(style="font-family: monospace; font-size: 1.1rem; letter-spacing: 2px;", maxlength=6) }}
         {% for error in form.code.errors %}
-            <span style="color: red;">{{ error }}</span>
+            <br><span style="color: red;">{{ error }}</span>
         {% endfor %}
     </p>
     <p>{{ form.submit() }}</p>
 </form>
-<p>Didn't receive the code? <a href="{{ url_for('resend_code', user_id=user.id) }}">Resend Code</a></p>
+<p>Didn't receive the code or need a fresh one? <a href="{{ url_for('resend_code', user_id=user.id) }}" style="font-weight: bold;">Resend Code</a> <small style="color: #64748b;">(30-second cooldown)</small></p>
 {% endblock %}
+

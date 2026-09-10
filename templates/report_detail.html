@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Review Report #{{ report.id }}</h2>
+
+<p>
+    {% if current_user.is_admin() %}
+        <a href="{{ url_for('admin_dashboard') }}">&larr; Back to Admin Dashboard</a>
+    {% else %}
+        <a href="{{ url_for('moderator_dashboard') }}">&larr; Back to Moderator Dashboard</a>
+    {% endif %}
+</p>
+
+<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 4px; background: #fafafa;">
+    <h3>Report Details</h3>
+    <p><strong>Faculty:</strong> {{ report.faculty }}</p>
+    <p><strong>Content Type:</strong> {{ report.content_type|capitalize }} (ID: #{{ report.content_id }})</p>
+    <p><strong>Status:</strong> 
+        {% if report.status == 'pending' %}
+            <span style="color: #d97706; font-weight: bold;">PENDING</span>
+        {% elif report.status == 'resolved' %}
+            <span style="color: #059669; font-weight: bold;">RESOLVED</span>
+        {% elif report.status == 'dismissed' %}
+            <span style="color: #6b7280; font-weight: bold;">DISMISSED</span>
+        {% elif report.status == 'content_removed' %}
+            <span style="color: #dc2626; font-weight: bold;">CONTENT REMOVED</span>
+        {% else %}
+            <span>{{ report.status }}</span>
+        {% endif %}
+    </p>
+    <p><strong>Reason:</strong> {{ report.reason }}</p>
+    <p><strong>Reporter:</strong> {{ report.reporter.username }} ({{ report.reporter.role }}) on {{ report.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</p>
+    <p><strong>Additional Details:</strong></p>
+    <blockquote style="background: #fff; border-left: 3px solid #ccc; padding: 8px 12px; margin: 0 0 10px 0;">
+        {{ report.details if report.details else 'No additional details provided.' }}
+    </blockquote>
+</div>
+
+<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 4px; background: #fff;">
+    <h3>Reported Content Preview</h3>
+    {% if target_content %}
+        {% if report.content_type == 'question' %}
+            <p><strong>Title:</strong> {{ target_content.title }}</p>
+            <p><strong>Category:</strong> {{ target_content.category }} | <strong>Faculty:</strong> {{ target_content.faculty }}</p>
+            <p><strong>Author:</strong> {{ target_content.author.username }}</p>
+            <p><strong>Content:</strong></p>
+            <div style="background: #f9f9f9; padding: 10px; border: 1px solid #eee;">{{ target_content.content }}</div>
+            <p><a href="{{ url_for('qa_detail', question_id=target_content.id) }}" target="_blank">View Live Question Page &rarr;</a></p>
+        {% elif report.content_type in ('answer', 'reply') %}
+            <p><strong>Question:</strong> <a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank">{{ target_content.question.title }}</a></p>
+            <p><strong>Type:</strong> {{ 'Reply' if target_content.parent_answer_id else 'Top-Level Answer' }}</p>
+            <p><strong>Author:</strong> {{ target_content.author.username }}</p>
+            <p><strong>Content:</strong></p>
+            <div style="background: #f9f9f9; padding: 10px; border: 1px solid #eee;">{{ target_content.content }}</div>
+            <p><a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank">View in Question Discussion &rarr;</a></p>
+        {% elif report.content_type == 'resource' %}
+            <p><strong>Title:</strong> {{ target_content.title }}</p>
+            <p><strong>Filename:</strong> {{ target_content.filename }} ({{ target_content.formatted_size }})</p>
+            <p><strong>Faculty:</strong> {{ target_content.faculty }} | <strong>Category:</strong> {{ target_content.category }}</p>
+            <p><strong>Uploader:</strong> {{ target_content.uploader.username }}</p>
+            <p><strong>Description:</strong> {{ target_content.description or 'None' }}</p>
+        {% endif %}
+    {% else %}
+        <p style="color: #b91c1c;"><em>The reported content has already been removed from the platform or deleted.</em></p>
+        {% if report.content_snippet %}
+            <p><strong>Saved Excerpt / Title:</strong></p>
+            <div style="background: #f9f9f9; padding: 10px; border: 1px solid #eee;">{{ report.content_snippet }}</div>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% if report.status == 'pending' %}
+<div style="border: 2px solid #2563eb; padding: 15px; border-radius: 4px; background: #eff6ff; margin-bottom: 20px;">
+    <h3 style="margin-top: 0; color: #1d4ed8;">Take Moderation Action</h3>
+    <form method="POST" action="{{ url_for('report_action', report_id=report.id) }}">
+        {{ form.hidden_tag() }}
+
+        <p>
+            {{ form.action.label }}<br>
+            {{ form.action() }}
+            {% for error in form.action.errors %}
+                <br><span style="color: red;">{{ error }}</span>
+            {% endfor %}
+        </p>
+
+        <p>
+            {{ form.decision_note.label }}<br>
+            {{ form.decision_note(rows=4, cols=60, placeholder="Explain the rationale for this decision (recorded in audit log)...") }}
+            {% for error in form.decision_note.errors %}
+                <br><span style="color: red;">{{ error }}</span>
+            {% endfor %}
+        </p>
+
+        <p>
+            {{ form.submit() }}
+        </p>
+    </form>
+</div>
+{% else %}
+<div style="border: 1px solid #10b981; padding: 15px; border-radius: 4px; background: #ecfdf5; margin-bottom: 20px;">
+    <h3 style="margin-top: 0; color: #065f46;">Resolution History</h3>
+    <p><strong>Handled By:</strong> {{ report.reviewer.username if report.reviewer else 'Unknown' }} ({{ report.reviewer.role if report.reviewer else 'User' }})</p>
+    <p><strong>Action Taken:</strong> {{ report.action_taken }}</p>
+    <p><strong>Reviewed At:</strong> {{ report.reviewed_at.strftime('%Y-%m-%d %H:%M:%S UTC') if report.reviewed_at else 'N/A' }}</p>
+    <p><strong>Decision Note:</strong> {{ report.decision_note or 'No decision note recorded.' }}</p>
+</div>
+{% endif %}
+
+{% set content_author = None %}
+{% if target_content %}
+    {% if report.content_type in ('question', 'answer', 'reply') %}
+        {% set content_author = target_content.author %}
+    {% elif report.content_type == 'resource' %}
+        {% set content_author = target_content.uploader %}
+    {% endif %}
+{% endif %}
+
+{% if content_author and not content_author.is_admin() and (current_user.is_admin() or (current_user.is_moderator() and content_author.faculty == current_user.faculty)) %}
+<div style="border: 2px solid #ea580c; padding: 15px; border-radius: 4px; background: #fff7ed; margin-top: 20px;">
+    <h3 style="margin-top: 0; color: #c2410c;">Issue Official Warning to Author: {{ content_author.username }}</h3>
+    <p style="color: #4b5563; font-size: 0.9rem;">
+        Send an official disciplinary warning directly to <strong>{{ content_author.username }}</strong> regarding this reported content. The warning will be delivered immediately to their navbar Inbox.
+    </p>
+    <form method="POST" action="{{ url_for('issue_warning', user_id=content_author.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="margin-bottom: 10px;">
+            <label for="warning_msg" style="font-weight: bold; font-size: 0.9rem; color: #374151;">Warning Message (min 5 chars):</label><br>
+            <textarea id="warning_msg" name="message" rows="3" style="width: 100%; box-sizing: border-box; margin-top: 5px; padding: 8px; border: 1px solid #fed7aa; border-radius: 4px;" placeholder="e.g. Your post in {{ report.faculty }} violated CodeNest community guidelines. Please ensure all contributions remain civil and constructive." required></textarea>
+        </div>
+        <button type="submit" style="background: #ea580c; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+            Send Official Warning &rarr;
+        </button>
+    </form>
+</div>
+{% endif %}
+
+{% endblock %}

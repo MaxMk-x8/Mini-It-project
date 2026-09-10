@@ -15,6 +15,6 @@
             <br><span style="color: red;">{{ error }}</span>
         {% endfor %}
     </p>
-    <p>{{ form.submit() }}</p>
+    <p>{{ form.submit() }} &nbsp;&nbsp; <a href="{{ url_for('forgot_password') }}">Forgot Password?</a></p>
 </form>
 {% endblock %}

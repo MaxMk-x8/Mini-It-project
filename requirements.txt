@@ -3,31 +3,29 @@
 # Install once with: pip install -r requirements.txt
 # =========================================================
 
-# Core Flask
-Flask
+# Core Web Framework
+Flask==3.1.3
 
-# Database
-Flask-SQLAlchemy
+# Database & ORM
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.52
 
-# Authentication / sessions
-Flask-Login
+# Authentication & Session Management
+Flask-Login==0.6.3
 
-# Forms + CSRF protection
-Flask-WTF
-WTForms
+# Forms, Validation & CSRF Protection
+Flask-WTF==1.3.0
+WTForms==3.2.2
+email-validator==2.3.0
 
-# Password hashing, secure filenames (comes with Flask, listed explicitly)
-Werkzeug
+# Security, Password Hashing & Utilities
+Werkzeug==3.1.8
 
-# Required by WTForms' Email() validator (registration form)
-email_validator
+# Email & OTP Delivery (Flask-Mail)
+Flask-Mail==0.10.0
 
-# Email sending (OTP emails, answer notifications - future features)
-Flask-Mail
+# Environment Variable Configuration (.env)
+python-dotenv==1.2.3
 
-# Environment variable loading (SECRET_KEY, email credentials, etc.)
-python-dotenv
-
-# Image processing and screenshot validation (Habib - Week 4)
-Pillow
-
+# Image Processing & Screenshot Validation
+Pillow==12.3.0

@@ -14,5 +14,14 @@
     <li><strong>Q&A Forum:</strong> Ask questions, explore discussions, and find solutions in the <a href="{{ url_for('qa_list') }}">Q&A Forum</a>.</li>
     <li><strong>Faculty Support:</strong> Receive answers with faculty insights directly from MMU Professors.</li>
     <li><strong>Resources:</strong> Access shared study materials, guides, and programming notes.</li>
+    <li>
+        <strong>Community Moderator:</strong> 
+        {% if user.has_pending_moderator_application %}
+            Your application is currently pending review. <a href="{{ url_for('moderator_status') }}" style="font-weight: bold;">View Status &rarr;</a>
+        {% else %}
+            Help moderate discussions and resources for {{ user.faculty }}. <a href="{{ url_for('moderator_apply') }}" style="font-weight: bold;">Apply to become a Community Moderator &rarr;</a>
+            (<a href="{{ url_for('moderator_status') }}">Check Status</a>)
+        {% endif %}
+    </li>
 </ul>
 {% endblock %}

@@ -1,21 +1,325 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Admin Dashboard</h2>
+<p>Welcome, <strong>{{ user.username }}</strong>. You have full platform access across all faculties.</p>
 <p>Total Users: {{ total_users }}</p>
 
-<h3>All Users</h3>
-<table border="1" cellpadding="5">
-    <tr>
-        <th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Faculty</th>
-    </tr>
-    {% for u in all_users %}
-    <tr>
-        <td>{{ u.id }}</td>
-        <td>{{ u.username }}</td>
-        <td>{{ u.email }}</td>
-        <td>{{ u.role }}</td>
-        <td>{{ u.faculty }}</td>
-    </tr>
+<hr>
+
+<h3>Platform Moderation &amp; Reports Queue</h3>
+
+<div style="margin-bottom: 15px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+    <strong>Filter by Faculty:</strong>
+    <a href="{{ url_for('admin_dashboard', faculty='', status=status_filter) }}" style="margin: 0 5px; {% if not selected_faculty %}font-weight: bold; text-decoration: underline;{% endif %}">All Faculties</a> |
+    {% for code, name in faculties %}
+        <a href="{{ url_for('admin_dashboard', faculty=code, status=status_filter) }}" style="margin: 0 5px; {% if selected_faculty == code %}font-weight: bold; text-decoration: underline;{% endif %}">{{ code }} ({{ name }})</a> |
     {% endfor %}
+    
+    <span style="margin-left: 20px;"><strong>Status:</strong></span>
+    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status='pending') }}" style="margin: 0 5px; {% if status_filter == 'pending' %}font-weight: bold; text-decoration: underline;{% endif %}">Pending</a> |
+    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status='handled') }}" style="margin: 0 5px; {% if status_filter == 'handled' %}font-weight: bold; text-decoration: underline;{% endif %}">Handled</a> |
+    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status='all') }}" style="margin: 0 5px; {% if status_filter == 'all' %}font-weight: bold; text-decoration: underline;{% endif %}">All</a>
+</div>
+
+{% if reports %}
+<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+    <thead style="background: #f3f4f6;">
+        <tr>
+            <th>ID</th>
+            <th>Faculty</th>
+            <th>Type</th>
+            <th>Snippet</th>
+            <th>Reason</th>
+            <th>Reported By</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in reports %}
+        <tr>
+            <td>#{{ r.id }}</td>
+            <td><strong>{{ r.faculty }}</strong></td>
+            <td>{{ r.content_type|capitalize }} (#{{ r.content_id }})</td>
+            <td>{{ r.content_snippet or '-' }}</td>
+            <td><span style="color: #b91c1c;">{{ r.reason }}</span></td>
+            <td>{{ r.reporter.username }}</td>
+            <td>
+                {% if r.status == 'pending' %}
+                    <span style="color: #d97706; font-weight: bold;">PENDING</span>
+                {% elif r.status == 'resolved' %}
+                    <span style="color: #059669; font-weight: bold;">RESOLVED</span>
+                {% elif r.status == 'dismissed' %}
+                    <span style="color: #6b7280; font-weight: bold;">DISMISSED</span>
+                {% elif r.status == 'content_removed' %}
+                    <span style="color: #dc2626; font-weight: bold;">REMOVED</span>
+                {% else %}
+                    {{ r.status }}
+                {% endif %}
+            </td>
+            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+                <a href="{{ url_for('report_detail', report_id=r.id) }}" style="font-weight: bold;">
+                    {% if r.status == 'pending' %}Review &amp; Act &rarr;{% else %}View Audit &rarr;{% endif %}
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
+{% else %}
+<p>No reports found for the selected filter.</p>
+{% endif %}
+
+<hr>
+
+<h3>Community Moderator Applications Queue</h3>
+
+<div style="margin-bottom: 15px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+    <strong>Filter Applications:</strong>
+    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status='pending') }}" style="margin: 0 5px; {% if app_status_filter == 'pending' %}font-weight: bold; text-decoration: underline;{% endif %}">Pending</a> |
+    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status='handled') }}" style="margin: 0 5px; {% if app_status_filter == 'handled' %}font-weight: bold; text-decoration: underline;{% endif %}">Handled</a> |
+    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status='all') }}" style="margin: 0 5px; {% if app_status_filter == 'all' %}font-weight: bold; text-decoration: underline;{% endif %}">All</a>
+</div>
+
+{% if moderator_applications %}
+<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+    <thead style="background: #f3f4f6;">
+        <tr>
+            <th>ID</th>
+            <th>Faculty</th>
+            <th>Applicant</th>
+            <th>Full Name</th>
+            <th>Student ID / Matric</th>
+            <th>Submitted</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in moderator_applications %}
+        <tr>
+            <td>#{{ app.id }}</td>
+            <td><strong>{{ app.faculty }}</strong></td>
+            <td>{{ app.applicant.username }} ({{ app.applicant.email }})</td>
+            <td>{{ app.full_name }}</td>
+            <td><code>{{ app.matric_number }}</code></td>
+            <td>{{ app.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+                {% if app.status == 'pending' %}
+                    <span style="color: #d97706; font-weight: bold;">PENDING</span>
+                {% elif app.status == 'approved' %}
+                    <span style="color: #059669; font-weight: bold;">APPROVED</span>
+                {% elif app.status == 'rejected' %}
+                    <span style="color: #dc2626; font-weight: bold;">REJECTED</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('moderator_application_detail', app_id=app.id) }}" style="font-weight: bold;">
+                    {% if app.status == 'pending' %}Review &amp; Decide &rarr;{% else %}View Audit &rarr;{% endif %}
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No moderator applications found for the selected filter.</p>
+{% endif %}
+
+<hr>
+
+<h3>All Users &amp; Discipline Management</h3>
+<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+    <thead style="background: #f3f4f6;">
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Faculty</th>
+            <th>Account Status</th>
+            <th>Discipline Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in all_users %}
+        <tr>
+            <td>{{ u.id }}</td>
+            <td><strong>{{ u.username }}</strong></td>
+            <td>{{ u.email }}</td>
+            <td>
+                {% if u.role == 'Admin' %}
+                    <span style="color: #6366f1; font-weight: bold;">Admin</span>
+                {% elif u.role == 'Moderator' %}
+                    <span style="color: #0284c7; font-weight: bold;">Moderator</span>
+                {% elif u.role == 'Professor' %}
+                    <span style="color: #0d9488; font-weight: bold;">Professor</span>
+                {% else %}
+                    <span>Student</span>
+                {% endif %}
+            </td>
+            <td>{{ u.faculty }}</td>
+            <td>
+                {% if u.is_banned %}
+                    <span style="background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">BANNED</span>
+                {% elif u.is_suspended() %}
+                    <span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">SUSPENDED (30d)</span><br>
+                    <small style="color: #6b7280;">Until {{ u.suspended_until.strftime('%Y-%m-%d %H:%M') }} UTC</small>
+                {% else %}
+                    <span style="background: #d1fae5; color: #047857; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">ACTIVE</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if u.is_admin() %}
+                    <span style="color: #9ca3af; font-size: 0.85rem; font-style: italic;">Protected (Admin)</span>
+                {% else %}
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                        {% if u.is_banned %}
+                            <form method="POST" action="{{ url_for('admin_unban_user', user_id=u.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" style="background: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;" onclick="return confirm('Lift permanent ban for {{ u.username }} and restore their account?');">Unban User</button>
+                            </form>
+                        {% else %}
+                            {% if u.is_suspended() %}
+                                <form method="POST" action="{{ url_for('admin_unsuspend_user', user_id=u.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" style="background: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;" onclick="return confirm('Lift 30-day suspension for {{ u.username }}?');">Lift Suspension</button>
+                                </form>
+                            {% else %}
+                                <form method="POST" action="{{ url_for('admin_suspend_user', user_id=u.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="days" value="30">
+                                    <input type="hidden" name="reason" value="30-day temporary suspension imposed by administration.">
+                                    <button type="submit" style="background: #f59e0b; color: #1f2937; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;" onclick="return confirm('Suspend {{ u.username }} for 30 days? They will not be able to log in.');">Suspend (30d)</button>
+                                </form>
+                            {% endif %}
+
+                            <button type="button" onclick="openBanModal('{{ u.id }}', '{{ u.username|escape }}')" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Ban</button>
+
+                            <button type="button" onclick="openWarnModal('{{ u.id }}', '{{ u.username|escape }}')" style="background: #ea580c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Warn</button>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<hr>
+
+<h3>Permanently Banned Emails Blacklist</h3>
+<p style="color: #4b5563;">Emails listed below are blacklisted permanently. Users cannot log in or register a new account using any of these emails.</p>
+
+{% if banned_emails %}
+<table border="1" cellpadding="6" style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+    <thead style="background: #fee2e2;">
+        <tr>
+            <th>ID</th>
+            <th>Blacklisted Email</th>
+            <th>Username Snapshot</th>
+            <th>Reason</th>
+            <th>Banned By</th>
+            <th>Date Blacklisted</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for b in banned_emails %}
+        <tr>
+            <td>#{{ b.id }}</td>
+            <td><strong>{{ b.email }}</strong></td>
+            <td>{{ b.username_snapshot or '-' }}</td>
+            <td>{{ b.reason or 'Policy violation' }}</td>
+            <td>{{ b.banned_by_admin.username if b.banned_by_admin else 'Admin' }}</td>
+            <td>{{ b.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</td>
+            <td>
+                <form method="POST" action="{{ url_for('admin_unban_email', banned_id=b.id) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" style="background: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;" onclick="return confirm('Remove {{ b.email }} from permanent ban blacklist?');">Unban Email</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color: #059669;">✔ No banned emails currently blacklisted.</p>
+{% endif %}
+
+<!-- Permanent Ban Modal Dialog -->
+<dialog id="banModal" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; max-width: 480px; width: 90%; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);">
+    <form method="POST" id="banForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h4 style="margin-top: 0; color: #b91c1c;">Permanently Ban User: <span id="banUsername"></span></h4>
+        <p style="color: #64748b; font-size: 0.9rem;">
+            This will immediately prevent this user from logging in, lock their account, and blacklist their email address from ever registering again on CodeNest.
+        </p>
+        <div style="margin-bottom: 15px;">
+            <label for="ban_reason" style="font-weight: bold; font-size: 0.9rem;">Reason for Permanent Ban:</label><br>
+            <textarea id="ban_reason" name="reason" rows="3" style="width: 100%; box-sizing: border-box; margin-top: 5px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;"></textarea>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" onclick="document.getElementById('banModal').close();" style="padding: 6px 14px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+            <button type="submit" style="padding: 6px 14px; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Confirm Ban</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Issue Warning Modal Dialog -->
+<dialog id="warnModal" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; max-width: 480px; width: 90%; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);">
+    <form method="POST" id="warnForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h4 style="margin-top: 0; color: #c2410c;">Issue Official Warning: <span id="warnUsername"></span></h4>
+        <p style="color: #64748b; font-size: 0.9rem;">
+            This warning will be delivered directly to the user's Inbox in the navigation bar and flagged prominently.
+        </p>
+        <div style="margin-bottom: 15px;">
+            <label for="warn_message" style="font-weight: bold; font-size: 0.9rem;">Warning Message:</label><br>
+            <textarea id="warn_message" name="message" rows="4" style="width: 100%; box-sizing: border-box; margin-top: 5px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;" placeholder="Describe the violation and required behavior..." required></textarea>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" onclick="document.getElementById('warnModal').close();" style="padding: 6px 14px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+            <button type="submit" style="padding: 6px 14px; background: #ea580c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Send Warning</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+function openBanModal(userId, username) {
+    var form = document.getElementById('banForm');
+    form.action = "{{ url_for('admin_dashboard') }}/user/" + userId + "/ban";
+    document.getElementById('banUsername').textContent = username;
+    document.getElementById('ban_reason').value = 'Violation of platform policies and community standards.';
+    var modal = document.getElementById('banModal');
+    if (modal && modal.showModal) {
+        modal.showModal();
+    } else {
+        var reason = prompt('Enter reason to permanently ban ' + username + ':', 'Violation of platform policies');
+        if (reason !== null) {
+            document.getElementById('ban_reason').value = reason;
+            form.submit();
+        }
+    }
+}
+
+function openWarnModal(userId, username) {
+    var form = document.getElementById('warnForm');
+    form.action = "/user/" + userId + "/warn";
+    document.getElementById('warnUsername').textContent = username;
+    document.getElementById('warn_message').value = '';
+    var modal = document.getElementById('warnModal');
+    if (modal && modal.showModal) {
+        modal.showModal();
+    } else {
+        var msg = prompt('Enter warning message for ' + username + ':');
+        if (msg) {
+            document.getElementById('warn_message').value = msg;
+            form.submit();
+        }
+    }
+}
+</script>
 {% endblock %}

@@ -75,6 +75,7 @@
                         <a href="{{ url_for('resource_edit', resource_id=r.id) }}">Edit</a>
                         &nbsp;|&nbsp;
                         <form method="POST" action="{{ url_for('resource_delete', resource_id=r.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to permanently delete this resource?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" style="background: none; border: none; color: red; cursor: pointer; padding: 0; text-decoration: underline;">Delete</button>
                         </form>
                     {% endif %}

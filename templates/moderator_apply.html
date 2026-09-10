@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Apply to Become a Community Moderator</h2>
+
+<p>
+    <a href="{{ url_for('student_dashboard') }}">&larr; Back to Student Dashboard</a> |
+    <a href="{{ url_for('moderator_status') }}">View Application Status</a>
+</p>
+
+<div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 14px; margin-bottom: 20px;">
+    <h4 style="margin-top: 0; color: #0369a1;">About the Community Moderator Role</h4>
+    <p style="margin-bottom: 6px; font-size: 0.95rem;">
+        Community Moderators help maintain academic integrity and supportive discussion within CodeNest. 
+        Moderators are <strong>faculty-scoped</strong>: upon approval, you will oversee questions, answers, and study resources originating from your faculty.
+    </p>
+    <ul style="margin: 0; padding-left: 20px; font-size: 0.9rem; color: #334155;">
+        <li>Review reported posts and study resources within your faculty.</li>
+        <li>Help resolve disputes and uphold community guidelines.</li>
+        <li>Receive the official <strong>Community Moderator</strong> badge across discussions.</li>
+    </ul>
+</div>
+
+<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; max-width: 650px;">
+    <p style="margin-top: 0;">
+        Applicant Account: <strong>{{ current_user.username }}</strong> (<code>{{ current_user.email }}</code>)
+    </p>
+
+    <form method="POST" action="{{ url_for('moderator_apply') }}">
+        {{ form.hidden_tag() }}
+
+        <div style="margin-bottom: 16px;">
+            {{ form.full_name.label(style="font-weight: bold; display: block; margin-bottom: 5px;") }}
+            {{ form.full_name(style="width: 100%; max-width: 400px; padding: 7px; border: 1px solid #ccc; border-radius: 4px;", placeholder="e.g. Alex Tan Wei Ming") }}
+            {% for error in form.full_name.errors %}
+                <p style="color: #dc2626; margin: 4px 0 0 0; font-size: 0.85rem;">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div style="margin-bottom: 16px;">
+            {{ form.matric_number.label(style="font-weight: bold; display: block; margin-bottom: 5px;") }}
+            {{ form.matric_number(style="width: 100%; max-width: 300px; padding: 7px; border: 1px solid #ccc; border-radius: 4px;", placeholder="e.g. 1211102345") }}
+            {% for error in form.matric_number.errors %}
+                <p style="color: #dc2626; margin: 4px 0 0 0; font-size: 0.85rem;">{{ error }}</p>
+            {% endfor %}
+            <small style="color: #64748b; display: block; margin-top: 4px;">Enter your official MMU Student ID / Matric Number.</small>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+            {{ form.faculty.label(style="font-weight: bold; display: block; margin-bottom: 5px;") }}
+            {{ form.faculty(style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;") }}
+            {% for error in form.faculty.errors %}
+                <p style="color: #dc2626; margin: 4px 0 0 0; font-size: 0.85rem;">{{ error }}</p>
+            {% endfor %}
+            <small style="color: #64748b; display: block; margin-top: 4px;">Moderation duties will be restricted strictly to this faculty.</small>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            {{ form.reason.label(style="font-weight: bold; display: block; margin-bottom: 5px;") }}
+            {{ form.reason(rows="6", style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;", placeholder="Please share why you wish to be a moderator, your involvement in the faculty community, and any relevant experience...") }}
+            {% for error in form.reason.errors %}
+                <p style="color: #dc2626; margin: 4px 0 0 0; font-size: 0.85rem;">{{ error }}</p>
+            {% endfor %}
+            <small style="color: #64748b; display: block; margin-top: 4px;">Minimum 20 characters.</small>
+        </div>
+
+        <div>
+            {{ form.submit(style="background: #2563eb; color: white; border: none; padding: 9px 20px; font-weight: bold; border-radius: 4px; cursor: pointer;") }}
+            <a href="{{ url_for('student_dashboard') }}" style="margin-left: 12px; color: #64748b; text-decoration: none;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
