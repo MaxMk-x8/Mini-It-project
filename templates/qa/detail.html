@@ -8,16 +8,30 @@
     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
         <h2 style="margin-top: 0; margin-bottom: 8px;">{{ question.title }}</h2>
         {% if current_user.is_authenticated %}
-            <button type="button" onclick="openReportModal('question', {{ question.id }}, '{{ question.title|replace('\'', '\\\'') }}')" style="background: none; border: 1px solid #dc3545; color: #dc3545; padding: 3px 8px; border-radius: 4px; font-size: 0.82em; cursor: pointer; white-space: nowrap;" title="Report this question">
-                🚩 Report
-            </button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <form method="POST" action="{{ url_for('toggle_save_question', question_id=question.id) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    {% if current_user.has_saved_question(question.id) %}
+                        <button type="submit" title="Remove bookmark" style="background: #e0f2fe; border: 1px solid #0284c7; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 0.82em; cursor: pointer; white-space: nowrap;">
+                            ★ Bookmarked
+                        </button>
+                    {% else %}
+                        <button type="submit" title="Bookmark this question" style="background: none; border: 1px solid #64748b; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 0.82em; cursor: pointer; white-space: nowrap;">
+                            ☆ Bookmark
+                        </button>
+                    {% endif %}
+                </form>
+                <button type="button" onclick="openReportModal('question', {{ question.id }}, '{{ question.title|replace('\'', '\\\'') }}')" style="background: none; border: 1px solid #dc3545; color: #dc3545; padding: 3px 8px; border-radius: 4px; font-size: 0.82em; cursor: pointer; white-space: nowrap;" title="Report this question">
+                    🚩 Report
+                </button>
+            </div>
         {% endif %}
     </div>
 
     <p style="font-size: 0.9em; color: #555; margin: 4px 0 12px 0;">
         Faculty: <strong>{{ question.faculty }}</strong> | 
         Category: <strong>{{ question.category }}</strong> | 
-        Asked by: <strong>{{ question.author.username }}</strong> ({{ question.author.role }}) | 
+        Asked by: <a href="{{ url_for('public_profile', username=question.author.username) }}"><strong>{{ question.author.username }}</strong></a> ({{ question.author.role }}) | 
         Posted: {{ question.created_at.strftime('%Y-%m-%d %H:%M') }} UTC |
         👁️ <strong>{{ question.views }}</strong> view{% if question.views != 1 %}s{% endif %}
     </p>
@@ -161,7 +175,7 @@
                     &nbsp;
                 {% endif %}
 
-                <strong>{{ ans.author.username }}</strong> 
+                <a href="{{ url_for('public_profile', username=ans.author.username) }}"><strong>{{ ans.author.username }}</strong></a> 
                 <span style="color: #555; font-size: 0.9em;">
                     ({{ ans.author.role }} &bull; ⭐ {{ ans.author.reputation_points }} pts)
                 </span>
@@ -296,7 +310,7 @@
                                         </span>
                                         &nbsp;
                                     {% endif %}
-                                    <strong>{{ reply.author.username }}</strong> ({{ reply.author.role }})
+                                    <a href="{{ url_for('public_profile', username=reply.author.username) }}"><strong>{{ reply.author.username }}</strong></a> ({{ reply.author.role }})
                                     &bull;
                                     <span style="color: #666; font-size: 0.85em;">{{ reply.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
                                 </div>

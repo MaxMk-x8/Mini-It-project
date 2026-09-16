@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <h2>Bookmarks</h2>
+    <p>Organize and manage your bookmarked Q&A discussions for quick study and reference.</p>
+</div>
+
+<hr>
+
+<div style="display: flex; gap: 24px; align-items: flex-start;">
+    {# Sidebar: Folders List & Folder Creation #}
+    <div style="width: 260px; min-width: 220px; border: 1px solid #cbd5e1; padding: 15px; border-radius: 4px;">
+        <h4 style="margin-top: 0;">Bookmark Folders</h4>
+
+        <ul style="list-style: none; padding-left: 0; margin-bottom: 20px;">
+            <li style="margin-bottom: 8px;">
+                <a href="{{ url_for('saved_questions', folder='all') }}">
+                    {% if folder_filter == 'all' %}<strong>📁 All Bookmarks ({{ total_saved_count }})</strong>{% else %}📁 All Bookmarks ({{ total_saved_count }}){% endif %}
+                </a>
+            </li>
+            <li style="margin-bottom: 8px;">
+                <a href="{{ url_for('saved_questions', folder='uncategorized') }}">
+                    {% if folder_filter == 'uncategorized' %}<strong>📂 Uncategorized ({{ uncategorized_count }})</strong>{% else %}📂 Uncategorized ({{ uncategorized_count }}){% endif %}
+                </a>
+            </li>
+
+            {% for folder in user_folders %}
+                <li style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <a href="{{ url_for('saved_questions', folder=folder.id) }}">
+                        {% if folder_filter == folder.id|string %}<strong>📁 {{ folder.name }} ({{ folder.question_count }})</strong>{% else %}📁 {{ folder.name }} ({{ folder.question_count }}){% endif %}
+                    </a>
+                    <form method="POST" action="{{ url_for('delete_saved_folder', folder_id=folder.id) }}" style="display: inline; margin-left: 5px;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" title="Delete Folder" style="font-size: 0.75rem; color: #dc2626; padding: 1px 5px;" onclick="return confirm('Delete folder \'{{ folder.name }}\'? Bookmarked questions will not be lost and will be moved to Uncategorized.');">✕</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <hr style="border: 0; border-top: 1px dashed #cbd5e1;">
+
+        <h5 style="margin-bottom: 8px;">Create New Folder</h5>
+        <form method="POST" action="{{ url_for('create_saved_folder') }}">
+            {{ create_folder_form.hidden_tag() }}
+            <div>
+                {{ create_folder_form.name(placeholder="Folder name...", size="18") }}
+            </div>
+            <div style="margin-top: 6px;">
+                {{ create_folder_form.submit() }}
+            </div>
+        </form>
+    </div>
+
+    {# Main: Questions List #}
+    <div style="flex-grow: 1;">
+        <h3 style="margin-top: 0;">
+            {% if folder_filter == 'all' %}
+                All Bookmarks ({{ saved_items|length }})
+            {% elif folder_filter == 'uncategorized' %}
+                Uncategorized Bookmarks ({{ saved_items|length }})
+            {% elif active_folder %}
+                Folder: {{ active_folder.name }} ({{ saved_items|length }})
+            {% endif %}
+        </h3>
+
+        {% if saved_items %}
+            <table class="table-bordered">
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>Category</th>
+                        <th>Faculty</th>
+                        <th>Folder</th>
+                        <th>Move Folder</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in saved_items %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('qa_detail', question_id=item.question.id) }}">
+                                    <strong>{{ item.question.title }}</strong>
+                                </a>
+                                <br>
+                                <small style="color: #64748b;">
+                                    by {{ item.question.author.username }} &bull; Bookmarked on {{ item.created_at.strftime('%Y-%m-%d') if item.created_at else 'N/A' }}
+                                </small>
+                            </td>
+                            <td>{{ item.question.category }}</td>
+                            <td>{{ item.question.faculty }}</td>
+                            <td>
+                                {% if item.folder %}
+                                    📁 {{ item.folder.name }}
+                                {% else %}
+                                    📂 <em>Uncategorized</em>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('move_saved_question', saved_id=item.id, folder=folder_filter) }}" style="display: inline-block;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <select name="folder_id" style="padding: 2px;">
+                                        <option value="0"{% if not item.folder_id %} selected{% endif %}>Uncategorized</option>
+                                        {% for f in user_folders %}
+                                            <option value="{{ f.id }}"{% if item.folder_id == f.id %} selected{% endif %}>{{ f.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" style="padding: 2px 6px;">Move</button>
+                                </form>
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('toggle_save_question', question_id=item.question.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="next" value="{{ url_for('saved_questions', folder=folder_filter) }}"/>
+                                    <button type="submit" style="color: #dc2626;" onclick="return confirm('Remove question from bookmarks?');">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No bookmarks found in this folder.</p>
+            <p style="color: #64748b;">
+                <em>Browse the <a href="{{ url_for('qa_list') }}">Q&A Forum</a> and click <strong>Bookmark</strong> on any question detail page to save it here.</em>
+            </p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

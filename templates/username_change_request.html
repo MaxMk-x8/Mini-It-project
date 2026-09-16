@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <h2>Username Change Request</h2>
+    <p>
+        <a href="{{ url_for('edit_profile') }}">← Back to Edit Profile</a> |
+        <a href="{{ url_for('settings') }}">Settings</a> |
+        <a href="{{ url_for('public_profile', username=current_user.username) }}">My Profile</a>
+    </p>
+</div>
+
+<hr>
+
+<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
+    <h4 style="margin-top: 0; margin-bottom: 6px;">Official Username &amp; Identity Policy</h4>
+    <p style="margin: 0 0 6px 0; font-size: 0.95em; color: #334155;">
+        Usernames identify you on all course discussions, questions, answers, and resources across CodeNest.
+        To maintain academic accountability and prevent identity confusion, direct username modifications are disabled.
+    </p>
+    <ul style="margin: 0; padding-left: 20px; font-size: 0.9em; color: #475569;">
+        <li><strong>Student/University Email:</strong> <code>{{ current_user.email }}</code> — <em>Strictly permanent; cannot be changed under any circumstances.</em></li>
+        <li><strong>Username Changes:</strong> Require review and approval by an Administrator or Community Moderator.</li>
+        <li><strong>Guidelines:</strong> Desired usernames must be between 3 and 50 characters, contain only alphanumeric characters or underscores, and adhere to CodeNest community standards.</li>
+    </ul>
+</div>
+
+{% if pending_request %}
+<div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 16px; border-radius: 4px; margin-bottom: 25px;">
+    <h3 style="margin-top: 0; color: #b45309;">Active Request Pending Review</h3>
+    <p style="margin-bottom: 10px;">You already have a username change request awaiting review by an Administrator or Community Moderator.</p>
+    
+    <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-bottom: 15px;">
+        <tr>
+            <td style="padding: 6px 0; color: #64748b; width: 180px;"><strong>Current Username:</strong></td>
+            <td style="padding: 6px 0;"><code>{{ pending_request.current_username }}</code></td>
+        </tr>
+        <tr>
+            <td style="padding: 6px 0; color: #64748b;"><strong>Requested Username:</strong></td>
+            <td style="padding: 6px 0; font-size: 1.1em; color: #0f172a;"><strong>@{{ pending_request.new_username }}</strong></td>
+        </tr>
+        <tr>
+            <td style="padding: 6px 0; color: #64748b;"><strong>Submitted At:</strong></td>
+            <td style="padding: 6px 0;">{{ pending_request.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 6px 0; color: #64748b;"><strong>Status:</strong></td>
+            <td style="padding: 6px 0;">
+                <span style="display: inline-block; background: #fef3c7; color: #b45309; font-weight: bold; padding: 3px 8px; border-radius: 4px; font-size: 0.85em;">
+                    PENDING APPROVAL
+                </span>
+            </td>
+        </tr>
+        {% if pending_request.reason %}
+        <tr>
+            <td style="padding: 6px 0; color: #64748b; vertical-align: top;"><strong>Provided Reason:</strong></td>
+            <td style="padding: 6px 0;"><em>{{ pending_request.reason }}</em></td>
+        </tr>
+        {% endif %}
+    </table>
+
+    <form method="POST" action="{{ url_for('cancel_username_request', request_id=pending_request.id) }}" style="display: inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" onclick="return confirm('Are you sure you want to cancel this pending username change request?');" style="background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">
+            Cancel Request
+        </button>
+    </form>
+</div>
+
+{% else %}
+
+<div style="background: white; border: 1px solid #e2e8f0; padding: 20px; border-radius: 4px; max-width: 650px; margin-bottom: 30px;">
+    <h3 style="margin-top: 0;">Submit a Username Change Request</h3>
+    <form method="POST" action="{{ url_for('request_username_change') }}">
+        {{ form.hidden_tag() }}
+
+        <div style="margin-bottom: 15px;">
+            <label><strong>Current Username:</strong></label><br>
+            <input type="text" value="{{ current_user.username }}" disabled readonly style="background-color: #f1f5f9; color: #475569; width: 300px; cursor: not-allowed;">
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <label for="new_username"><strong>Desired New Username:</strong></label><br>
+            {{ form.new_username(id="new_username", size="40", placeholder="e.g. alex_dev") }}
+            <small style="display: block; color: #64748b; margin-top: 4px;">3-50 characters. Letters, numbers, and underscores only. Prohibited terms are rejected.</small>
+            {% for error in form.new_username.errors %}
+                <p style="color: red; margin: 2px 0;">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <label for="reason"><strong>Reason for Change (Optional):</strong></label><br>
+            {{ form.reason(id="reason", rows="3", cols="50", placeholder="Briefly state why you would like to change your username...") }}
+            <small style="display: block; color: #64748b; margin-top: 4px;">Maximum 300 characters.</small>
+            {% for error in form.reason.errors %}
+                <p style="color: red; margin: 2px 0;">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div>
+            {{ form.submit() }}
+            <a href="{{ url_for('edit_profile') }}" style="margin-left: 10px;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<hr>
+
+<h3>Your Request History</h3>
+{% if request_history %}
+<table class="table-bordered" style="width: 100%; margin-top: 15px;">
+    <thead style="background: #f3f4f6;">
+        <tr>
+            <th>ID</th>
+            <th>Requested Username</th>
+            <th>Submitted On</th>
+            <th>Status</th>
+            <th>Reviewer Note</th>
+            <th>Handled At</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in request_history %}
+        <tr>
+            <td>#{{ r.id }}</td>
+            <td><strong>@{{ r.new_username }}</strong></td>
+            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+                {% if r.status == 'approved' %}
+                    <span style="color: #059669; font-weight: bold;">APPROVED</span>
+                {% elif r.status == 'rejected' %}
+                    <span style="color: #dc2626; font-weight: bold;">DISAPPROVED</span>
+                {% elif r.status == 'cancelled' %}
+                    <span style="color: #64748b; font-weight: bold;">CANCELLED</span>
+                {% else %}
+                    <span style="color: #d97706; font-weight: bold;">PENDING</span>
+                {% endif %}
+            </td>
+            <td>{{ r.reviewer_note or '-' }}</td>
+            <td>{{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') if r.reviewed_at else '-' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color: #64748b;">You have not submitted any previous username change requests.</p>
+{% endif %}
+
+{% endblock %}

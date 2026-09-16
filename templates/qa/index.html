@@ -110,7 +110,7 @@
                 <p style="font-size: 0.85em; color: #666; margin: 4px 0 10px 0;">
                     Faculty: <strong>{{ q.faculty }}</strong> | 
                     Category: <strong>{{ q.category }}</strong> | 
-                    Asked by: <strong>{{ q.author.username }}</strong> ({{ q.author.role }}) | 
+                    Asked by: <a href="{{ url_for('public_profile', username=q.author.username) }}"><strong>{{ q.author.username }}</strong></a> ({{ q.author.role }}) | 
                     Posted: {{ q.created_at.strftime('%Y-%m-%d %H:%M') }} UTC |
                     👁️ <strong>{{ q.views }}</strong> view{% if q.views != 1 %}s{% endif %}
                 </p>
@@ -133,6 +133,21 @@
                     <a href="{{ url_for('qa_detail', question_id=q.id) }}" style="background-color: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.9em;">
                         💬 View Discussion ({{ q.answers|length }} answer{% if q.answers|length != 1 %}s{% endif %})
                     </a>
+
+                    {% if current_user.is_authenticated %}
+                        <form method="POST" action="{{ url_for('toggle_save_question', question_id=q.id) }}" style="display: inline; margin-left: auto;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            {% if current_user.has_saved_question(q.id) %}
+                                <button type="submit" title="Remove bookmark" style="background: #e0f2fe; border: 1px solid #0284c7; color: #0369a1; padding: 5px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer;">
+                                    ★ Bookmarked
+                                </button>
+                            {% else %}
+                                <button type="submit" title="Bookmark this question" style="background: none; border: 1px solid #ccc; color: #555; padding: 5px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer;">
+                                    ☆ Bookmark
+                                </button>
+                            {% endif %}
+                        </form>
+                    {% endif %}
                 </div>
             </div>
         {% endfor %}

@@ -2,12 +2,31 @@
 {% block content %}
 <h2>Settings</h2>
 
-<p>Logged in as: <strong>{{ current_user.username }}</strong> ({{ current_user.role }} - {{ current_user.faculty }})</p>
+<p>
+    Logged in as: <strong>{{ current_user.username }}</strong> ({{ current_user.role }} - {{ current_user.faculty }})<br>
+    <small style="color: #64748b;">Institutional Email: <strong>{{ current_user.email }}</strong> (Permanent / Cannot be changed)</small>
+</p>
 
 <ul>
     <li>
-        <a href="{{ url_for('dashboard') }}">My Dashboard</a>
+        <a href="{{ url_for('public_profile', username=current_user.username) }}">My Profile</a>
     </li>
+    <li>
+        <a href="{{ url_for('request_username_change') }}">Request Username Change</a>
+        {% if current_user.has_pending_username_request %}
+            <span style="color: #d97706; font-weight: bold;">(Pending Review)</span>
+        {% endif %}
+    </li>
+    <li>
+        <a href="{{ url_for('saved_questions') }}">Bookmarks</a>
+    </li>
+    {% if current_user.is_admin() or current_user.is_moderator() %}
+    <li>
+        <a href="{{ url_for('dashboard') }}">
+            {% if current_user.is_admin() %}Admin Dashboard{% else %}Moderator Dashboard{% endif %}
+        </a>
+    </li>
+    {% endif %}
     <li>
         <a href="{{ url_for('change_password') }}">Change Password</a>
     </li>

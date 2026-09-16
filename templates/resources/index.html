@@ -1,24 +1,42 @@
 {% extends "base.html" %}
 
+{% macro file_icon(file_type, is_collection=false) %}
+    {% if is_collection %}
+        <span style="display: inline-flex; align-items: center; gap: 4px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 0.85em;">📁 Folder / Collection</span>
+    {% elif file_type == 'pdf' %}
+        <span style="display: inline-flex; align-items: center; gap: 4px; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 0.85em;">📄 PDF</span>
+    {% elif file_type == 'docx' %}
+        <span style="display: inline-flex; align-items: center; gap: 4px; background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 0.85em;">📝 DOCX</span>
+    {% elif file_type == 'pptx' %}
+        <span style="display: inline-flex; align-items: center; gap: 4px; background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 0.85em;">📊 PPTX</span>
+    {% elif file_type == 'txt' %}
+        <span style="display: inline-flex; align-items: center; gap: 4px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 0.85em;">📑 TXT</span>
+    {% elif file_type == 'zip' %}
+        <span style="display: inline-flex; align-items: center; gap: 4px; background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 0.85em;">📦 ZIP</span>
+    {% else %}
+        <span style="display: inline-flex; align-items: center; gap: 4px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; padding: 2px 7px; border-radius: 4px; font-weight: 600; font-size: 0.85em;">📎 {{ file_type|upper if file_type else 'FILE' }}</span>
+    {% endif %}
+{% endmacro %}
+
 {% block content %}
 <h2>Resource Hub</h2>
 
-<div style="margin-bottom: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+<div style="margin-bottom: 20px; display: flex; gap: 15px; align-items: center;">
     {% if current_user.is_authenticated %}
-        <a href="{{ url_for('resource_upload') }}" style="display: inline-block; padding: 7px 14px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">+ Upload Single File</a>
-        <a href="{{ url_for('resource_upload_folder') }}" style="display: inline-block; padding: 7px 14px; background-color: #059669; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">📁 + Upload Notes Folder (Collection)</a>
-        <a href="{{ url_for('my_uploads') }}" style="display: inline-block; padding: 7px 14px; background-color: #f1f5f9; color: #1e293b; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 4px;">My Uploads</a>
+        <a href="{{ url_for('resource_upload') }}" style="display: inline-block; padding: 7px 14px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">+ Upload a Resource</a>
+        <a href="{{ url_for('resource_collection_upload') }}" style="display: inline-block; padding: 7px 14px; background: #d97706; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">📁 Upload Folder (Notes Collection)</a>
+        <a href="{{ url_for('my_uploads') }}" style="display: inline-block; padding: 7px 14px; background: #475569; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">My Uploads</a>
     {% else %}
-        <p><a href="{{ url_for('login') }}">Log in</a> to upload, rate, and share study materials and folder collections.</p>
+        <p><a href="{{ url_for('login') }}">Log in</a> to upload and rate study resources or folders.</p>
     {% endif %}
 </div>
 
 <!-- Search, Filter & Sort Form -->
-<form method="GET" action="{{ url_for('resources_list') }}" style="margin-bottom: 25px; padding: 15px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #f8fafc;">
-    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+<form method="GET" action="{{ url_for('resources_list') }}" style="margin-bottom: 25px; padding: 15px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px;">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
         <div>
             <label for="q"><strong>Search:</strong></label><br>
-            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in title or description..." style="padding: 6px; width: 220px;">
+            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Title, description, filename..." style="width: 220px; padding: 6px;">
         </div>
 
         <div>
@@ -44,56 +62,56 @@
         <div>
             <label for="sort"><strong>Sort By:</strong></label><br>
             <select id="sort" name="sort" style="padding: 6px;">
-                <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>Newest First</option>
-                <option value="downloads" {% if selected_sort == 'downloads' %}selected{% endif %}>Most Downloaded</option>
-                <option value="rating" {% if selected_sort == 'rating' %}selected{% endif %}>Highest Rated</option>
+                <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest First</option>
+                <option value="downloads" {% if sort_by == 'downloads' %}selected{% endif %}>Most Downloaded</option>
+                <option value="rating" {% if sort_by == 'rating' %}selected{% endif %}>Highest Rated</option>
             </select>
         </div>
 
         <div style="align-self: flex-end;">
-            <button type="submit" style="padding: 7px 16px; font-weight: bold; background-color: #1e293b; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply Filter</button>
-            {% if query_text or selected_faculty or selected_category or selected_sort != 'newest' %}
+            <button type="submit" style="padding: 7px 15px; background: #0f172a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filter & Sort</button>
+            {% if query_text or selected_faculty or selected_category or sort_by != 'newest' %}
                 <a href="{{ url_for('resources_list') }}" style="margin-left: 8px; color: #64748b;">Reset</a>
             {% endif %}
         </div>
     </div>
 </form>
 
-<hr>
+<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
 
-<!-- Resources Feed -->
+<!-- Results Header -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-    <h3 style="margin: 0;">Available Resources & Collections ({{ total_items }})</h3>
-    <small style="color: #64748b;">Page {{ page }} of {{ total_pages }}</small>
+    <h3 style="margin: 0;">
+        Available Resources & Collections
+        <span style="font-size: 0.85em; font-weight: normal; color: #64748b;">
+            ({{ total_items }} total{% if total_items > 0 %} &bull; Page {{ page }} of {{ total_pages }}{% endif %})
+        </span>
+    </h3>
 </div>
 
 {% if items %}
-    <ul style="list-style-type: none; padding-left: 0;">
+    <ul style="list-style-type: none; padding-left: 0; display: flex; flex-direction: column; gap: 16px;">
         {% for item in items %}
-            <li style="margin-bottom: 20px; padding: 18px; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap;">
+            <li style="padding: 16px; border: 1px solid {% if item.is_collection %}#fcd34d{% else %}#e2e8f0{% endif %}; background-color: {% if item.is_collection %}#fffbeb{% else %}#ffffff{% endif %}; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                     <div>
-                        <h4 style="margin: 0 0 6px 0; font-size: 1.15rem;">
-                            {% if item.is_collection or item.resources is defined %}
-                                <span style="display: inline-block; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-right: 6px;">📁 NOTES FOLDER</span>
-                                <a href="{{ url_for('collection_detail', collection_id=item.id) }}" style="color: #0f172a; text-decoration: none;"><strong>{{ item.title }}</strong></a>
+                        <h4 style="margin: 0 0 6px 0;">
+                            {% if item.is_collection %}
+                                <a href="{{ url_for('resource_collection_detail', collection_id=item.id) }}" style="color: #92400e; text-decoration: none;">
+                                    {{ item.title }}
+                                </a>
                             {% else %}
-                                {% set ext = item.file_type|lower %}
-                                <span style="display: inline-block; background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-right: 6px;">
-                                    {% if ext == 'pdf' %}📄 PDF
-                                    {% elif ext == 'docx' %}📝 DOCX
-                                    {% elif ext == 'pptx' %}📊 PPTX
-                                    {% elif ext == 'txt' %}📃 TXT
-                                    {% elif ext == 'zip' %}📦 ZIP
-                                    {% else %}📄 {{ ext|upper }}
-                                    {% endif %}
-                                </span>
                                 {{ item.title }}
-                                <span style="font-size: 0.8em; color: #64748b; font-weight: normal;">({{ item.formatted_size }})</span>
                             {% endif %}
+                            &nbsp;
+                            {{ file_icon(item.file_type if not item.is_collection else None, item.is_collection) }}
+                            <span style="font-size: 0.8em; color: #64748b; font-weight: normal;">
+                                &bull; {{ item.formatted_size }}
+                                {% if item.is_collection %}({{ item.files_count }} file{% if item.files_count != 1 %}s{% endif %}){% endif %}
+                            </span>
                         </h4>
 
-                        <p style="font-size: 0.875rem; color: #64748b; margin: 4px 0 8px 0;">
+                        <p style="font-size: 0.88em; color: #475569; margin: 0 0 8px 0;">
                             Faculty: <strong>{{ item.faculty }}</strong> | 
                             Category: <strong>{{ item.category }}</strong> | 
                             Uploaded by: <strong>{{ item.uploader.username }}</strong> ({{ item.uploader.role }}) | 
@@ -101,129 +119,121 @@
                         </p>
                     </div>
 
-                    <!-- Statistics Badges -->
-                    <div style="display: flex; gap: 8px; align-items: center; font-size: 0.875rem;">
-                        <span style="background-color: #eff6ff; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; border: 1px solid #bfdbfe;">
-                            📥 <strong>{{ item.download_count or 0 }}</strong> downloads
-                        </span>
-
-                        <span style="background-color: #fefce8; color: #a16207; padding: 4px 8px; border-radius: 4px; border: 1px solid #fef08a;">
-                            {% if item.average_rating %}
-                                ★ <strong>{{ item.average_rating }}</strong> / 5.0 ({{ item.rating_count }} {{ 'rating' if item.rating_count == 1 else 'ratings' }})
+                    <!-- Ratings and Downloads Statistics Block -->
+                    <div style="text-align: right; min-width: 170px;">
+                        <div style="font-size: 0.9em; margin-bottom: 4px;">
+                            {% if item.rating_count > 0 %}
+                                <span style="color: #d97706; font-weight: bold;">★ {{ item.average_rating }}</span>
+                                <span style="color: #64748b; font-size: 0.9em;">({{ item.rating_count }} rating{% if item.rating_count != 1 %}s{% endif %})</span>
                             {% else %}
-                                <em>Not rated yet</em>
+                                <span style="color: #94a3b8; font-style: italic; font-size: 0.88em;">Not rated yet</span>
                             {% endif %}
-                        </span>
+                        </div>
 
-                        {% if current_user.is_authenticated and not (item.is_collection or item.resources is defined) %}
-                            {% set my_rating = item.user_rating(current_user) %}
-                            {% if my_rating %}
-                                <span style="background-color: #f0fdf4; color: #15803d; padding: 4px 8px; border-radius: 4px; border: 1px solid #bbf7d0;">
-                                    Your rating: <strong>{{ my_rating }} ★</strong>
-                                </span>
-                            {% endif %}
+                        <div style="font-size: 0.85em; color: #475569;">
+                            📥 <strong>{{ item.download_count }}</strong> download{% if item.download_count != 1 %}s{% endif %}
+                        </div>
+
+                        {% if not item.is_collection and current_user.is_authenticated and item.user_rating(current_user.id) %}
+                            <div style="font-size: 0.8em; color: #2563eb; margin-top: 2px;">
+                                Your rating: ★ {{ item.user_rating(current_user.id) }}
+                            </div>
                         {% endif %}
                     </div>
                 </div>
 
                 {% if item.description %}
-                    <p style="margin: 8px 0 12px 0; color: #334155; font-size: 0.95rem;">{{ item.description }}</p>
+                    <p style="margin: 8px 0 10px 0; color: #334155; font-size: 0.95em;">{{ item.description }}</p>
                 {% endif %}
 
-                {% if item.is_collection or item.resources is defined %}
-                    <p style="font-size: 0.875rem; color: #475569; margin: 6px 0;">
-                        Contains <strong>{{ item.file_count }}</strong> files ({{ item.formatted_total_size }})
-                    </p>
-                {% else %}
-                    <p style="font-size: 0.85rem; color: #64748b; margin: 4px 0;">
-                        Original File: <em>{{ item.filename }}</em>
-                    </p>
+                {% if not item.is_collection %}
+                    <p style="font-size: 0.85em; color: #64748b; margin: 0 0 12px 0;">File: <em>{{ item.filename }}</em></p>
                 {% endif %}
 
-                <!-- Action Controls & Rating Form -->
-                <div style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+                <!-- Actions and Controls Bar -->
+                <div style="margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; border-top: 1px solid #f1f5f9; padding-top: 10px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        {% if item.is_collection or item.resources is defined %}
-                            <a href="{{ url_for('collection_detail', collection_id=item.id) }}" style="display: inline-block; padding: 6px 12px; background-color: #059669; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
-                                📁 Open Notes Collection &rarr;
-                            </a>
-                            {% if current_user.is_authenticated and (current_user.id == item.uploader_id or current_user.is_admin()) %}
-                                <a href="{{ url_for('collection_edit', collection_id=item.id) }}" style="color: #2563eb; font-size: 0.9rem;">Edit</a>
-                                <form method="POST" action="{{ url_for('collection_delete', collection_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this entire collection and all its files?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.9rem;">Delete</button>
-                                </form>
-                            {% endif %}
+                        {% if item.is_collection %}
+                            <a href="{{ url_for('resource_collection_detail', collection_id=item.id) }}" style="display: inline-block; padding: 6px 12px; background-color: #d97706; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9em;">📁 Browse Collection ({{ item.files_count }} files)</a>
                         {% else %}
-                            <a href="{{ url_for('resource_download', resource_id=item.id) }}" style="display: inline-block; padding: 6px 12px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
-                                📥 Download File
-                            </a>
-                            {% if current_user.is_authenticated and (current_user.id == item.uploader_id or current_user.is_admin()) %}
-                                <a href="{{ url_for('resource_edit', resource_id=item.id) }}" style="color: #2563eb; font-size: 0.9rem;">Edit</a>
-                                <form method="POST" action="{{ url_for('resource_delete', resource_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this resource?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.9rem;">Delete</button>
-                                </form>
-                            {% endif %}
+                            <a href="{{ url_for('resource_download', resource_id=item.id) }}" style="display: inline-block; padding: 6px 12px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9em;">📥 Download File</a>
+                        {% endif %}
+
+                        <!-- Rating form for standalone resources (Logged in, not own upload) -->
+                        {% if not item.is_collection and current_user.is_authenticated and current_user.id != item.uploader_id %}
+                            <form method="POST" action="{{ url_for('resource_rate', resource_id=item.id) }}" style="display: inline-flex; align-items: center; gap: 5px; margin-left: 10px;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <label for="rate-{{ item.id }}" style="font-size: 0.85em; color: #475569;">Rate:</label>
+                                <select id="rate-{{ item.id }}" name="rating" style="padding: 3px 6px; font-size: 0.85em; border-radius: 3px; border: 1px solid #cbd5e1;">
+                                    <option value="5" {% if item.user_rating(current_user.id) == 5 %}selected{% endif %}>5 ★ (Excellent)</option>
+                                    <option value="4" {% if item.user_rating(current_user.id) == 4 %}selected{% endif %}>4 ★ (Good)</option>
+                                    <option value="3" {% if item.user_rating(current_user.id) == 3 %}selected{% endif %}>3 ★ (Average)</option>
+                                    <option value="2" {% if item.user_rating(current_user.id) == 2 %}selected{% endif %}>2 ★ (Poor)</option>
+                                    <option value="1" {% if item.user_rating(current_user.id) == 1 %}selected{% endif %}>1 ★ (Terrible)</option>
+                                </select>
+                                <button type="submit" style="padding: 3px 8px; font-size: 0.85em; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer;">
+                                    {% if item.user_rating(current_user.id) %}Update{% else %}Rate{% endif %}
+                                </button>
+                            </form>
                         {% endif %}
                     </div>
 
-                    <!-- Inline Star Rating Form for Standalone Resources -->
-                    {% if not (item.is_collection or item.resources is defined) and current_user.is_authenticated and current_user.id != item.uploader_id %}
-                        <form method="POST" action="{{ url_for('resource_rate', resource_id=item.id) }}" style="display: flex; align-items: center; gap: 6px; margin: 0;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <label for="rating-{{ item.id }}" style="font-size: 0.85rem; color: #475569;">Rate:</label>
-                            <select id="rating-{{ item.id }}" name="rating" style="padding: 3px 6px; font-size: 0.85rem; border-radius: 3px; border: 1px solid #cbd5e1;">
-                                {% set curr = item.user_rating(current_user) %}
-                                <option value="5" {% if curr == 5 %}selected{% endif %}>5 ★★★★★ (Excellent)</option>
-                                <option value="4" {% if curr == 4 %}selected{% endif %}>4 ★★★★☆ (Very Good)</option>
-                                <option value="3" {% if curr == 3 %}selected{% endif %}>3 ★★★☆☆ (Good)</option>
-                                <option value="2" {% if curr == 2 %}selected{% endif %}>2 ★★☆☆☆ (Fair)</option>
-                                <option value="1" {% if curr == 1 %}selected{% endif %}>1 ★☆☆☆☆ (Poor)</option>
-                            </select>
-                            <button type="submit" style="padding: 3px 8px; font-size: 0.85rem; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer;">
-                                {% if curr %}Update{% else %}Submit{% endif %}
-                            </button>
-                        </form>
+                    <!-- Management Actions (Owner / Admin) -->
+                    {% if current_user.is_authenticated and (current_user.id == item.uploader_id or current_user.is_admin()) %}
+                        <div style="font-size: 0.9em;">
+                            {% if item.is_collection %}
+                                <a href="{{ url_for('resource_collection_edit', collection_id=item.id) }}" style="color: #2563eb; text-decoration: underline;">Edit</a>
+                                &nbsp;|&nbsp;
+                                <form method="POST" action="{{ url_for('resource_collection_delete', collection_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to permanently delete this collection and all member files?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 1em;">Delete Collection</button>
+                                </form>
+                            {% else %}
+                                <a href="{{ url_for('resource_edit', resource_id=item.id) }}" style="color: #2563eb; text-decoration: underline;">Edit</a>
+                                &nbsp;|&nbsp;
+                                <form method="POST" action="{{ url_for('resource_delete', resource_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to permanently delete this resource?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 1em;">Delete</button>
+                                </form>
+                            {% endif %}
+                        </div>
                     {% endif %}
                 </div>
             </li>
         {% endfor %}
     </ul>
 
-    <!-- 10-Item Pagination Controls -->
+    <!-- Pagination Navigation -->
     {% if total_pages > 1 %}
-        <div style="margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <div style="margin-top: 25px; display: flex; justify-content: center; align-items: center; gap: 8px;">
             {% if page > 1 %}
-                <a href="{{ url_for('resources_list', page=page-1, q=query_text, faculty=selected_faculty, category=selected_category, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">&laquo; Previous</a>
-            {% else %}
-                <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 4px; color: #94a3b8;">&laquo; Previous</span>
+                <a href="{{ url_for('resources_list', page=page-1, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #0f172a;">&laquo; Previous</a>
             {% endif %}
 
             {% for p in range(1, total_pages + 1) %}
                 {% if p == page %}
-                    <span style="padding: 6px 12px; background-color: #2563eb; color: white; border-radius: 4px; font-weight: bold;">{{ p }}</span>
+                    <span style="padding: 6px 12px; background: #2563eb; color: white; border-radius: 4px; font-weight: bold;">{{ p }}</span>
                 {% else %}
-                    <a href="{{ url_for('resources_list', page=p, q=query_text, faculty=selected_faculty, category=selected_category, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">{{ p }}</a>
+                    <a href="{{ url_for('resources_list', page=p, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #0f172a;">{{ p }}</a>
                 {% endif %}
             {% endfor %}
 
             {% if page < total_pages %}
-                <a href="{{ url_for('resources_list', page=page+1, q=query_text, faculty=selected_faculty, category=selected_category, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">Next &raquo;</a>
-            {% else %}
-                <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 4px; color: #94a3b8;">Next &raquo;</span>
+                <a href="{{ url_for('resources_list', page=page+1, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #0f172a;">Next &raquo;</a>
             {% endif %}
         </div>
     {% endif %}
 
 {% else %}
-    <div style="padding: 30px; text-align: center; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-        <p style="color: #64748b; font-size: 1.05rem;">No study materials or folder collections found matching your criteria.</p>
+    <div style="padding: 30px; text-align: center; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; margin-top: 20px;">
+        <p style="color: #64748b; font-size: 1.1em; margin-bottom: 12px;">No resources or collections found matching your criteria.</p>
         {% if current_user.is_authenticated %}
-            <a href="{{ url_for('resource_upload') }}" style="color: #2563eb; font-weight: bold;">Upload a single file</a> or 
-            <a href="{{ url_for('resource_upload_folder') }}" style="color: #059669; font-weight: bold;">Upload a notes folder collection</a>!
+            <p>
+                <a href="{{ url_for('resource_upload') }}" style="color: #2563eb; font-weight: bold;">Upload a single resource</a> or 
+                <a href="{{ url_for('resource_collection_upload') }}" style="color: #d97706; font-weight: bold;">upload a folder collection</a> now!
+            </p>
         {% else %}
-            <a href="{{ url_for('login') }}">Log in</a> to upload and share resources.
+            <p><a href="{{ url_for('login') }}">Log in</a> to contribute study materials.</p>
         {% endif %}
     </div>
 {% endif %}

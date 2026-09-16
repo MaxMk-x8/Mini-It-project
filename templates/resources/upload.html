@@ -3,7 +3,7 @@
 {% block content %}
 <h2>Upload a Study Resource</h2>
 
-<p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a> | <a href="{{ url_for('resource_upload_folder') }}" style="color: #059669; font-weight: bold;">📁 Want to upload an entire notes folder? Click here</a></p>
+<p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a></p>
 
 <form method="POST" action="{{ url_for('resource_upload') }}" enctype="multipart/form-data" style="max-width: 600px;">
     {{ form.hidden_tag() }}

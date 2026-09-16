@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <div>
+        {% if user.avatar_url %}
+            <img src="{{ user.avatar_url }}" alt="{{ user.username }}'s Avatar" width="100" height="100" style="object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 15px;">
+        {% else %}
+            <div style="width: 100px; height: 100px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; color: #475569; vertical-align: middle; margin-right: 15px;">
+                {{ user.username[:2]|upper }}
+            </div>
+        {% endif %}
+        
+        <div style="display: inline-block; vertical-align: middle;">
+            <h2 style="margin-bottom: 5px;">{{ user.username }}</h2>
+            <p style="margin: 0 0 5px 0;">
+                <strong>Role:</strong> {{ user.role }} &nbsp;|&nbsp; 
+                <strong>Faculty:</strong> {{ user.faculty }} &nbsp;|&nbsp; 
+                <strong>Joined:</strong> {{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A' }}
+            </p>
+            <p style="margin: 0;">
+                <strong>Reputation:</strong> {{ user.reputation_points }} pts &nbsp;|&nbsp;
+                <strong>Followers:</strong> {{ user.follower_count }} &nbsp;|&nbsp;
+                <strong>Following:</strong> {{ user.following_count }}
+            </p>
+        </div>
+    </div>
+
+    <div style="margin-top: 15px;">
+        {% if is_own_profile %}
+            <a href="{{ url_for('edit_profile') }}">Edit Profile</a> |
+            <a href="{{ url_for('follow_requests') }}">
+                Follow Requests
+                {% if current_user.pending_follow_requests_count > 0 %}
+                    (<strong>{{ current_user.pending_follow_requests_count }}</strong> pending)
+                {% endif %}
+            </a> |
+            <a href="{{ url_for('saved_questions') }}">Bookmarks</a>
+        {% else %}
+            {% if is_following %}
+                <form method="POST" action="{{ url_for('unfollow_user', username=user.username) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" onclick="return confirm('Unfollow @{{ user.username }}?');">Following (Unfollow)</button>
+                </form>
+            {% elif has_pending_follow %}
+                <form method="POST" action="{{ url_for('unfollow_user', username=user.username) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit">Requested (Cancel Request)</button>
+                </form>
+            {% else %}
+                <form method="POST" action="{{ url_for('follow_user', username=user.username) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit">Follow</button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<hr>
+
+<div>
+    <h3>About</h3>
+    {% if user.bio %}
+        <p style="white-space: pre-wrap;">{{ user.bio }}</p>
+    {% else %}
+        <p><em>No bio provided.</em></p>
+    {% endif %}
+</div>
+
+<div>
+    <h3>Contact & Social Links</h3>
+    
+    {# Contact Email Privacy Enforcement #}
+    {% if can_see_contact %}
+        <p><strong>Contact Email:</strong> <a href="mailto:{{ user.contact_email }}">{{ user.contact_email }}</a></p>
+    {% elif contact_restricted %}
+        <p><em>🔒 Contact email is visible to accepted followers only. Follow @{{ user.username }} to view contact details.</em></p>
+    {% elif is_own_profile and not user.contact_email %}
+        <p><em>No contact email added yet. <a href="{{ url_for('edit_profile') }}">Add one in Edit Profile</a>.</em></p>
+    {% endif %}
+
+    {# Social Links Privacy Enforcement #}
+    {% if can_see_social %}
+        {% if user.github_url %}
+            <p><strong>GitHub:</strong> <a href="{{ user.github_url }}" target="_blank" rel="noopener noreferrer">{{ user.github_url }}</a></p>
+        {% endif %}
+        {% if user.linkedin_url %}
+            <p><strong>LinkedIn:</strong> <a href="{{ user.linkedin_url }}" target="_blank" rel="noopener noreferrer">{{ user.linkedin_url }}</a></p>
+        {% endif %}
+        {% if user.website_url %}
+            <p><strong>Website:</strong> <a href="{{ user.website_url }}" target="_blank" rel="noopener noreferrer">{{ user.website_url }}</a></p>
+        {% endif %}
+    {% elif social_restricted %}
+        <p><em>🔒 Social links are visible to accepted followers only. Follow @{{ user.username }} to view social profiles.</em></p>
+    {% elif is_own_profile and not user.github_url and not user.linkedin_url and not user.website_url %}
+        <p><em>No social links added yet. <a href="{{ url_for('edit_profile') }}">Add links in Edit Profile</a>.</em></p>
+    {% endif %}
+
+    {% if not can_see_contact and not contact_restricted and not can_see_social and not social_restricted and not is_own_profile %}
+        <p><em>No public contact details available.</em></p>
+    {% endif %}
+</div>
+
+<hr>
+
+<div>
+    <h3>Contributions</h3>
+    <nav>
+        <a href="{{ url_for('public_profile', username=user.username, tab='questions') }}">
+            {% if active_tab == 'questions' %}<strong>Questions ({{ questions|length }})</strong>{% else %}Questions ({{ questions|length }}){% endif %}
+        </a> |
+        <a href="{{ url_for('public_profile', username=user.username, tab='answers') }}">
+            {% if active_tab == 'answers' %}<strong>Answers ({{ answers|length }})</strong>{% else %}Answers ({{ answers|length }}){% endif %}
+        </a> |
+        <a href="{{ url_for('public_profile', username=user.username, tab='resources') }}">
+            {% if active_tab == 'resources' %}<strong>Resources ({{ resources|length }})</strong>{% else %}Resources ({{ resources|length }}){% endif %}
+        </a>
+    </nav>
+
+    <div style="margin-top: 15px;">
+        {% if active_tab == 'questions' %}
+            {% if questions %}
+                <table class="table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Faculty</th>
+                            <th>Views</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for q in questions %}
+                            <tr>
+                                <td><a href="{{ url_for('qa_detail', question_id=q.id) }}">{{ q.title }}</a></td>
+                                <td>{{ q.category }}</td>
+                                <td>{{ q.faculty }}</td>
+                                <td>{{ q.views }}</td>
+                                <td>{{ q.created_at.strftime('%Y-%m-%d') if q.created_at else 'N/A' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No questions asked yet.</p>
+            {% endif %}
+
+        {% elif active_tab == 'answers' %}
+            {% if answers %}
+                <table class="table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Question</th>
+                            <th>Answer Preview</th>
+                            <th>Prof Marks</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in answers %}
+                            <tr>
+                                <td>
+                                    {% if a.question %}
+                                        <a href="{{ url_for('qa_detail', question_id=a.question.id) }}">{{ a.question.title }}</a>
+                                    {% else %}
+                                        <em>Question deleted</em>
+                                    {% endif %}
+                                </td>
+                                <td>{{ a.content[:100] }}{% if a.content|length > 100 %}...{% endif %}</td>
+                                <td>{{ a.professor_marks_count }}</td>
+                                <td>
+                                    {% if a.is_best_answer %}
+                                        <strong>⭐ Best Answer</strong>
+                                    {% else %}
+                                        Standard
+                                    {% endif %}
+                                </td>
+                                <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else 'N/A' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No answers posted yet.</p>
+            {% endif %}
+
+        {% elif active_tab == 'resources' %}
+            {% if resources %}
+                <table class="table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Faculty</th>
+                            <th>File Type</th>
+                            <th>Downloads</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in resources %}
+                            <tr>
+                                <td><a href="{{ url_for('resource_detail', resource_id=r.id) }}">{{ r.title }}</a></td>
+                                <td>{{ r.category }}</td>
+                                <td>{{ r.faculty }}</td>
+                                <td>{{ r.file_type|upper }}</td>
+                                <td>{{ r.download_count }}</td>
+                                <td>{{ r.created_at.strftime('%Y-%m-%d') if r.created_at else 'N/A' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No resources uploaded yet.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

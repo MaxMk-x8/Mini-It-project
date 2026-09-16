@@ -54,9 +54,20 @@ class User(UserMixin, db.Model):
     reset_attempts = db.Column(db.Integer, default=0, nullable=False)
     reset_resend_available_at = db.Column(db.DateTime, nullable=True)
 
+    # Week 6 additions: Profiles & Privacy Controls
+    bio = db.Column(db.String(500), nullable=True)
+    profile_pic = db.Column(db.String(255), nullable=True)
+    contact_email = db.Column(db.String(120), nullable=True)
+    github_url = db.Column(db.String(200), nullable=True)
+    linkedin_url = db.Column(db.String(200), nullable=True)
+    website_url = db.Column(db.String(200), nullable=True)
+    require_follow_approval = db.Column(db.Boolean, default=False, nullable=False)
+    contact_email_privacy = db.Column(db.String(20), default='private', nullable=False)  # 'all', 'followers', 'private'
+    social_links_privacy = db.Column(db.String(20), default='all', nullable=False)      # 'all', 'followers', 'private'
+
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    def __init__(self, username=None, email=None, role='Student', faculty=FACULTY_CODES[0], verification_code=None, is_verified=False, **kwargs):
+    def __init__(self, username=None, email=None, role='Student', faculty=FACULTY_CODES[0], verification_code=None, is_verified=False, bio=None, profile_pic=None, contact_email=None, github_url=None, linkedin_url=None, website_url=None, require_follow_approval=False, contact_email_privacy='private', social_links_privacy='all', **kwargs):
         super().__init__(**kwargs)
         if username:
             self.username = username
@@ -66,6 +77,15 @@ class User(UserMixin, db.Model):
         self.faculty = faculty
         self.verification_code = verification_code
         self.is_verified = is_verified
+        self.bio = bio
+        self.profile_pic = profile_pic
+        self.contact_email = contact_email
+        self.github_url = github_url
+        self.linkedin_url = linkedin_url
+        self.website_url = website_url
+        self.require_follow_approval = require_follow_approval
+        self.contact_email_privacy = contact_email_privacy
+        self.social_links_privacy = social_links_privacy
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -204,6 +224,86 @@ class User(UserMixin, db.Model):
         if remaining <= 0:
             return False, "Invalid code. Maximum attempts exceeded (5/5). Please request a new reset code."
         return False, f"Invalid reset code. Attempts remaining: {remaining}/5."
+
+    @property
+    def avatar_url(self):
+        if self.profile_pic:
+            return f'/uploads/avatars/{self.profile_pic}'
+        return None
+
+    def is_following(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return UserFollow.query.filter_by(
+            follower_id=self.id,
+            followed_id=target_user.id,
+            status='accepted'
+        ).first() is not None
+
+    def has_pending_follow(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return UserFollow.query.filter_by(
+            follower_id=self.id,
+            followed_id=target_user.id,
+            status='pending'
+        ).first() is not None
+
+    def is_followed_by(self, follower_user):
+        if not follower_user or not getattr(follower_user, 'id', None):
+            return False
+        return follower_user.is_following(self)
+
+    def can_view_contact(self, viewer):
+        if not self.contact_email:
+            return False
+        if viewer and viewer.is_authenticated:
+            if viewer.id == self.id or viewer.is_admin():
+                return True
+            if self.contact_email_privacy == 'all':
+                return True
+            if self.contact_email_privacy == 'followers':
+                return viewer.is_following(self)
+        return False
+
+    def can_view_social(self, viewer):
+        has_social = bool(self.github_url or self.linkedin_url or self.website_url)
+        if not has_social:
+            return False
+        if viewer and viewer.is_authenticated:
+            if viewer.id == self.id or viewer.is_admin():
+                return True
+            if self.social_links_privacy == 'all':
+                return True
+            if self.social_links_privacy == 'followers':
+                return viewer.is_following(self)
+        return False
+
+    @property
+    def follower_count(self):
+        return UserFollow.query.filter_by(followed_id=self.id, status='accepted').count()
+
+    @property
+    def following_count(self):
+        return UserFollow.query.filter_by(follower_id=self.id, status='accepted').count()
+
+    @property
+    def pending_follow_requests_count(self):
+        return UserFollow.query.filter_by(followed_id=self.id, status='pending').count()
+
+    def has_saved_question(self, question_id):
+        return SavedQuestion.query.filter_by(user_id=self.id, question_id=question_id).first() is not None
+
+    @property
+    def has_pending_username_request(self):
+        return any(r.status == 'pending' for r in self.username_requests)
+
+    @property
+    def pending_username_request(self):
+        for r in self.username_requests:
+            if r.status == 'pending':
+                return r
+        return None
 
     def __repr__(self):
         return f'<User {self.username} ({self.role} - {self.faculty})>'
@@ -416,116 +516,8 @@ class AnswerBestMark(db.Model):
 
 
 # -------------------------------
-# RESOURCE HUB MODULE (WEEK 4)
+# RESOURCE HUB MODULE 
 # -------------------------------
-
-class ResourceRating(db.Model):
-    __tablename__ = 'resource_ratings'
-    __table_args__ = (
-        db.CheckConstraint('rating >= 1 AND rating <= 5', name='ck_rating_range'),
-        db.UniqueConstraint('user_id', 'resource_id', name='uq_resource_user_rating'),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    rating = db.Column(db.Integer, nullable=False)
-    resource_id = db.Column(db.Integer, db.ForeignKey('resources.id', name='fk_resource_ratings_resource_id', ondelete='CASCADE'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_resource_ratings_user_id', ondelete='CASCADE'), nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-
-    # Relationships
-    resource = db.relationship('Resource', backref=db.backref('ratings', cascade='all, delete-orphan', lazy=True))
-    user = db.relationship('User', backref=db.backref('resource_ratings', lazy=True))
-
-    def __init__(self, rating=None, resource_id=None, user_id=None, **kwargs):
-        super().__init__(**kwargs)
-        if rating:
-            self.rating = rating
-        if resource_id:
-            self.resource_id = resource_id
-        if user_id:
-            self.user_id = user_id
-
-    def __repr__(self):
-        return f'<ResourceRating user={self.user_id} resource={self.resource_id} rating={self.rating}>'
-
-
-class ResourceCollection(db.Model):
-    """Collection for complete folder uploads (Notes Collections)."""
-    __tablename__ = 'resource_collections'
-    __table_args__ = (
-        db.CheckConstraint(f"faculty IN {tuple(FACULTY_CODES)}", name='ck_collection_faculty_valid'),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(150), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    category = db.Column(db.String(50), nullable=False, default='Lecture Notes')
-    faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
-    uploader_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_collections_uploader_id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-
-    # Relationships
-    uploader = db.relationship('User', backref=db.backref('resource_collections', lazy=True))
-    resources = db.relationship(
-        'Resource',
-        backref=db.backref('collection', lazy=True),
-        cascade='all, delete-orphan',
-        lazy=True,
-        order_by='Resource.relative_path'
-    )
-
-    def __init__(self, title=None, description=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, **kwargs):
-        super().__init__(**kwargs)
-        if title:
-            self.title = title
-        if description:
-            self.description = description
-        self.category = category
-        self.faculty = faculty
-        if uploader_id:
-            self.uploader_id = uploader_id
-
-    @property
-    def download_count(self):
-        """Total downloads across all member resources."""
-        return sum(r.download_count or 0 for r in self.resources)
-
-    @property
-    def rating_count(self):
-        """Total number of ratings across all member resources."""
-        return sum(r.rating_count for r in self.resources)
-
-    @property
-    def average_rating(self):
-        """Average rating derived from all member resources."""
-        all_ratings = [rating.rating for r in self.resources for rating in r.ratings]
-        if not all_ratings:
-            return None
-        return round(sum(all_ratings) / len(all_ratings), 1)
-
-    @property
-    def file_count(self):
-        return len(self.resources)
-
-    @property
-    def total_size_bytes(self):
-        return sum(r.file_size or 0 for r in self.resources)
-
-    @property
-    def formatted_total_size(self):
-        size = self.total_size_bytes
-        if not size:
-            return '0 B'
-        for unit in ['B', 'KB', 'MB', 'GB']:
-            if size < 1024.0:
-                return f"{size:.1f} {unit}" if unit != 'B' else f"{int(size)} B"
-            size /= 1024.0
-        return f"{size:.1f} TB"
-
-    def __repr__(self):
-        return f'<ResourceCollection {self.id}: {self.title} ({self.file_count} files)>'
-
 
 class Resource(db.Model):
     __tablename__ = 'resources'
@@ -543,10 +535,9 @@ class Resource(db.Model):
     category = db.Column(db.String(50), nullable=False, default='Lecture Notes')
     faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
 
-    # Week 4 Additions
-    download_count = db.Column(db.Integer, nullable=False, default=0)
+    download_count = db.Column(db.Integer, default=0, nullable=False)
     collection_id = db.Column(db.Integer, db.ForeignKey('resource_collections.id', name='fk_resources_collection_id', ondelete='CASCADE'), nullable=True)
-    relative_path = db.Column(db.String(500), nullable=True)  # Preserved relative folder path for collections
+    relative_path = db.Column(db.String(500), nullable=True)
 
     uploader_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_resources_uploader_id'), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -589,28 +580,141 @@ class Resource(db.Model):
 
     @property
     def average_rating(self):
-        """Returns average rating as float rounded to 1 decimal, or None if no ratings."""
+        """Returns average star rating rounded to 1 decimal place, or 0.0 if not rated."""
         if not self.ratings:
-            return None
+            return 0.0
         return round(sum(r.rating for r in self.ratings) / len(self.ratings), 1)
 
     @property
     def rating_count(self):
-        """Returns total number of user ratings."""
+        """Returns number of ratings submitted for this resource."""
         return len(self.ratings)
 
-    def user_rating(self, user):
-        """Returns the rating given by a specific user, or None."""
-        if not user or not user.is_authenticated:
+    def user_rating(self, user_id):
+        """Returns the rating value (1-5) submitted by user_id, or None."""
+        if not user_id:
             return None
         for r in self.ratings:
-            if r.user_id == user.id:
+            if r.user_id == user_id:
                 return r.rating
         return None
+
+    @property
+    def is_collection(self):
+        return False
 
     def __repr__(self):
         return f'<Resource {self.id}: {self.title} ({self.filename})>'
 
+
+class ResourceRating(db.Model):
+    __tablename__ = 'resource_ratings'
+    __table_args__ = (
+        db.UniqueConstraint('resource_id', 'user_id', name='uq_resource_user_rating'),
+        db.CheckConstraint('rating >= 1 AND rating <= 5', name='ck_rating_range'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    resource_id = db.Column(db.Integer, db.ForeignKey('resources.id', name='fk_ratings_resource_id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_ratings_user_id', ondelete='CASCADE'), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    resource = db.relationship('Resource', backref=db.backref('ratings', cascade='all, delete-orphan', lazy=True))
+    user = db.relationship('User', backref=db.backref('resource_ratings', cascade='all, delete-orphan', lazy=True))
+
+    def __init__(self, resource_id=None, user_id=None, rating=None, **kwargs):
+        super().__init__(**kwargs)
+        if resource_id:
+            self.resource_id = resource_id
+        if user_id:
+            self.user_id = user_id
+        if rating is not None:
+            self.rating = rating
+
+    def __repr__(self):
+        return f'<ResourceRating Resource #{self.resource_id} by User #{self.user_id}: {self.rating} stars>'
+
+
+class ResourceCollection(db.Model):
+    __tablename__ = 'resource_collections'
+    __table_args__ = (
+        db.CheckConstraint(f"faculty IN {tuple(FACULTY_CODES)}", name='ck_collection_faculty_valid'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    category = db.Column(db.String(50), nullable=False, default='Lecture Notes')
+    faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
+    uploader_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_collections_uploader_id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    uploader = db.relationship('User', backref=db.backref('resource_collections', lazy=True))
+    resources = db.relationship('Resource', backref='collection', cascade='all, delete-orphan', lazy=True, order_by='Resource.relative_path')
+
+    def __init__(self, title=None, description=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if title:
+            self.title = title
+        if description:
+            self.description = description
+        self.category = category
+        self.faculty = faculty
+        if uploader_id:
+            self.uploader_id = uploader_id
+
+    @property
+    def download_count(self):
+        """Sum of download counts across all member resources."""
+        return sum(r.download_count for r in self.resources)
+
+    @property
+    def average_rating(self):
+        """Average rating across all member resources."""
+        all_ratings = []
+        for r in self.resources:
+            all_ratings.extend([rt.rating for rt in r.ratings])
+        if not all_ratings:
+            return 0.0
+        return round(sum(all_ratings) / len(all_ratings), 1)
+
+    @property
+    def rating_count(self):
+        """Total rating count across all member resources."""
+        return sum(len(r.ratings) for r in self.resources)
+
+    @property
+    def files_count(self):
+        """Total number of files in this collection."""
+        return len(self.resources)
+
+    @property
+    def total_size(self):
+        """Total size in bytes across all member resources."""
+        return sum(r.file_size for r in self.resources)
+
+    @property
+    def formatted_size(self):
+        """Returns human-readable total collection size."""
+        size = self.total_size
+        if not size:
+            return '0 B'
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}" if unit != 'B' else f"{int(size)} B"
+            size /= 1024.0
+        return f"{size:.1f} TB"
+
+    @property
+    def is_collection(self):
+        return True
+
+    def __repr__(self):
+        return f'<ResourceCollection #{self.id}: {self.title} ({len(self.resources)} files)>'
 
 
 # -------------------------------
@@ -667,6 +771,8 @@ class Report(db.Model):
             return db.session.get(Answer, self.content_id)
         elif self.content_type == 'resource':
             return db.session.get(Resource, self.content_id)
+        elif self.content_type == 'resource_collection':
+            return db.session.get(ResourceCollection, self.content_id)
         return None
 
     def __repr__(self):
@@ -780,5 +886,126 @@ class UserWarning(db.Model):
 
     def __repr__(self):
         return f'<UserWarning #{self.id} to User #{self.user_id} by User #{self.issued_by_id}>'
+
+
+# =====================================================================
+# WEEK 6: PROFILES, PRIVACY & SAVED QUESTIONS (MOHAMMAD KHAN)
+# =====================================================================
+
+class UserFollow(db.Model):
+    __tablename__ = 'user_follows'
+    __table_args__ = (
+        db.UniqueConstraint('follower_id', 'followed_id', name='uq_follower_followed'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    follower_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_user_follows_follower_id', ondelete='CASCADE'), nullable=False)
+    followed_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_user_follows_followed_id', ondelete='CASCADE'), nullable=False)
+    status = db.Column(db.String(20), default='accepted', nullable=False)  # 'accepted' or 'pending'
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    follower = db.relationship('User', foreign_keys=[follower_id], backref=db.backref('following_relations', lazy=True, cascade='all, delete-orphan'))
+    followed = db.relationship('User', foreign_keys=[followed_id], backref=db.backref('follower_relations', lazy=True, cascade='all, delete-orphan'))
+
+    def __init__(self, follower_id=None, followed_id=None, status='accepted', **kwargs):
+        super().__init__(**kwargs)
+        if follower_id:
+            self.follower_id = follower_id
+        if followed_id:
+            self.followed_id = followed_id
+        self.status = status
+
+    def __repr__(self):
+        return f'<UserFollow {self.follower_id} -> {self.followed_id} ({self.status})>'
+
+
+class SavedQuestionFolder(db.Model):
+    __tablename__ = 'saved_question_folders'
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'name', name='uq_user_folder_name'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_saved_question_folders_user_id', ondelete='CASCADE'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship('User', backref=db.backref('saved_question_folders', lazy=True, cascade='all, delete-orphan'))
+    saved_questions = db.relationship('SavedQuestion', backref='folder', lazy=True)
+
+    def __init__(self, user_id=None, name=None, **kwargs):
+        super().__init__(**kwargs)
+        if user_id:
+            self.user_id = user_id
+        if name:
+            self.name = name
+
+    @property
+    def question_count(self):
+        return len(self.saved_questions)
+
+    def __repr__(self):
+        return f'<SavedQuestionFolder #{self.id}: {self.name} (User #{self.user_id})>'
+
+
+class SavedQuestion(db.Model):
+    __tablename__ = 'saved_questions'
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'question_id', name='uq_user_saved_question'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_saved_questions_user_id', ondelete='CASCADE'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('questions.id', name='fk_saved_questions_question_id', ondelete='CASCADE'), nullable=False)
+    folder_id = db.Column(db.Integer, db.ForeignKey('saved_question_folders.id', name='fk_saved_questions_folder_id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship('User', backref=db.backref('saved_questions', lazy=True, cascade='all, delete-orphan'))
+    question = db.relationship('Question', backref=db.backref('saved_by_users', lazy=True, cascade='all, delete-orphan'))
+
+    def __init__(self, user_id=None, question_id=None, folder_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if user_id:
+            self.user_id = user_id
+        if question_id:
+            self.question_id = question_id
+        self.folder_id = folder_id
+
+    def __repr__(self):
+        return f'<SavedQuestion User #{self.user_id} -> Question #{self.question_id}>'
+
+
+class UsernameChangeRequest(db.Model):
+    __tablename__ = 'username_change_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_username_requests_user_id', ondelete='CASCADE'), nullable=False)
+    current_username = db.Column(db.String(50), nullable=False)
+    new_username = db.Column(db.String(50), nullable=False)
+    reason = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'approved', 'rejected', 'cancelled'
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_username_requests_reviewed_by_id', ondelete='SET NULL'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewer_note = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('username_requests', lazy=True, cascade='all, delete-orphan'))
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by_id])
+
+    def __init__(self, user_id=None, current_username=None, new_username=None, reason=None, status='pending', **kwargs):
+        super().__init__(**kwargs)
+        if user_id:
+            self.user_id = user_id
+        if current_username:
+            self.current_username = current_username
+        if new_username:
+            self.new_username = new_username
+        self.reason = reason
+        self.status = status
+
+    def __repr__(self):
+        return f'<UsernameChangeRequest User #{self.user_id} (@{self.current_username} -> @{self.new_username}) [{self.status}]>'
+
+
 
 
