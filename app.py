@@ -671,7 +671,7 @@ def request_username_change():
     ).order_by(UsernameChangeRequest.created_at.desc()).all()
 
     if form.validate_on_submit():
-        if pending_request:
+        if pending_request and not current_user.is_admin():
             flash('You already have an active username change request pending review.', 'warning')
             return redirect(url_for('request_username_change'))
 
@@ -712,6 +712,25 @@ def request_username_change():
                 pending_request=pending_request,
                 request_history=request_history
             )
+
+        # ADMIN PRIVILEGE: Administrators update username directly without queuing
+        if current_user.is_admin():
+            old_name = current_user.username
+            current_user.username = new_name
+            audit_req = UsernameChangeRequest(
+                user_id=current_user.id,
+                current_username=old_name,
+                new_username=new_name,
+                reason=form.reason.data.strip() if form.reason.data else "Direct administrator update",
+                status='approved',
+                reviewed_by_id=current_user.id,
+                reviewed_at=datetime.now(timezone.utc),
+                reviewer_note="Direct Administrator update applied immediately."
+            )
+            db.session.add(audit_req)
+            db.session.commit()
+            flash(f'Administrator Privilege: Your username was updated directly to "@{new_name}"!', 'success')
+            return redirect(url_for('edit_profile'))
 
         req = UsernameChangeRequest(
             user_id=current_user.id,
@@ -1237,6 +1256,11 @@ def approve_username_request(request_id):
 
     req = UsernameChangeRequest.query.filter_by(id=request_id, status='pending').first_or_404()
 
+    # Rule: If requester is a Community Moderator, ONLY Administrators can approve
+    if req.user.is_moderator() and not current_user.is_admin():
+        flash('Only Administrators can approve username change requests submitted by Community Moderators.', 'danger')
+        return redirect(request.referrer or url_for('username_requests_queue'))
+
     # If moderator, ensure request user is within their faculty
     if current_user.is_moderator() and not current_user.is_admin():
         if req.user.faculty != current_user.faculty:
@@ -1260,7 +1284,7 @@ def approve_username_request(request_id):
     req.status = 'approved'
     req.reviewed_by_id = current_user.id
     req.reviewed_at = datetime.now(timezone.utc)
-    req.reviewer_note = reviewer_note or 'Approved by Moderator/Admin'
+    req.reviewer_note = reviewer_note or ('Approved by Administrator' if current_user.is_admin() else 'Approved by Moderator')
     db.session.commit()
 
     flash(f'Approved! Username for {old_username} has been changed to "@{req.new_username}".', 'success')
@@ -1276,6 +1300,11 @@ def reject_username_request(request_id):
 
     req = UsernameChangeRequest.query.filter_by(id=request_id, status='pending').first_or_404()
 
+    # Rule: If requester is a Community Moderator, ONLY Administrators can review/disapprove
+    if req.user.is_moderator() and not current_user.is_admin():
+        flash('Only Administrators can review username change requests submitted by Community Moderators.', 'danger')
+        return redirect(request.referrer or url_for('username_requests_queue'))
+
     # If moderator, ensure request user is within their faculty
     if current_user.is_moderator() and not current_user.is_admin():
         if req.user.faculty != current_user.faculty:
@@ -1288,7 +1317,7 @@ def reject_username_request(request_id):
     req.status = 'rejected'
     req.reviewed_by_id = current_user.id
     req.reviewed_at = datetime.now(timezone.utc)
-    req.reviewer_note = reviewer_note or 'Disapproved by Moderator/Admin'
+    req.reviewer_note = reviewer_note or ('Disapproved by Administrator' if current_user.is_admin() else 'Disapproved by Moderator')
     db.session.commit()
 
     flash(f'Username change request for @{req.current_username} (requested "@{req.new_username}") has been disapproved.', 'info')
