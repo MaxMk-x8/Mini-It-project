@@ -172,7 +172,12 @@
         <tr>
             <td>#{{ r.id }}</td>
             <td><strong>{{ r.user.faculty }}</strong></td>
-            <td><a href="{{ url_for('public_profile', username=r.current_username) }}">@{{ r.current_username }}</a></td>
+            <td>
+                <a href="{{ url_for('public_profile', username=r.current_username) }}">@{{ r.current_username }}</a>
+                {% if r.user.is_moderator() %}
+                    <span style="background: #e0e7ff; color: #3730a3; font-weight: bold; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Moderator</span>
+                {% endif %}
+            </td>
             <td style="font-size: 1.05em; color: #1e3a8a;"><strong>@{{ r.new_username }}</strong></td>
             <td><code>{{ r.user.email }}</code></td>
             <td>{{ r.reason or '-' }}</td>

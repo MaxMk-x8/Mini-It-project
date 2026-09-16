@@ -60,6 +60,9 @@
                 <a href="{{ url_for('public_profile', username=r.current_username) }}">
                     @{{ r.current_username }}
                 </a>
+                {% if r.user.is_moderator() %}
+                    <span style="background: #e0e7ff; color: #3730a3; font-weight: bold; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Moderator</span>
+                {% endif %}
             </td>
             <td style="font-size: 1.05em; color: #1e3a8a;">
                 <strong>@{{ r.new_username }}</strong>
@@ -82,24 +85,30 @@
             </td>
             <td>
                 {% if r.status == 'pending' %}
-                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                        <!-- Approve Form -->
-                        <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" onclick="return confirm('Approve username change for @{{ r.current_username }} to @{{ r.new_username }}?');" style="background: #059669; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
-                                ✔ Approve
-                            </button>
-                        </form>
+                    {% if r.user.is_moderator() and not current_user.is_admin() %}
+                        <span style="color: #b45309; font-size: 0.85em; font-weight: bold; background: #fef3c7; padding: 4px 8px; border-radius: 4px; display: inline-block;">
+                            🔒 Admin Review Required
+                        </span>
+                    {% else %}
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <!-- Approve Form -->
+                            <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" onclick="return confirm('Approve username change for @{{ r.current_username }} to @{{ r.new_username }}?');" style="background: #059669; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                                    ✔ Approve
+                                </button>
+                            </form>
 
-                        <!-- Reject Form with Note -->
-                        <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 4px;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <input type="text" name="reviewer_note" placeholder="Reason (optional)" style="font-size: 0.85em; padding: 3px 6px; width: 140px; border: 1px solid #cbd5e1; border-radius: 3px;"/>
-                            <button type="submit" onclick="return confirm('Disapprove username change request for @{{ r.current_username }}?');" style="background: #dc2626; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
-                                ✖ Disapprove
-                            </button>
-                        </form>
-                    </div>
+                            <!-- Reject Form with Note -->
+                            <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 4px;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <input type="text" name="reviewer_note" placeholder="Reason (optional)" style="font-size: 0.85em; padding: 3px 6px; width: 140px; border: 1px solid #cbd5e1; border-radius: 3px;"/>
+                                <button type="submit" onclick="return confirm('Disapprove username change request for @{{ r.current_username }}?');" style="background: #dc2626; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                                    ✖ Disapprove
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
                 {% else %}
                     <small style="color: #64748b;">
                         {% if r.reviewer %}

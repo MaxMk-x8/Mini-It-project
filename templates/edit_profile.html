@@ -22,15 +22,19 @@
     <div>
         <label><strong>Username:</strong></label><br>
         <input type="text" value="{{ current_user.username }}" disabled readonly style="background-color: #f1f5f9; color: #475569; width: 250px; cursor: not-allowed;">
-        {% if current_user.has_pending_username_request %}
+        {% if current_user.is_admin() %}
+            <a href="{{ url_for('request_username_change') }}" style="margin-left: 10px; font-weight: bold; color: #16a34a;">Change Username (Admin Direct) &rarr;</a>
+            <small style="display: block; color: #16a34a; margin-top: 4px;">⚡ Admin Privilege: As an Administrator, your username changes take effect immediately without review.</small>
+        {% elif current_user.has_pending_username_request %}
             <span style="margin-left: 10px; color: #d97706; font-weight: bold;">
                 ⏳ Change to <em>@{{ current_user.pending_username_request.new_username }}</em> is pending review
             </span>
             <a href="{{ url_for('request_username_change') }}" style="margin-left: 8px;">View Status</a>
+            <small style="display: block; color: #64748b; margin-top: 4px;">{% if current_user.is_moderator() %}Usernames cannot be changed directly. Community Moderator changes require Administrator approval.{% else %}Usernames cannot be changed directly. You must submit a request for Admin or Moderator approval.{% endif %}</small>
         {% else %}
             <a href="{{ url_for('request_username_change') }}" style="margin-left: 10px; font-weight: bold;">Request Username Change &rarr;</a>
+            <small style="display: block; color: #64748b; margin-top: 4px;">{% if current_user.is_moderator() %}Usernames cannot be changed directly. Community Moderator changes require Administrator approval.{% else %}Usernames cannot be changed directly. You must submit a request for Admin or Moderator approval.{% endif %}</small>
         {% endif %}
-        <small style="display: block; color: #64748b; margin-top: 4px;">Usernames cannot be changed directly. You must submit a request for Admin or Moderator approval.</small>
     </div>
 </fieldset>
 
