@@ -45,6 +45,40 @@
         {% endfor %}
     </div>
 
+    <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 160px;">
+            {{ form.course_code.label }}<br>
+            {{ form.course_code(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;", placeholder="e.g. CPT111, BCN2023") }}
+            {% for error in form.course_code.errors %}
+                <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+            {% endfor %}
+        </div>
+        <div style="flex: 2; min-width: 220px;">
+            {{ form.course_name.label }}<br>
+            {{ form.course_name(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;", placeholder="e.g. Data Structures & Algorithms") }}
+            {% for error in form.course_name.errors %}
+                <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 160px;">
+            {{ form.academic_year.label }}<br>
+            {{ form.academic_year(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;", placeholder="e.g. 2025/2026") }}
+            {% for error in form.academic_year.errors %}
+                <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+            {% endfor %}
+        </div>
+        <div style="flex: 1; min-width: 160px;">
+            {{ form.semester.label }}<br>
+            {{ form.semester(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;") }}
+            {% for error in form.semester.errors %}
+                <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
     <div>
         {{ form.submit(style="padding: 9px 20px; font-weight: bold; background-color: #059669; color: white; border: none; border-radius: 4px; cursor: pointer;") }}
         &nbsp;

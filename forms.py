@@ -86,6 +86,16 @@ RESOURCE_CATEGORIES = [
     ('Other', 'Other')
 ]
 
+SEMESTER_CHOICES = [
+    ('', '-- Select Trimester / Semester (Optional) --'),
+    ('Trimester 1', 'Trimester 1'),
+    ('Trimester 2', 'Trimester 2'),
+    ('Trimester 3', 'Trimester 3'),
+    ('Semester 1', 'Semester 1'),
+    ('Semester 2', 'Semester 2'),
+    ('Special Term / Summer', 'Special Term / Summer')
+]
+
 ALLOWED_EXTENSIONS = ['pdf', 'docx', 'pptx', 'txt', 'zip']
 
 
@@ -94,6 +104,10 @@ class ResourceForm(FlaskForm):
     category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
     description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
+    course_code = StringField('Course / Module Code (Optional)', validators=[Length(max=20), NoProfanity()], filters=[lambda x: x.strip().upper() if x else None])
+    course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
+    academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
+    semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
     file = FileField('Resource File', validators=[
         FileRequired(message='Please select a file to upload.'),
         FileAllowed(ALLOWED_EXTENSIONS, f'Allowed file types: {", ".join(ALLOWED_EXTENSIONS).upper()}')
@@ -106,6 +120,10 @@ class ResourceEditForm(FlaskForm):
     category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
     description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
+    course_code = StringField('Course / Module Code (Optional)', validators=[Length(max=20), NoProfanity()], filters=[lambda x: x.strip().upper() if x else None])
+    course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
+    academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
+    semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
     submit = SubmitField('Update Resource')
 
 
@@ -120,13 +138,26 @@ class RatingForm(FlaskForm):
     submit = SubmitField('Submit Rating')
 
 
+class ProfessorReviewForm(FlaskForm):
+    review_note = TextAreaField('Endorsement / Review Note (Optional)', validators=[Length(max=255), NoProfanity()])
+    submit = SubmitField('Endorse & Review')
+
+
 class CollectionForm(FlaskForm):
     title = StringField('Collection Title', validators=[DataRequired(), Length(min=3, max=150), NoProfanity()])
     category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
     description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
+    course_code = StringField('Course / Module Code (Optional)', validators=[Length(max=20), NoProfanity()], filters=[lambda x: x.strip().upper() if x else None])
+    course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
+    academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
+    semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
     files = MultipleFileField('Notes Folder / Files')
     submit = SubmitField('Upload Notes Collection')
+
+
+# Alias for compatibility with prompt specifications
+CollectionUploadForm = CollectionForm
 
 
 class CollectionEditForm(FlaskForm):
@@ -134,7 +165,16 @@ class CollectionEditForm(FlaskForm):
     category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
     description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
+    course_code = StringField('Course / Module Code (Optional)', validators=[Length(max=20), NoProfanity()], filters=[lambda x: x.strip().upper() if x else None])
+    course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
+    academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
+    semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
     submit = SubmitField('Update Collection')
+
+
+class AddFilesToCollectionForm(FlaskForm):
+    files = MultipleFileField('Additional Files / Folder', validators=[DataRequired(message='Please select files to add.')])
+    submit = SubmitField('Add Files to Collection')
 
 
 

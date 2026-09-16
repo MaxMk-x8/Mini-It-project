@@ -130,6 +130,7 @@ class Week4ResourceHubTestCase(unittest.TestCase):
             # Perform download via HTTP client
             resp = self.client.get(f'/resources/download/{res_id}')
             self.assertEqual(resp.status_code, 200)
+            resp.close()
 
             res = db.session.get(Resource, res_id)
             self.assertEqual(res.download_count, 1)
@@ -137,12 +138,16 @@ class Week4ResourceHubTestCase(unittest.TestCase):
             # Second download
             resp2 = self.client.get(f'/resources/download/{res_id}')
             self.assertEqual(resp2.status_code, 200)
+            resp2.close()
 
             res = db.session.get(Resource, res_id)
             self.assertEqual(res.download_count, 2)
 
             if os.path.exists(file_path):
-                os.remove(file_path)
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
 
     def test_feature_4_sorting_algorithms(self):
         """Test sorting by newest, downloads, and ratings."""

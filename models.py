@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone, timedelta
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -450,6 +451,37 @@ class ResourceRating(db.Model):
         return f'<ResourceRating user={self.user_id} resource={self.resource_id} rating={self.rating}>'
 
 
+class ResourceReview(db.Model):
+    """Endorsement / review by verified faculty (Professors)."""
+    __tablename__ = 'resource_reviews'
+    __table_args__ = (
+        db.UniqueConstraint('resource_id', 'professor_id', name='uq_resource_professor_review'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    resource_id = db.Column(db.Integer, db.ForeignKey('resources.id', name='fk_resource_reviews_resource_id', ondelete='CASCADE'), nullable=False)
+    professor_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_resource_reviews_professor_id', ondelete='CASCADE'), nullable=False)
+    review_note = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    resource = db.relationship('Resource', backref=db.backref('reviews', cascade='all, delete-orphan', lazy=True))
+    professor = db.relationship('User', backref=db.backref('professor_reviews', lazy=True))
+
+    def __init__(self, resource_id=None, professor_id=None, review_note=None, **kwargs):
+        super().__init__(**kwargs)
+        if resource_id:
+            self.resource_id = resource_id
+        if professor_id:
+            self.professor_id = professor_id
+        if review_note:
+            self.review_note = review_note
+
+    def __repr__(self):
+        return f'<ResourceReview prof={self.professor_id} resource={self.resource_id}>'
+
+
 class ResourceCollection(db.Model):
     """Collection for complete folder uploads (Notes Collections)."""
     __tablename__ = 'resource_collections'
@@ -462,6 +494,10 @@ class ResourceCollection(db.Model):
     description = db.Column(db.Text, nullable=True)
     category = db.Column(db.String(50), nullable=False, default='Lecture Notes')
     faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
+    course_code = db.Column(db.String(20), nullable=True)
+    course_name = db.Column(db.String(150), nullable=True)
+    academic_year = db.Column(db.String(20), nullable=True)
+    semester = db.Column(db.String(20), nullable=True)
     uploader_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_collections_uploader_id'), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -475,7 +511,7 @@ class ResourceCollection(db.Model):
         order_by='Resource.relative_path'
     )
 
-    def __init__(self, title=None, description=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, **kwargs):
+    def __init__(self, title=None, description=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, course_code=None, course_name=None, academic_year=None, semester=None, **kwargs):
         super().__init__(**kwargs)
         if title:
             self.title = title
@@ -485,6 +521,10 @@ class ResourceCollection(db.Model):
         self.faculty = faculty
         if uploader_id:
             self.uploader_id = uploader_id
+        self.course_code = course_code
+        self.course_name = course_name
+        self.academic_year = academic_year
+        self.semester = semester
 
     @property
     def download_count(self):
@@ -507,6 +547,11 @@ class ResourceCollection(db.Model):
     @property
     def file_count(self):
         return len(self.resources)
+
+    @property
+    def professor_reviewed_count(self):
+        """Count of files in this collection that have at least one professor review."""
+        return sum(1 for r in self.resources if r.is_reviewed_by_professor)
 
     @property
     def total_size_bytes(self):
@@ -543,6 +588,12 @@ class Resource(db.Model):
     category = db.Column(db.String(50), nullable=False, default='Lecture Notes')
     faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
 
+    # Academic Metadata Fields
+    course_code = db.Column(db.String(20), nullable=True)
+    course_name = db.Column(db.String(150), nullable=True)
+    academic_year = db.Column(db.String(20), nullable=True)
+    semester = db.Column(db.String(20), nullable=True)
+
     # Week 4 Additions
     download_count = db.Column(db.Integer, nullable=False, default=0)
     collection_id = db.Column(db.Integer, db.ForeignKey('resource_collections.id', name='fk_resources_collection_id', ondelete='CASCADE'), nullable=True)
@@ -554,16 +605,14 @@ class Resource(db.Model):
     # Relationships
     uploader = db.relationship('User', backref=db.backref('resources', lazy=True))
 
-    def __init__(self, title=None, description=None, filename=None, stored_filename=None, file_size=0, file_type=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, download_count=0, collection_id=None, relative_path=None, **kwargs):
+    def __init__(self, title=None, description=None, filename=None, stored_filename=None, file_size=0, file_type=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, download_count=0, collection_id=None, relative_path=None, course_code=None, course_name=None, academic_year=None, semester=None, **kwargs):
         super().__init__(**kwargs)
         if title:
             self.title = title
         if description:
             self.description = description
-        if filename:
-            self.filename = filename
-        if stored_filename:
-            self.stored_filename = stored_filename
+        self.filename = filename or f"{title or 'file'}.{file_type or 'dat'}"
+        self.stored_filename = stored_filename or f"{uuid.uuid4().hex}_{self.filename}"
         self.file_size = file_size
         if file_type:
             self.file_type = file_type
@@ -574,6 +623,10 @@ class Resource(db.Model):
         self.download_count = download_count
         self.collection_id = collection_id
         self.relative_path = relative_path
+        self.course_code = course_code
+        self.course_name = course_name
+        self.academic_year = academic_year
+        self.semester = semester
 
     @property
     def formatted_size(self):
@@ -598,6 +651,22 @@ class Resource(db.Model):
     def rating_count(self):
         """Returns total number of user ratings."""
         return len(self.ratings)
+
+    @property
+    def is_reviewed_by_professor(self):
+        """Returns True if at least one professor has reviewed/endorsed this resource."""
+        return len(self.reviews) > 0
+
+    @property
+    def professor_reviews_count(self):
+        """Total number of professor reviews."""
+        return len(self.reviews)
+
+    def is_reviewed_by(self, user):
+        """Returns True if the given user has reviewed this resource."""
+        if not user or not user.is_authenticated:
+            return False
+        return any(rev.professor_id == user.id for rev in self.reviews)
 
     def user_rating(self, user):
         """Returns the rating given by a specific user, or None."""

@@ -1,19 +1,21 @@
 import os
 import random
 import uuid
+import io
+import zipfile
 from datetime import datetime, timezone, timedelta
-from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory, session, jsonify
+from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory, send_file, session, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, AnonymousUserMixin
 from flask_mail import Mail, Message
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from PIL import Image
 
-from models import db, User, Question, Answer, Resource, ResourceRating, ResourceCollection, AnswerBestMark, QAAttachment, Report, ModeratorApplication, BannedEmail, UserWarning
+from models import db, User, Question, Answer, Resource, ResourceRating, ResourceCollection, ResourceReview, AnswerBestMark, QAAttachment, Report, ModeratorApplication, BannedEmail, UserWarning
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
     QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
-    RatingForm, CollectionForm, CollectionEditForm,
+    RatingForm, CollectionForm, CollectionEditForm, CollectionUploadForm, ProfessorReviewForm, AddFilesToCollectionForm, SEMESTER_CHOICES,
     ALLOWED_SCREENSHOT_EXTENSIONS, MAX_SCREENSHOT_SIZE, MAX_SCREENSHOTS_COUNT,
     ChangePasswordForm, LogoutForm, ReportActionForm,
     ModeratorApplicationForm, ModeratorApplicationReviewForm,
@@ -1582,7 +1584,7 @@ def delete_answer(answer_id):
 #-------------------------------
 
 # Configuration Limits for Collections & Uploads
-MAX_COLLECTION_FILES = 50
+MAX_COLLECTION_FILES = 30
 MAX_COLLECTION_TOTAL_SIZE = 50 * 1024 * 1024  # 50 MB total per collection
 MAX_INDIVIDUAL_FILE_SIZE = 10 * 1024 * 1024   # 10 MB per file
 RESOURCES_PER_PAGE = 10
@@ -1653,6 +1655,8 @@ def resources_list():
     query_text = request.args.get('q', '').strip()
     selected_faculty = request.args.get('faculty', '').strip()
     selected_category = request.args.get('category', '').strip()
+    selected_course_code = request.args.get('course_code', '').strip().upper()
+    selected_semester = request.args.get('semester', '').strip()
     selected_sort = request.args.get('sort', 'newest').strip()
 
     try:
@@ -1669,12 +1673,18 @@ def resources_list():
         res_query = res_query.filter(
             (Resource.title.ilike(search_filter)) | 
             (Resource.description.ilike(search_filter)) |
-            (Resource.filename.ilike(search_filter))
+            (Resource.filename.ilike(search_filter)) |
+            (Resource.course_code.ilike(search_filter)) |
+            (Resource.course_name.ilike(search_filter))
         )
     if selected_faculty:
         res_query = res_query.filter(Resource.faculty == selected_faculty)
     if selected_category:
         res_query = res_query.filter(Resource.category == selected_category)
+    if selected_course_code:
+        res_query = res_query.filter(Resource.course_code.ilike(f"%{selected_course_code}%"))
+    if selected_semester:
+        res_query = res_query.filter(Resource.semester == selected_semester)
 
     standalone_resources = res_query.all()
 
@@ -1684,12 +1694,18 @@ def resources_list():
         search_filter = f"%{query_text}%"
         col_query = col_query.filter(
             (ResourceCollection.title.ilike(search_filter)) | 
-            (ResourceCollection.description.ilike(search_filter))
+            (ResourceCollection.description.ilike(search_filter)) |
+            (ResourceCollection.course_code.ilike(search_filter)) |
+            (ResourceCollection.course_name.ilike(search_filter))
         )
     if selected_faculty:
         col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
     if selected_category:
         col_query = col_query.filter(ResourceCollection.category == selected_category)
+    if selected_course_code:
+        col_query = col_query.filter(ResourceCollection.course_code.ilike(f"%{selected_course_code}%"))
+    if selected_semester:
+        col_query = col_query.filter(ResourceCollection.semester == selected_semester)
 
     collections = col_query.all()
 
@@ -1708,6 +1724,7 @@ def resources_list():
     paged_items = sorted_items[start_idx:end_idx]
 
     rating_form = RatingForm()
+    review_form = ProfessorReviewForm()
 
     return render_template(
         'resources/index.html',
@@ -1718,10 +1735,14 @@ def resources_list():
         query_text=query_text,
         selected_faculty=selected_faculty,
         selected_category=selected_category,
+        selected_course_code=selected_course_code,
+        selected_semester=selected_semester,
         selected_sort=selected_sort,
         faculties=FACULTIES,
         categories=RESOURCE_CATEGORIES,
-        rating_form=rating_form
+        semesters=SEMESTER_CHOICES,
+        rating_form=rating_form,
+        review_form=review_form
     )
 
 
@@ -1731,6 +1752,8 @@ def my_uploads():
     query_text = request.args.get('q', '').strip()
     selected_faculty = request.args.get('faculty', '').strip()
     selected_category = request.args.get('category', '').strip()
+    selected_course_code = request.args.get('course_code', '').strip().upper()
+    selected_semester = request.args.get('semester', '').strip()
     selected_sort = request.args.get('sort', 'newest').strip()
 
     try:
@@ -1750,12 +1773,18 @@ def my_uploads():
         res_query = res_query.filter(
             (Resource.title.ilike(search_filter)) | 
             (Resource.description.ilike(search_filter)) |
-            (Resource.filename.ilike(search_filter))
+            (Resource.filename.ilike(search_filter)) |
+            (Resource.course_code.ilike(search_filter)) |
+            (Resource.course_name.ilike(search_filter))
         )
     if selected_faculty:
         res_query = res_query.filter(Resource.faculty == selected_faculty)
     if selected_category:
         res_query = res_query.filter(Resource.category == selected_category)
+    if selected_course_code:
+        res_query = res_query.filter(Resource.course_code.ilike(f"%{selected_course_code}%"))
+    if selected_semester:
+        res_query = res_query.filter(Resource.semester == selected_semester)
 
     user_resources = res_query.all()
 
@@ -1765,12 +1794,18 @@ def my_uploads():
         search_filter = f"%{query_text}%"
         col_query = col_query.filter(
             (ResourceCollection.title.ilike(search_filter)) | 
-            (ResourceCollection.description.ilike(search_filter))
+            (ResourceCollection.description.ilike(search_filter)) |
+            (ResourceCollection.course_code.ilike(search_filter)) |
+            (ResourceCollection.course_name.ilike(search_filter))
         )
     if selected_faculty:
         col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
     if selected_category:
         col_query = col_query.filter(ResourceCollection.category == selected_category)
+    if selected_course_code:
+        col_query = col_query.filter(ResourceCollection.course_code.ilike(f"%{selected_course_code}%"))
+    if selected_semester:
+        col_query = col_query.filter(ResourceCollection.semester == selected_semester)
 
     user_collections = col_query.all()
 
@@ -1787,6 +1822,7 @@ def my_uploads():
     paged_items = sorted_items[start_idx:end_idx]
 
     rating_form = RatingForm()
+    review_form = ProfessorReviewForm()
 
     return render_template(
         'resources/my_uploads.html',
@@ -1797,10 +1833,14 @@ def my_uploads():
         query_text=query_text,
         selected_faculty=selected_faculty,
         selected_category=selected_category,
+        selected_course_code=selected_course_code,
+        selected_semester=selected_semester,
         selected_sort=selected_sort,
         faculties=FACULTIES,
         categories=RESOURCE_CATEGORIES,
-        rating_form=rating_form
+        semesters=SEMESTER_CHOICES,
+        rating_form=rating_form,
+        review_form=review_form
     )
 
 
@@ -1850,6 +1890,133 @@ def resource_rate(resource_id):
     return redirect(request.referrer or url_for('resources_list'))
 
 
+@app.route('/resources/<int:resource_id>/review', methods=['POST'])
+@login_required
+def resource_review(resource_id):
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    # Authorization: Only verified professors can submit reviews
+    if not current_user.is_verified or not current_user.is_professor():
+        flash('Only verified MMU Professors can endorse and review academic resources.', 'danger')
+        return abort(403)
+
+    # Self-Review Prevention: Professors cannot review their own uploaded resources
+    if resource.uploader_id == current_user.id:
+        flash('Professors cannot review their own uploaded resources.', 'warning')
+        return redirect(request.referrer or url_for('resources_list'))
+
+    form = ProfessorReviewForm()
+    if form.validate_on_submit():
+        note = form.review_note.data.strip() if form.review_note.data else None
+
+        existing_review = ResourceReview.query.filter_by(
+            resource_id=resource.id,
+            professor_id=current_user.id
+        ).first()
+
+        if existing_review:
+            existing_review.review_note = note
+            existing_review.updated_at = datetime.now(timezone.utc)
+            flash(f"Your professor review note for '{resource.title}' has been updated.", 'success')
+        else:
+            new_review = ResourceReview(
+                resource_id=resource.id,
+                professor_id=current_user.id,
+                review_note=note
+            )
+            db.session.add(new_review)
+            flash(f"Resource '{resource.title}' has been endorsed with the Professor Reviewed badge!", 'success')
+
+        db.session.commit()
+    else:
+        for err in form.review_note.errors:
+            flash(f"Review note error: {err}", 'danger')
+
+    return redirect(request.referrer or url_for('resources_list'))
+
+
+@app.route('/resources/<int:resource_id>/unreview', methods=['POST'])
+@login_required
+def resource_unreview(resource_id):
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    # Authorization: Only verified professors can withdraw their reviews
+    if not current_user.is_verified or not current_user.is_professor():
+        flash('Only verified Professors can withdraw reviews.', 'danger')
+        return abort(403)
+
+    existing_review = ResourceReview.query.filter_by(
+        resource_id=resource.id,
+        professor_id=current_user.id
+    ).first()
+
+    if existing_review:
+        db.session.delete(existing_review)
+        db.session.commit()
+        flash(f"Your professor review for '{resource.title}' has been withdrawn.", 'info')
+    else:
+        flash('No active review found from your account on this resource.', 'warning')
+
+    return redirect(request.referrer or url_for('resources_list'))
+
+
+@app.route('/resources/<int:resource_id>/preview')
+@login_required
+def resource_preview(resource_id):
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], resource.stored_filename)
+    if not os.path.exists(file_path):
+        flash('The requested file is no longer available on disk for preview.', 'danger')
+        return redirect(request.referrer or url_for('resources_list'))
+
+    file_type = (resource.file_type or '').lower()
+
+    if file_type == 'pdf':
+        response = send_from_directory(
+            app.config['UPLOAD_FOLDER'],
+            resource.stored_filename,
+            as_attachment=False,
+            mimetype='application/pdf',
+            download_name=resource.filename
+        )
+        response.headers['Content-Disposition'] = f'inline; filename="{resource.filename}"'
+        return response
+
+    elif file_type == 'txt':
+        TEXT_PREVIEW_LIMIT = 100 * 1024  # 100 KB text preview limit
+        is_truncated = False
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read(TEXT_PREVIEW_LIMIT + 1)
+                if len(content) > TEXT_PREVIEW_LIMIT:
+                    content = content[:TEXT_PREVIEW_LIMIT]
+                    is_truncated = True
+        except Exception as e:
+            flash(f'Failed to read text file: {e}', 'danger')
+            return redirect(request.referrer or url_for('resources_list'))
+
+        return render_template(
+            'resources/preview_text.html',
+            resource=resource,
+            content=content,
+            is_truncated=is_truncated
+        )
+
+    else:
+        flash(f"In-browser preview is only supported for PDF and TXT files. '{resource.filename}' ({file_type.upper()}) must be downloaded directly.", 'warning')
+        return redirect(request.referrer or url_for('resources_list'))
+
+
 @app.route('/resources/upload', methods=['GET', 'POST'])
 @login_required
 def resource_upload():
@@ -1894,6 +2061,12 @@ def resource_upload():
             flash('File exceeds the 10MB size limit.', 'danger')
             return render_template('resources/upload.html', form=form)
 
+        # Normalize academic metadata
+        raw_code = form.course_code.data.strip().upper() if form.course_code.data and form.course_code.data.strip() else None
+        c_name = form.course_name.data.strip() if form.course_name.data and form.course_name.data.strip() else None
+        acad_yr = form.academic_year.data.strip() if form.academic_year.data and form.academic_year.data.strip() else None
+        sem = form.semester.data.strip() if form.semester.data and form.semester.data.strip() else None
+
         # Create database record
         resource = Resource(
             title=form.title.data.strip(),
@@ -1905,6 +2078,10 @@ def resource_upload():
             category=form.category.data,
             faculty=form.faculty.data,
             uploader_id=current_user.id,
+            course_code=raw_code,
+            course_name=c_name,
+            academic_year=acad_yr,
+            semester=sem,
             download_count=0
         )
         db.session.add(resource)
@@ -1990,13 +2167,23 @@ def resource_upload_folder():
             flash(f'No valid files could be uploaded from the selected folder. Reasons: {reasons}', 'danger')
             return render_template('resources/upload_folder.html', form=form)
 
+        # Normalize academic metadata
+        raw_code = form.course_code.data.strip().upper() if form.course_code.data and form.course_code.data.strip() else None
+        c_name = form.course_name.data.strip() if form.course_name.data and form.course_name.data.strip() else None
+        acad_yr = form.academic_year.data.strip() if form.academic_year.data and form.academic_year.data.strip() else None
+        sem = form.semester.data.strip() if form.semester.data and form.semester.data.strip() else None
+
         # Create collection parent container
         collection = ResourceCollection(
             title=form.title.data.strip(),
             description=form.description.data.strip() if form.description.data else '',
             category=form.category.data,
             faculty=form.faculty.data,
-            uploader_id=current_user.id
+            uploader_id=current_user.id,
+            course_code=raw_code,
+            course_name=c_name,
+            academic_year=acad_yr,
+            semester=sem
         )
         db.session.add(collection)
         db.session.flush()  # Obtain collection.id
@@ -2025,6 +2212,10 @@ def resource_upload_folder():
                     uploader_id=current_user.id,
                     collection_id=collection.id,
                     relative_path=safe_rel_path,
+                    course_code=collection.course_code,
+                    course_name=collection.course_name,
+                    academic_year=collection.academic_year,
+                    semester=collection.semester,
                     download_count=0
                 )
                 db.session.add(member_resource)
@@ -2060,10 +2251,12 @@ def collection_detail(collection_id):
         return redirect(url_for('resources_list'))
 
     rating_form = RatingForm()
+    review_form = ProfessorReviewForm()
     return render_template(
         'resources/collection_detail.html',
         collection=collection,
-        rating_form=rating_form
+        rating_form=rating_form,
+        review_form=review_form
     )
 
 
@@ -2085,11 +2278,19 @@ def collection_edit(collection_id):
         collection.description = form.description.data.strip() if form.description.data else ''
         collection.category = form.category.data
         collection.faculty = form.faculty.data
+        collection.course_code = form.course_code.data.strip().upper() if form.course_code.data and form.course_code.data.strip() else None
+        collection.course_name = form.course_name.data.strip() if form.course_name.data and form.course_name.data.strip() else None
+        collection.academic_year = form.academic_year.data.strip() if form.academic_year.data and form.academic_year.data.strip() else None
+        collection.semester = form.semester.data.strip() if form.semester.data and form.semester.data.strip() else None
 
-        # Synchronize faculty and category across member resources
+        # Synchronize faculty, category, and academic metadata across member resources
         for member in collection.resources:
             member.category = collection.category
             member.faculty = collection.faculty
+            member.course_code = collection.course_code
+            member.course_name = collection.course_name
+            member.academic_year = collection.academic_year
+            member.semester = collection.semester
 
         db.session.commit()
         flash(f"Collection '{collection.title}' details updated successfully!", 'success')
@@ -2127,6 +2328,212 @@ def collection_delete(collection_id):
 
     flash(f"Notes collection '{collection_title}' and its {removed_count} member file(s) have been deleted.", 'info')
     return redirect(url_for('resources_list'))
+
+
+@app.route('/resources/collection/<int:collection_id>/download-zip')
+@login_required
+def collection_download_zip(collection_id):
+    collection = db.session.get(ResourceCollection, collection_id)
+    if not collection:
+        flash('Notes collection not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    if not collection.resources:
+        flash('This collection currently contains no files to download.', 'warning')
+        return redirect(url_for('collection_detail', collection_id=collection.id))
+
+    # Pre-flight integrity check: ensure all files physically exist on disk
+    for r in collection.resources:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], r.stored_filename)
+        if not os.path.exists(file_path):
+            flash('Cannot generate ZIP archive: one or more member files in this collection are missing from the server storage.', 'danger')
+            return redirect(url_for('collection_detail', collection_id=collection.id))
+
+    # In-memory ZIP archive generation
+    mem_buf = io.BytesIO()
+    seen_arcnames = set()
+
+    with zipfile.ZipFile(mem_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for r in collection.resources:
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], r.stored_filename)
+            raw_arcname = (r.relative_path or r.filename).replace('\\', '/').strip('/')
+            
+            # Directory traversal prevention
+            parts = [p for p in raw_arcname.split('/') if p and p != '.' and p != '..']
+            if not parts:
+                parts = [secure_filename(r.filename) or 'file']
+            safe_arcname = '/'.join(parts)
+
+            # Duplicate path collision handling within ZIP
+            final_arcname = safe_arcname
+            counter = 1
+            while final_arcname in seen_arcnames:
+                dir_name, base_name = os.path.split(safe_arcname)
+                name_root, ext = os.path.splitext(base_name)
+                final_base = f"{name_root}_{counter}{ext}"
+                final_arcname = os.path.join(dir_name, final_base).replace('\\', '/') if dir_name else final_base
+                counter += 1
+
+            seen_arcnames.add(final_arcname)
+            zf.write(file_path, arcname=final_arcname)
+
+    mem_buf.seek(0)
+
+    # Atomic download count increment across all included member resources
+    for r in collection.resources:
+        Resource.query.filter_by(id=r.id).update({
+            Resource.download_count: Resource.download_count + 1
+        })
+    db.session.commit()
+
+    safe_title = secure_filename(collection.title) or 'collection'
+    zip_filename = f"{safe_title}_collection.zip"
+
+    return send_file(
+        mem_buf,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=zip_filename
+    )
+
+
+@app.route('/resources/collection/<int:collection_id>/add-files', methods=['GET', 'POST'])
+@login_required
+def collection_add_files(collection_id):
+    collection = db.session.get(ResourceCollection, collection_id)
+    if not collection:
+        flash('Collection not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    # Authorization: Only collection owner or admin can append files
+    if collection.uploader_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to add files to this collection.', 'danger')
+        return abort(403)
+
+    form = AddFilesToCollectionForm()
+    if form.validate_on_submit():
+        raw_files = request.files.getlist('files')
+        valid_selected_files = [f for f in raw_files if f and f.filename and f.filename.strip() != '']
+
+        if not valid_selected_files:
+            flash('Please select at least one file or folder to add.', 'danger')
+            return render_template('resources/collection_add_files.html', form=form, collection=collection)
+
+        current_file_count = len(collection.resources)
+        current_total_size = collection.total_size_bytes
+        existing_paths = {r.relative_path or r.filename for r in collection.resources}
+
+        valid_files_to_save = []
+        skipped_files = []
+        seen_new_paths = set()
+
+        for file_obj in valid_selected_files:
+            raw_filename = file_obj.filename.strip()
+            clean_rel = raw_filename.replace('\\', '/').strip('/')
+            base_filename = os.path.basename(clean_rel)
+
+            safe_rel_path = sanitize_relative_path(clean_rel, base_filename)
+            if not safe_rel_path:
+                skipped_files.append((raw_filename, 'Unsafe path characters or traversal detected'))
+                continue
+
+            if safe_rel_path in existing_paths:
+                skipped_files.append((raw_filename, 'A file with this relative path already exists in this collection'))
+                continue
+
+            if safe_rel_path in seen_new_paths:
+                skipped_files.append((raw_filename, 'Duplicate file path within upload batch'))
+                continue
+
+            file_ext = ''
+            if '.' in base_filename:
+                file_ext = base_filename.rsplit('.', 1)[1].lower()
+
+            if file_ext not in ALLOWED_EXTENSIONS:
+                skipped_files.append((raw_filename, f"Invalid format '.{file_ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS).upper()}"))
+                continue
+
+            file_obj.seek(0, os.SEEK_END)
+            file_size = file_obj.tell()
+            file_obj.seek(0)
+
+            if file_size == 0:
+                skipped_files.append((raw_filename, 'File is empty (0 bytes)'))
+                continue
+
+            if file_size > MAX_INDIVIDUAL_FILE_SIZE:
+                skipped_files.append((raw_filename, f'Exceeds 10MB individual limit ({file_size / (1024*1024):.1f} MB)'))
+                continue
+
+            if current_total_size + file_size > MAX_COLLECTION_TOTAL_SIZE:
+                skipped_files.append((raw_filename, 'Exceeds 50MB collection total limit'))
+                continue
+
+            if current_file_count + len(valid_files_to_save) + 1 > MAX_COLLECTION_FILES:
+                skipped_files.append((raw_filename, f'Exceeds maximum limit of {MAX_COLLECTION_FILES} files per collection'))
+                continue
+
+            seen_new_paths.add(safe_rel_path)
+            current_total_size += file_size
+            valid_files_to_save.append((file_obj, safe_rel_path, base_filename, file_ext, file_size))
+
+        if not valid_files_to_save:
+            reasons = "; ".join([f"{name} ({reason})" for name, reason in skipped_files])
+            flash(f'No valid files could be added to the collection. Reasons: {reasons}', 'danger')
+            return render_template('resources/collection_add_files.html', form=form, collection=collection)
+
+        saved_disk_files = []
+        try:
+            for file_obj, safe_rel_path, base_filename, file_ext, file_size in valid_files_to_save:
+                timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+                unique_token = uuid.uuid4().hex[:8]
+                clean_sec_name = secure_filename(base_filename) or "notes_file"
+                stored_filename = f"{timestamp}_{unique_token}_{clean_sec_name}"
+                disk_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
+
+                file_obj.save(disk_path)
+                saved_disk_files.append(disk_path)
+
+                member_resource = Resource(
+                    title=base_filename,
+                    description='',
+                    filename=base_filename,
+                    stored_filename=stored_filename,
+                    file_size=file_size,
+                    file_type=file_ext,
+                    category=collection.category,
+                    faculty=collection.faculty,
+                    uploader_id=current_user.id,
+                    collection_id=collection.id,
+                    relative_path=safe_rel_path,
+                    course_code=collection.course_code,
+                    course_name=collection.course_name,
+                    academic_year=collection.academic_year,
+                    semester=collection.semester,
+                    download_count=0
+                )
+                db.session.add(member_resource)
+
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            for disk_file in saved_disk_files:
+                if os.path.exists(disk_file):
+                    try:
+                        os.remove(disk_file)
+                    except Exception:
+                        pass
+            flash(f'An unexpected error occurred while adding files: {e}', 'danger')
+            return render_template('resources/collection_add_files.html', form=form, collection=collection)
+
+        flash(f"Successfully added {len(valid_files_to_save)} new file(s) to '{collection.title}'!", 'success')
+        if skipped_files:
+            skipped_summary = "; ".join([f"{name}: {reason}" for name, reason in skipped_files])
+            flash(f"Notice: {len(skipped_files)} file(s) were skipped: {skipped_summary}", 'warning')
+
+        return redirect(url_for('collection_detail', collection_id=collection.id))
+
+    return render_template('resources/collection_add_files.html', form=form, collection=collection)
 
 
 @app.route('/resources/download/<int:resource_id>')
@@ -2174,6 +2581,10 @@ def resource_edit(resource_id):
         resource.description = form.description.data.strip() if form.description.data else ''
         resource.category = form.category.data
         resource.faculty = form.faculty.data
+        resource.course_code = form.course_code.data.strip().upper() if form.course_code.data and form.course_code.data.strip() else None
+        resource.course_name = form.course_name.data.strip() if form.course_name.data and form.course_name.data.strip() else None
+        resource.academic_year = form.academic_year.data.strip() if form.academic_year.data and form.academic_year.data.strip() else None
+        resource.semester = form.semester.data.strip() if form.semester.data and form.semester.data.strip() else None
 
         db.session.commit()
         flash('Resource details updated successfully!', 'success')
@@ -2203,7 +2614,7 @@ def resource_delete(resource_id):
         except Exception as e:
             app.logger.warning(f"Failed to remove physical file {file_path}: {e}")
 
-    # Remove database record (cascades to ratings)
+    # Remove database record (cascades to ratings and reviews)
     db.session.delete(resource)
     db.session.commit()
 

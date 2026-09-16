@@ -50,6 +50,16 @@ def migrate_database(db_path='instance/codenest.db'):
     ensure_column('resources', 'download_count', 'INTEGER NOT NULL', 0)
     ensure_column('resources', 'collection_id', 'INTEGER REFERENCES resource_collections(id) ON DELETE CASCADE', None)
     ensure_column('resources', 'relative_path', 'VARCHAR(500)', None)
+    ensure_column('resources', 'course_code', 'VARCHAR(20)', None)
+    ensure_column('resources', 'course_name', 'VARCHAR(150)', None)
+    ensure_column('resources', 'academic_year', 'VARCHAR(20)', None)
+    ensure_column('resources', 'semester', 'VARCHAR(20)', None)
+
+    # 4b. RESOURCE_COLLECTIONS table columns
+    ensure_column('resource_collections', 'course_code', 'VARCHAR(20)', None)
+    ensure_column('resource_collections', 'course_name', 'VARCHAR(150)', None)
+    ensure_column('resource_collections', 'academic_year', 'VARCHAR(20)', None)
+    ensure_column('resource_collections', 'semester', 'VARCHAR(20)', None)
 
     # 5. CREATE ALL REQUIRED TABLES IF NOT EXIST
     cursor.execute("""
@@ -59,6 +69,10 @@ def migrate_database(db_path='instance/codenest.db'):
         description TEXT,
         category VARCHAR(50) NOT NULL DEFAULT 'Lecture Notes',
         faculty VARCHAR(10) NOT NULL DEFAULT 'FCI',
+        course_code VARCHAR(20),
+        course_name VARCHAR(150),
+        academic_year VARCHAR(20),
+        semester VARCHAR(20),
         uploader_id INTEGER NOT NULL,
         created_at DATETIME,
         CONSTRAINT ck_collection_faculty_valid CHECK (faculty IN ('FCI', 'FOM')),
@@ -78,6 +92,20 @@ def migrate_database(db_path='instance/codenest.db'):
         CONSTRAINT uq_resource_user_rating UNIQUE (user_id, resource_id),
         CONSTRAINT fk_resource_ratings_resource_id FOREIGN KEY (resource_id) REFERENCES resources (id) ON DELETE CASCADE,
         CONSTRAINT fk_resource_ratings_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS resource_reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        resource_id INTEGER NOT NULL,
+        professor_id INTEGER NOT NULL,
+        review_note VARCHAR(255),
+        created_at DATETIME,
+        updated_at DATETIME,
+        CONSTRAINT uq_resource_professor_review UNIQUE (resource_id, professor_id),
+        CONSTRAINT fk_resource_reviews_resource_id FOREIGN KEY (resource_id) REFERENCES resources (id) ON DELETE CASCADE,
+        CONSTRAINT fk_resource_reviews_professor_id FOREIGN KEY (professor_id) REFERENCES users (id) ON DELETE CASCADE
     )
     """)
 

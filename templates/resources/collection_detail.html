@@ -7,8 +7,28 @@
 <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
         <div>
-            <span style="display: inline-block; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-bottom: 8px;">📁 NOTES COLLECTION</span>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
+                <span style="display: inline-block; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
+                    📁 NOTES COLLECTION
+                </span>
+                {% if collection.course_code %}
+                    <span style="background-color: #e0e7ff; color: #3730a3; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; border: 1px solid #c7d2fe;">
+                        📚 {{ collection.course_code }}
+                    </span>
+                {% endif %}
+                {% if collection.semester or collection.academic_year %}
+                    <span style="background-color: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; border: 1px solid #cbd5e1;">
+                        🗓️ {{ collection.semester or '' }} {{ collection.academic_year or '' }}
+                    </span>
+                {% endif %}
+            </div>
+
             <h2 style="margin: 0 0 8px 0; color: #0f172a;">{{ collection.title }}</h2>
+            {% if collection.course_name %}
+                <p style="margin: 0 0 6px 0; color: #334155; font-size: 0.95rem; font-weight: 500;">
+                    Course: {{ collection.course_name }}
+                </p>
+            {% endif %}
             <p style="margin: 0; color: #64748b; font-size: 0.9rem;">
                 Faculty: <strong>{{ collection.faculty }}</strong> | 
                 Category: <strong>{{ collection.category }}</strong> | 
@@ -18,7 +38,7 @@
         </div>
 
         <!-- Aggregate Statistics -->
-        <div style="display: flex; gap: 10px; align-items: center; font-size: 0.9rem;">
+        <div style="display: flex; gap: 8px; align-items: center; font-size: 0.875rem; flex-wrap: wrap;">
             <span style="background-color: #eff6ff; color: #1d4ed8; padding: 6px 12px; border-radius: 4px; border: 1px solid #bfdbfe;">
                 📥 <strong>{{ collection.download_count }}</strong> total downloads
             </span>
@@ -29,6 +49,9 @@
                     <em>Not rated yet</em>
                 {% endif %}
             </span>
+            <span style="background-color: #f5f3ff; color: #6d28d9; padding: 6px 12px; border-radius: 4px; border: 1px solid #ddd6fe;">
+                🎓 <strong>{{ collection.professor_reviewed_count }} of {{ collection.file_count }}</strong> files professor-reviewed
+            </span>
         </div>
     </div>
 
@@ -38,16 +61,29 @@
         </div>
     {% endif %}
 
-    <!-- Management Controls -->
-    {% if current_user.is_authenticated and (current_user.id == collection.uploader_id or current_user.is_admin()) %}
-        <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #e2e8f0; display: flex; gap: 14px; align-items: center;">
-            <a href="{{ url_for('collection_edit', collection_id=collection.id) }}" style="color: #2563eb; font-weight: bold; text-decoration: none;">✏️ Edit Collection Details</a>
+    <!-- Action & Management Controls Bar -->
+    <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        {% if collection.file_count > 0 %}
+            <a href="{{ url_for('collection_download_zip', collection_id=collection.id) }}" style="display: inline-block; padding: 8px 16px; background-color: #1e293b; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                📦 Download Complete Collection (.ZIP)
+            </a>
+        {% endif %}
+
+        {% if current_user.is_authenticated and (current_user.id == collection.uploader_id or current_user.is_admin()) %}
+            <a href="{{ url_for('collection_add_files', collection_id=collection.id) }}" style="display: inline-block; padding: 8px 16px; background-color: #059669; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                ➕ Add Files to Collection
+            </a>
+            <a href="{{ url_for('collection_edit', collection_id=collection.id) }}" style="color: #2563eb; font-weight: bold; text-decoration: none; padding: 8px 12px;">
+                ✏️ Edit Collection Details
+            </a>
             <form method="POST" action="{{ url_for('collection_delete', collection_id=collection.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to permanently delete this collection and ALL member files?');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; font-weight: bold; text-decoration: underline;">🗑️ Delete Entire Collection</button>
+                <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 8px 12px; font-weight: bold; text-decoration: underline; font-size: 0.9rem;">
+                    🗑️ Delete Entire Collection
+                </button>
             </form>
-        </div>
-    {% endif %}
+        {% endif %}
+    </div>
 </div>
 
 <!-- Collection Member Files List -->
@@ -56,41 +92,94 @@
 </div>
 
 {% if collection.resources %}
-    <table class="table-bordered" style="width: 100%; border-collapse: collapse; background-color: #ffffff;">
+    <table class="table-bordered" style="width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
         <thead>
             <tr style="background-color: #f1f5f9;">
-                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">File / Subfolder Path</th>
-                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 90px;">Size</th>
-                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Downloads</th>
-                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 160px;">Rating</th>
-                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 220px;">Actions</th>
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">File / Relative Path</th>
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 85px;">Size</th>
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 95px;">Downloads</th>
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 140px;">Community Rating</th>
+                <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 260px;">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for r in collection.resources %}
                 <tr>
-                    <td style="padding: 10px; border: 1px solid #cbd5e1;">
+                    <td style="padding: 12px 10px; border: 1px solid #cbd5e1; vertical-align: top;">
                         {% set ext = r.file_type|lower %}
-                        <span style="font-size: 1.1rem; margin-right: 6px;">
-                            {% if ext == 'pdf' %}📄
-                            {% elif ext == 'docx' %}📝
-                            {% elif ext == 'pptx' %}📊
-                            {% elif ext == 'txt' %}📃
-                            {% elif ext == 'zip' %}📦
-                            {% else %}📄
-                            {% endif %}
-                        </span>
-                        <strong>{{ r.relative_path or r.filename }}</strong>
-                        <br>
-                        <small style="color: #64748b;">Uploaded {{ r.created_at.strftime('%Y-%m-%d') }}</small>
+                        <div style="display: flex; align-items: flex-start; gap: 8px;">
+                            <span style="font-size: 1.15rem;">
+                                {% if ext == 'pdf' %}📄
+                                {% elif ext == 'docx' %}📝
+                                {% elif ext == 'pptx' %}📊
+                                {% elif ext == 'txt' %}📃
+                                {% elif ext == 'zip' %}📦
+                                {% else %}📄
+                                {% endif %}
+                            </span>
+                            <div>
+                                <strong>{{ r.relative_path or r.filename }}</strong>
+                                <br>
+                                <small style="color: #64748b;">Uploaded {{ r.created_at.strftime('%Y-%m-%d') }}</small>
+
+                                <!-- Professor Review Badge Display -->
+                                {% if r.is_reviewed_by_professor %}
+                                    <div style="margin-top: 8px; padding: 8px 10px; background-color: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 4px;">
+                                        <div style="display: flex; align-items: center; gap: 6px; color: #5b21b6; font-size: 0.85rem; font-weight: bold;">
+                                            🎓 PROFESSOR REVIEWED
+                                        </div>
+                                        {% for rev in r.reviews %}
+                                            <div style="font-size: 0.82rem; color: #4c1d95; margin-top: 4px;">
+                                                Reviewed by <strong>Prof. {{ rev.professor.username }}</strong> on {{ rev.created_at.strftime('%Y-%m-%d') }}:
+                                                {% if rev.review_note %}
+                                                    <em>"{{ rev.review_note }}"</em>
+                                                {% else %}
+                                                    <em>(Endorsed)</em>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 4px; font-style: italic;">
+                                            * This badge records an MMU Professor's review; it does not constitute official university accreditation or a guarantee of complete accuracy.
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                <!-- Professor Review / Unreview Controls -->
+                                {% if current_user.is_authenticated and current_user.is_professor() and current_user.id != r.uploader_id %}
+                                    <div style="margin-top: 8px;">
+                                        {% if r.is_reviewed_by(current_user) %}
+                                            <form method="POST" action="{{ url_for('resource_unreview', resource_id=r.id) }}" style="display: inline;" onsubmit="return confirm('Withdraw your professor review on this file?');">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" style="background: none; border: 1px solid #ddd6fe; color: #6d28d9; padding: 3px 8px; border-radius: 3px; font-size: 0.78rem; cursor: pointer;">
+                                                    Withdraw Professor Review
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <details style="display: inline-block;">
+                                                <summary style="font-size: 0.8rem; color: #6d28d9; cursor: pointer; font-weight: 500;">
+                                                    + Endorse as Professor
+                                                </summary>
+                                                <form method="POST" action="{{ url_for('resource_review', resource_id=r.id) }}" style="margin-top: 6px; padding: 8px; background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 4px;">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <input type="text" name="review_note" placeholder="Optional review note..." maxlength="255" style="width: 200px; padding: 4px; font-size: 0.8rem;">
+                                                    <button type="submit" style="padding: 4px 8px; background: #6d28d9; color: white; border: none; border-radius: 3px; font-size: 0.8rem; cursor: pointer;">
+                                                        Submit Review
+                                                    </button>
+                                                </form>
+                                            </details>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </td>
-                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-size: 0.9rem; color: #475569;">
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-size: 0.9rem; color: #475569; vertical-align: top;">
                         {{ r.formatted_size }}
                     </td>
-                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-size: 0.9rem; color: #1d4ed8;">
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-size: 0.9rem; color: #1d4ed8; vertical-align: top;">
                         📥 {{ r.download_count or 0 }}
                     </td>
-                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-size: 0.85rem;">
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; font-size: 0.85rem; vertical-align: top;">
                         {% if r.average_rating %}
                             ★ <strong>{{ r.average_rating }}</strong> ({{ r.rating_count }})
                         {% else %}
@@ -112,17 +201,25 @@
                             </form>
                         {% endif %}
                     </td>
-                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: right;">
-                        <a href="{{ url_for('resource_download', resource_id=r.id) }}" style="display: inline-block; padding: 4px 10px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
-                            📥 Download
-                        </a>
-                        {% if current_user.is_authenticated and (current_user.id == r.uploader_id or current_user.is_admin()) %}
-                            &nbsp;
-                            <form method="POST" action="{{ url_for('resource_delete', resource_id=r.id) }}" style="display: inline;" onsubmit="return confirm('Delete this individual file from the collection?');">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.85rem;">Delete</button>
-                            </form>
-                        {% endif %}
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; vertical-align: top;">
+                        <div style="display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap;">
+                            {% if ext in ['pdf', 'txt'] %}
+                                <a href="{{ url_for('resource_preview', resource_id=r.id) }}" target="_blank" style="display: inline-block; padding: 4px 8px; background-color: #f1f5f9; color: #1e293b; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.85rem;">
+                                    👁️ Preview
+                                </a>
+                            {% endif %}
+                            <a href="{{ url_for('resource_download', resource_id=r.id) }}" style="display: inline-block; padding: 4px 10px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
+                                📥 Download
+                            </a>
+                            {% if current_user.is_authenticated and (current_user.id == r.uploader_id or current_user.is_admin()) %}
+                                <form method="POST" action="{{ url_for('resource_delete', resource_id=r.id) }}" style="display: inline;" onsubmit="return confirm('Delete this individual file from the collection?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 4px 6px; text-decoration: underline; font-size: 0.85rem;">
+                                        Delete
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
             {% endfor %}
