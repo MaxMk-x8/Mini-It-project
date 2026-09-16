@@ -1,73 +1,105 @@
 {% extends "base.html" %}
 
 {% block content %}
-<p><a href="{{ url_for('qa_list') }}">&larr; Back to Q&A Discussions</a></p>
+{% include "qa/_qa_styles.html" %}
 
-<h2>Ask a Question</h2>
+<div class="qa-container">
+<div style="margin-bottom: 16px;">
+    <a href="{{ url_for('qa_list') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+        &larr; Back to Q&A Discussions
+    </a>
+</div>
 
-<form method="POST" action="{{ url_for('qa_ask') }}" enctype="multipart/form-data" style="max-width: 650px;">
-    {{ form.hidden_tag() }}
-
-    <div style="margin-bottom: 15px;">
-        {{ form.title.label }}<br>
-        {{ form.title(style="width: 100%; box-sizing: border-box; padding: 6px;") }}
-        {% for error in form.title.errors %}
-            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
-        {% endfor %}
-    </div>
-
-    <div style="margin-bottom: 15px;">
-        {{ form.category.label }}<br>
-        {{ form.category(style="padding: 6px;") }}
-        {% for error in form.category.errors %}
-            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
-        {% endfor %}
-    </div>
-
-    <div style="margin-bottom: 15px;">
-        {{ form.faculty.label }}<br>
-        {{ form.faculty(style="padding: 6px;") }}
-        {% for error in form.faculty.errors %}
-            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
-        {% endfor %}
-    </div>
-
-    <div style="margin-bottom: 15px;">
-        {{ form.visibility.label }}<br>
-        {{ form.visibility(style="padding: 6px;") }}
-        {% for error in form.visibility.errors %}
-            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
-        {% endfor %}
-    </div>
-
-    <div style="margin-bottom: 15px;">
-        {{ form.content.label }}<br>
-        {{ form.content(rows=8, style="width: 100%; box-sizing: border-box; padding: 6px;") }}
-        {% for error in form.content.errors %}
-            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
-        {% endfor %}
-    </div>
-
-    <!-- Screenshot Attachments (Week 4) -->
-    <div style="margin-bottom: 20px; padding: 12px; border: 1px dashed #bbb; border-radius: 4px; background: #fafafa;">
-        <label for="screenshots"><strong>Attach Screenshots (Optional):</strong></label>
-        <p style="margin: 4px 0 8px 0; font-size: 0.85em; color: #666;">
-            Upload up to 3 images (PNG, JPG, JPEG, WebP). Maximum 5 MB per image.
+<div class="qa-card" style="max-width: 750px; margin: 0 auto; padding: 28px 32px;">
+    <div style="border-bottom: 2px solid var(--primary-blue-subtle); padding-bottom: 14px; margin-bottom: 22px;">
+        <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.5rem;">✍️ Ask a Question</h2>
+        <p style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
+            Provide clear details, select your faculty, and optionally attach screenshots to help peers and professors answer effectively.
         </p>
-        <input type="file" id="screenshots" name="screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewImages(this, 'ask-preview-container', 'ask-preview-msg')">
-        
-        <p id="ask-preview-msg" style="display: none; color: #c00; font-size: 0.85em; margin: 6px 0 0 0;"></p>
-        <div id="ask-preview-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;"></div>
     </div>
 
-    <div>
-        {{ form.submit() }}
-        &nbsp;
-        <button type="submit" name="save_draft" value="1" style="padding: 5px 12px; cursor: pointer; background: #e0f2fe; border: 1px solid #0284c7; color: #0369a1; border-radius: 4px; font-weight: bold;">📝 Save as Draft</button>
-        &nbsp;
-        <a href="{{ url_for('qa_list') }}">Cancel</a>
-    </div>
-</form>
+    <form method="POST" action="{{ url_for('qa_ask') }}" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+
+        <div style="margin-bottom: 18px;">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Question Title <span style="color: var(--primary-red);">*</span>
+            </label>
+            {{ form.title(style="width: 100%;", placeholder="e.g., How to resolve segmentation fault in C++ linked list?") }}
+            {% for error in form.title.errors %}
+                <p style="color: var(--primary-red); font-size: 0.85rem; margin: 4px 0 0 0; font-weight: 600;">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Faculty <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.faculty(style="width: 100%;") }}
+                {% for error in form.faculty.errors %}
+                    <p style="color: var(--primary-red); font-size: 0.85rem; margin: 4px 0 0 0; font-weight: 600;">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Category <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.category(style="width: 100%;") }}
+                {% for error in form.category.errors %}
+                    <p style="color: var(--primary-red); font-size: 0.85rem; margin: 4px 0 0 0; font-weight: 600;">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Audience Visibility <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.visibility(style="width: 100%;") }}
+                {% for error in form.visibility.errors %}
+                    <p style="color: var(--primary-red); font-size: 0.85rem; margin: 4px 0 0 0; font-weight: 600;">{{ error }}</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Question Details & Code Snippets <span style="color: var(--primary-red);">*</span>
+            </label>
+            {{ form.content(rows=8, style="width: 100%;", placeholder="Explain your question in detail. Mention peers or professors using @username...") }}
+            {% for error in form.content.errors %}
+                <p style="color: var(--primary-red); font-size: 0.85rem; margin: 4px 0 0 0; font-weight: 600;">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <!-- Screenshot Attachments -->
+        <div style="margin-bottom: 24px; padding: 16px; border: 2px dashed var(--border-color); border-radius: 8px; background: var(--bg-color);">
+            <label for="screenshots" style="display: block; font-weight: 600; color: var(--text-color); margin-bottom: 4px;">
+                📷 Attach Error Screenshots (Optional)
+            </label>
+            <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: var(--text-muted);">
+                Upload up to 3 screenshots (.png, .jpg, .jpeg, .webp) up to 5 MB each.
+            </p>
+            <input type="file" id="screenshots" name="screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewImages(this, 'ask-preview-container', 'ask-preview-msg')" style="font-size: 0.9rem; color: var(--text-color);">
+            
+            <p id="ask-preview-msg" style="display: none; color: var(--primary-red); font-size: 0.85rem; margin: 8px 0 0 0; font-weight: 600;"></p>
+            <div id="ask-preview-container" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px;"></div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--border-color);">
+            {{ form.submit(class="btn btn-primary") }}
+
+            <button type="submit" name="save_draft" value="1" class="btn btn-secondary" style="font-weight: 600;">
+                📝 Save as Draft
+            </button>
+
+            <a href="{{ url_for('qa_list') }}" class="btn btn-secondary" style="margin-left: auto;">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
 
 <script>
     function previewImages(input, containerId, msgId) {
@@ -96,25 +128,26 @@
             reader.onload = (function(f) {
                 return function(e) {
                     var card = document.createElement('div');
-                    card.style.border = '1px solid #ddd';
-                    card.style.borderRadius = '4px';
-                    card.style.padding = '4px';
-                    card.style.background = '#fff';
-                    card.style.width = '100px';
+                    card.style.border = '1px solid var(--border-color)';
+                    card.style.borderRadius = '6px';
+                    card.style.padding = '6px';
+                    card.style.background = 'var(--surface-card)';
+                    card.style.width = '110px';
                     card.style.textAlign = 'center';
-                    card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                    card.style.boxShadow = 'var(--shadow-sm)';
 
                     var img = document.createElement('img');
                     img.src = e.target.result;
                     img.style.width = '100%';
-                    img.style.height = '70px';
+                    img.style.height = '75px';
                     img.style.objectFit = 'cover';
-                    img.style.borderRadius = '2px';
+                    img.style.borderRadius = '4px';
 
                     var name = document.createElement('div');
                     name.innerText = f.name.length > 12 ? f.name.substring(0, 10) + '...' : f.name;
-                    name.style.fontSize = '0.75em';
+                    name.style.fontSize = '0.75rem';
                     name.style.marginTop = '4px';
+                    name.style.color = 'var(--text-color)';
                     name.style.wordBreak = 'break-all';
 
                     card.appendChild(img);
@@ -126,6 +159,7 @@
         }
     }
 </script>
-
+</div>
 {% endblock %}
+
 

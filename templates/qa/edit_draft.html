@@ -1,73 +1,101 @@
 {% extends "base.html" %}
 {% block content %}
+{% include "qa/_qa_styles.html" %}
 
-<div>
-    <p><a href="{{ url_for('qa_drafts') }}">&larr; Back to My Drafts</a></p>
-    <h2>Edit Draft Question</h2>
-    <p>Complete your draft and publish it to the community, or update your saved draft.</p>
+<div class="qa-container">
+<div style="margin-bottom: 16px;">
+    <a href="{{ url_for('qa_drafts') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+        &larr; Back to My Drafts
+    </a>
 </div>
 
-<hr>
+<div class="qa-card" style="max-width: 750px; margin: 0 auto; padding: 28px 32px;">
+    <div style="border-bottom: 2px solid var(--primary-blue-subtle); padding-bottom: 14px; margin-bottom: 22px;">
+        <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.5rem;">📝 Edit Draft Question</h2>
+        <p style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
+            Complete your draft and publish it to the community, or update your saved draft.
+        </p>
+    </div>
 
-<div>
     <form method="POST" action="{{ url_for('qa_edit_draft', draft_id=draft.id) }}" enctype="multipart/form-data">
         {{ form.hidden_tag() }}
 
-        <div style="margin-bottom: 12px;">
-            {{ form.title.label }}<br>
-            {{ form.title(size="60", style="width: 100%; box-sizing: border-box; padding: 6px;") }}
+        <div style="margin-bottom: 18px;">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Question Title <span style="color: var(--primary-red);">*</span>
+            </label>
+            {{ form.title(style="width: 100%;") }}
             {% for error in form.title.errors %}
-                <span style="color: red;">[{{ error }}]</span>
+                <p style="color: var(--primary-red); font-size: 0.85rem; margin: 4px 0 0 0; font-weight: 600;">{{ error }}</p>
             {% endfor %}
         </div>
 
-        <div style="margin-bottom: 12px; display: flex; gap: 15px;">
-            <div style="flex: 1;">
-                {{ form.category.label }}<br>
-                {{ form.category(style="width: 100%; padding: 6px;") }}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Category <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.category(style="width: 100%;") }}
             </div>
-            <div style="flex: 1;">
-                {{ form.faculty.label }}<br>
-                {{ form.faculty(style="width: 100%; padding: 6px;") }}
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Faculty <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.faculty(style="width: 100%;") }}
             </div>
-            <div style="flex: 1;">
-                {{ form.visibility.label }}<br>
-                {{ form.visibility(style="width: 100%; padding: 6px;") }}
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Audience Visibility <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.visibility(style="width: 100%;") }}
             </div>
         </div>
 
-        <div style="margin-bottom: 12px;">
-            {{ form.content.label }}<br>
-            {{ form.content(rows="10", style="width: 100%; box-sizing: border-box; padding: 6px;") }}
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Question Details & Code Snippets
+            </label>
+            {{ form.content(rows=8, style="width: 100%;") }}
             {% for error in form.content.errors %}
-                <span style="color: red;">[{{ error }}]</span>
+                <p style="color: var(--primary-red); font-size: 0.85rem; margin: 4px 0 0 0; font-weight: 600;">{{ error }}</p>
             {% endfor %}
         </div>
 
         {% if draft.attachments %}
-            <div style="margin-bottom: 12px;">
-                <strong>Attached Screenshots ({{ draft.attachments|length }}):</strong>
-                <div>
+            <div style="margin-bottom: 18px; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px;">
+                <strong style="display: block; font-size: 0.9rem; color: var(--text-color); margin-bottom: 8px;">
+                    📷 Attached Screenshots ({{ draft.attachments|length }}):
+                </strong>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     {% for att in draft.attachments %}
                         <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank">
-                            <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" width="80" height="80" style="object-fit: cover; border: 1px solid #cbd5e1; margin-right: 5px; margin-top: 5px;">
+                            <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" width="80" height="80" style="object-fit: cover; border: 1px solid var(--border-color); border-radius: 4px;">
                         </a>
                     {% endfor %}
                 </div>
             </div>
         {% endif %}
 
-        <div style="margin-bottom: 15px;">
-            {{ form.screenshots.label }}<br>
-            {{ form.screenshots() }}
+        <div style="margin-bottom: 24px; padding: 16px; border: 2px dashed var(--border-color); border-radius: 8px; background: var(--bg-color);">
+            <label style="display: block; font-weight: 600; color: var(--text-color); margin-bottom: 4px;">
+                📷 Upload New Screenshots (Optional)
+            </label>
+            {{ form.screenshots(style="font-size: 0.9rem; color: var(--text-color);") }}
         </div>
 
-        <div style="display: flex; gap: 10px;">
-            <button type="submit" name="action" value="publish" style="padding: 6px 14px; font-weight: bold;">Publish Question</button>
-            <button type="submit" name="action" value="draft" style="padding: 6px 14px;">Save as Draft</button>
-            <a href="{{ url_for('qa_drafts') }}" style="align-self: center; margin-left: 10px;">Cancel</a>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--border-color);">
+            <button type="submit" name="action" value="publish" class="btn btn-primary">
+                🚀 Publish Question
+            </button>
+            <button type="submit" name="action" value="draft" class="btn btn-secondary">
+                💾 Save as Draft
+            </button>
+            <a href="{{ url_for('qa_drafts') }}" class="btn btn-secondary" style="margin-left: auto;">
+                Cancel
+            </a>
         </div>
     </form>
 </div>
-
+</div>
 {% endblock %}
+

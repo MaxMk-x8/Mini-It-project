@@ -1,176 +1,200 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Q&A Discussions</h2>
+{% include "qa/_qa_styles.html" %}
 
-<div style="margin-bottom: 20px;">
-    {% if current_user.is_authenticated %}
-        <a href="{{ url_for('qa_ask') }}"><strong>+ Ask a Question</strong></a>
-    {% else %}
-        <p><a href="{{ url_for('login') }}">Log in</a> to ask a question or participate in discussions.</p>
-    {% endif %}
+<div class="qa-container">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.75rem;">Q&A Discussions</h2>
+        <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.95rem;">
+            Ask questions, collaborate across faculties, and get verified answers from MMU peers and professors.
+        </p>
+    </div>
+    <div>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('qa_ask') }}" class="btn btn-primary" style="font-size: 0.95rem;">
+                ✍️ Ask a Question
+            </a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                🔑 Log in to Ask
+            </a>
+        {% endif %}
+    </div>
 </div>
 
-<!-- Search & Filter Form -->
-<form method="GET" action="{{ url_for('qa_list') }}" style="margin-bottom: 25px; padding: 15px; border: 1px solid #ccc; background-color: #fcfcfc; border-radius: 4px;">
+<!-- Search & Filter Bar (MMU Styled) -->
+<form method="GET" action="{{ url_for('qa_list') }}" class="qa-filter-bar">
     <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
-        <div>
-            <label for="q"><strong>Search:</strong></label>
-            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in title or content..." style="width: 220px; padding: 4px;">
+        <div style="flex: 1 1 200px;">
+            <label for="q" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Search</label>
+            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in title or content..." style="width: 100%;">
         </div>
 
-        <div>
-            <label for="faculty"><strong>Faculty:</strong></label>
-            <select id="faculty" name="faculty" style="padding: 4px;">
-                <option value="">-- All Faculties --</option>
+        <div style="flex: 0 1 180px;">
+            <label for="faculty" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Faculty</label>
+            <select id="faculty" name="faculty" style="width: 100%;">
+                <option value="">All Faculties</option>
                 {% for code, name in faculties %}
                     <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
                 {% endfor %}
             </select>
         </div>
 
-        <div>
-            <label for="category"><strong>Category:</strong></label>
-            <select id="category" name="category" style="padding: 4px;">
-                <option value="">-- All Categories --</option>
+        <div style="flex: 0 1 180px;">
+            <label for="category" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Category</label>
+            <select id="category" name="category" style="width: 100%;">
+                <option value="">All Categories</option>
                 {% for code, label in categories %}
                     <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
 
-        <div>
-            <label for="sort"><strong>Sort by:</strong></label>
-            <select id="sort" name="sort" style="padding: 4px;">
+        <div style="flex: 0 1 140px;">
+            <label for="sort" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Sort by</label>
+            <select id="sort" name="sort" style="width: 100%;">
                 <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest</option>
                 <option value="views" {% if sort_by == 'views' %}selected{% endif %}>Most Viewed</option>
             </select>
         </div>
 
-        <div style="display: flex; align-items: center; margin-top: 2px;">
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+        <div style="display: flex; align-items: flex-end; padding-bottom: 2px;">
+            <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; color: var(--text-color);">
                 <input type="checkbox" name="unanswered" value="1" {% if show_unanswered %}checked{% endif %}>
-                <strong>Unanswered only</strong>
+                Unanswered only
             </label>
         </div>
 
-        <div>
-            <button type="submit" style="padding: 5px 12px; cursor: pointer;">Filter</button>
+        <div style="display: flex; align-items: flex-end; gap: 8px; margin-left: auto;">
+            <button type="submit" class="btn btn-primary btn-sm">Filter</button>
             {% if query_text or selected_faculty or selected_category or sort_by != 'newest' or show_unanswered %}
-                <a href="{{ url_for('qa_list') }}" style="margin-left: 8px;">Reset</a>
+                <a href="{{ url_for('qa_list') }}" class="btn btn-secondary btn-sm">Reset</a>
             {% endif %}
         </div>
     </div>
 </form>
 
-<hr>
-
 <!-- Questions Header -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-    <h3 style="margin: 0;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-color);">
         Questions 
-        {% if pagination %}
-            ({{ pagination.total }})
-        {% else %}
-            ({{ questions|length }})
-        {% endif %}
+        <span style="color: var(--text-muted); font-size: 0.95rem; font-weight: normal;">
+            ({% if pagination %}{{ pagination.total }}{% else %}{{ questions|length }}{% endif %})
+        </span>
     </h3>
     {% if pagination and pagination.pages > 1 %}
-        <span style="color: #666; font-size: 0.9em;">
+        <span style="color: var(--text-muted); font-size: 0.85rem;">
             Page {{ pagination.page }} of {{ pagination.pages }}
         </span>
     {% endif %}
 </div>
 
-<!-- Questions List -->
+<!-- Questions List (Decorated MMU Cards) -->
 {% if questions %}
-    <div style="display: flex; flex-direction: column; gap: 15px;">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
         {% for q in questions %}
-            <div style="border: 1px solid #ddd; border-radius: 6px; padding: 16px; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-                    <h4 style="margin: 0; font-size: 1.15em;">
-                        <a href="{{ url_for('qa_detail', question_id=q.id) }}" style="text-decoration: none; color: #0056b3;">
+            <article class="qa-card" style="border-left: 4px solid {% if q.best_answer_id %}#10B981{% elif q.visibility == 'friends' %}#8B5CF6{% else %}var(--primary-blue){% endif %};">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; flex-wrap: wrap;">
+                    <h4 style="margin: 0; font-size: 1.18rem; font-weight: 700; flex: 1 1 300px;">
+                        <a href="{{ url_for('qa_detail', question_id=q.id) }}" style="color: var(--primary-blue);">
                             {{ q.title }}
                         </a>
                     </h4>
-                    <div style="display: flex; gap: 6px; align-items: center;">
+                    
+                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <span class="badge badge-faculty">{{ q.faculty }}</span>
+                        <span class="badge badge-category">{{ q.category }}</span>
+
                         {% if q.visibility == 'friends' %}
-                            <span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;" title="Visible to followers only">
+                            <span class="badge badge-visibility" title="Visible to followers only">
                                 👥 Friends Only
                             </span>
                         {% else %}
-                            <span style="background: #f3f4f6; color: #4b5563; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;" title="Visible to everyone">
+                            <span class="badge" style="background: var(--surface-card); border: 1px solid var(--border-color); color: var(--text-muted);" title="Visible to everyone">
                                 🌐 Public
                             </span>
                         {% endif %}
+
                         {% if q.attachments|length > 0 %}
-                            <span style="background: #e9ecef; color: #495057; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;" title="{{ q.attachments|length }} image attachment(s)">
+                            <span class="badge badge-category" title="{{ q.attachments|length }} screenshot(s) attached">
                                 📷 {{ q.attachments|length }}
                             </span>
                         {% endif %}
+
                         {% if q.best_answer_id %}
-                            <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">
-                                RESOLVED
+                            <span class="badge badge-best-answer">
+                                ✓ Resolved
                             </span>
                         {% endif %}
                     </div>
                 </div>
 
-                <p style="font-size: 0.85em; color: #666; margin: 4px 0 10px 0;">
-                    Faculty: <strong>{{ q.faculty }}</strong> | 
-                    Category: <strong>{{ q.category }}</strong> | 
-                    Asked by: <a href="{{ url_for('public_profile', username=q.author.username) }}"><strong>{{ q.author.username }}</strong></a> ({{ q.author.role }}) | 
-                    Posted: {{ q.created_at.strftime('%Y-%m-%d %H:%M') }} UTC |
-                    👁️ <strong>{{ q.views }}</strong> view{% if q.views != 1 %}s{% endif %}
-                </p>
-
-                <div style="font-size: 0.95em; color: #333; margin-bottom: 12px; line-height: 1.4;">
-                    {{ q.content[:180] }}{% if q.content|length > 180 %}...{% endif %}
+                <div style="font-size: 0.95rem; color: var(--text-color); margin-bottom: 14px; line-height: 1.5; opacity: 0.9;">
+                    {{ q.content[:200] }}{% if q.content|length > 200 %}...{% endif %}
                 </div>
 
-                <div style="display: flex; align-items: center; gap: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
-                    {% if current_user.is_authenticated %}
-                        <a href="{{ url_for('qa_detail', question_id=q.id) }}#answer-form" style="background-color: #0056b3; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.9em; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
-                            ✍️ Answer Question
-                        </a>
-                    {% else %}
-                        <a href="{{ url_for('login') }}" style="background-color: #6c757d; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.9em;">
-                            🔑 Log in to Answer
-                        </a>
-                    {% endif %}
-
-                    <a href="{{ url_for('qa_detail', question_id=q.id) }}" style="background-color: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.9em;">
-                        💬 View Discussion ({{ q.answers|length }} answer{% if q.answers|length != 1 %}s{% endif %})
-                    </a>
-
-                    {% if current_user.is_authenticated %}
-                        <form method="POST" action="{{ url_for('toggle_save_question', question_id=q.id) }}" style="display: inline; margin-left: auto;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            {% if current_user.has_saved_question(q.id) %}
-                                <button type="submit" title="Remove bookmark" style="background: #e0f2fe; border: 1px solid #0284c7; color: #0369a1; padding: 5px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer;">
-                                    ★ Bookmarked
-                                </button>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted);">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <a href="{{ url_for('public_profile', username=q.author.username) }}" style="display: inline-flex; align-items: center; text-decoration: none;" title="@{{ q.author.username }}">
+                            {% if q.author.avatar_url %}
+                                <img src="{{ q.author.avatar_url }}" alt="{{ q.author.username }}" class="qa-avatar qa-avatar-sm">
                             {% else %}
-                                <button type="submit" title="Bookmark this question" style="background: none; border: 1px solid #ccc; color: #555; padding: 5px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer;">
-                                    ☆ Bookmark
-                                </button>
+                                <div class="qa-avatar-default qa-avatar-sm">{{ q.author.username[:2] }}</div>
                             {% endif %}
-                        </form>
-                    {% endif %}
+                        </a>
+                        <span>Asked by</span>
+                        <a href="{{ url_for('public_profile', username=q.author.username) }}" style="font-weight: 600; color: var(--primary-blue);">
+                            @{{ q.author.username }}
+                        </a>
+                        {% if q.author.is_professor() %}
+                            <span class="badge badge-professor">🎓 Faculty</span>
+                        {% endif %}
+                        <span>•</span>
+                        <span>{{ q.created_at.strftime('%b %d, %Y %H:%M') }} UTC</span>
+                        <span>•</span>
+                        <span>👁️ {{ q.views }} view{% if q.views != 1 %}s{% endif %}</span>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+                        <a href="{{ url_for('qa_detail', question_id=q.id) }}" class="btn btn-secondary btn-sm" style="color: var(--text-color);">
+                            💬 {{ q.answers|length }} Answer{% if q.answers|length != 1 %}s{% endif %}
+                        </a>
+
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('qa_detail', question_id=q.id) }}#answer-form" class="btn btn-primary btn-sm">
+                                ✍️ Answer
+                            </a>
+
+                            <form method="POST" action="{{ url_for('toggle_save_question', question_id=q.id) }}" style="display: inline; margin: 0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                {% if current_user.has_saved_question(q.id) %}
+                                    <button type="submit" title="Remove bookmark" class="btn btn-sm" style="background: var(--primary-blue-subtle); border-color: var(--primary-blue); color: var(--primary-blue);">
+                                        ★ Saved
+                                    </button>
+                                {% else %}
+                                    <button type="submit" title="Bookmark this question" class="btn btn-secondary btn-sm">
+                                        ☆ Save
+                                    </button>
+                                {% endif %}
+                            </form>
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
+            </article>
         {% endfor %}
     </div>
 
-    <!-- Pagination Controls (Week 4) -->
+    <!-- Pagination Controls (MMU Styled) -->
     {% if pagination and pagination.pages > 1 %}
-        <div style="display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 30px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 32px; margin-bottom: 24px;">
             {% if pagination.has_prev %}
-                <a href="{{ url_for('qa_list', page=pagination.prev_num, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by, unanswered='1' if show_unanswered else None) }}" style="padding: 6px 12px; border: 1px solid #ccc; background-color: #fff; color: #0056b3; text-decoration: none; border-radius: 4px;">
+                <a href="{{ url_for('qa_list', page=pagination.prev_num, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by, unanswered='1' if show_unanswered else None) }}" class="btn btn-secondary btn-sm">
                     &laquo; Previous
                 </a>
             {% else %}
-                <span style="padding: 6px 12px; border: 1px solid #e0e0e0; color: #aaa; border-radius: 4px; background-color: #f9f9f9;">
+                <span class="btn btn-secondary btn-sm" style="opacity: 0.5; cursor: not-allowed;">
                     &laquo; Previous
                 </span>
             {% endif %}
@@ -178,25 +202,25 @@
             {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
                 {% if p %}
                     {% if p == pagination.page %}
-                        <span style="padding: 6px 12px; border: 1px solid #0056b3; background-color: #0056b3; color: white; border-radius: 4px; font-weight: bold;">
+                        <span class="btn btn-primary btn-sm" style="font-weight: bold;">
                             {{ p }}
                         </span>
                     {% else %}
-                        <a href="{{ url_for('qa_list', page=p, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by, unanswered='1' if show_unanswered else None) }}" style="padding: 6px 12px; border: 1px solid #ccc; background-color: #fff; color: #0056b3; text-decoration: none; border-radius: 4px;">
+                        <a href="{{ url_for('qa_list', page=p, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by, unanswered='1' if show_unanswered else None) }}" class="btn btn-secondary btn-sm">
                             {{ p }}
                         </a>
                     {% endif %}
                 {% else %}
-                    <span style="padding: 6px 8px; color: #888;">...</span>
+                    <span style="color: var(--text-muted); padding: 0 4px;">...</span>
                 {% endif %}
             {% endfor %}
 
             {% if pagination.has_next %}
-                <a href="{{ url_for('qa_list', page=pagination.next_num, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by, unanswered='1' if show_unanswered else None) }}" style="padding: 6px 12px; border: 1px solid #ccc; background-color: #fff; color: #0056b3; text-decoration: none; border-radius: 4px;">
+                <a href="{{ url_for('qa_list', page=pagination.next_num, q=query_text, faculty=selected_faculty, category=selected_category, sort=sort_by, unanswered='1' if show_unanswered else None) }}" class="btn btn-secondary btn-sm">
                     Next &raquo;
                 </a>
             {% else %}
-                <span style="padding: 6px 12px; border: 1px solid #e0e0e0; color: #aaa; border-radius: 4px; background-color: #f9f9f9;">
+                <span class="btn btn-secondary btn-sm" style="opacity: 0.5; cursor: not-allowed;">
                     Next &raquo;
                 </span>
             {% endif %}
@@ -204,8 +228,22 @@
     {% endif %}
 
 {% else %}
-    <p>No questions found matching your criteria. Be the first to <a href="{{ url_for('qa_ask') }}">ask one</a>!</p>
+    <div class="qa-card" style="text-align: center; padding: 40px 20px;">
+        <p style="font-size: 1.1rem; color: var(--text-muted); margin-bottom: 16px;">
+            No questions found matching your criteria.
+        </p>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('qa_ask') }}" class="btn btn-primary">
+                ✍️ Be the first to Ask a Question
+            </a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                Log in to start a discussion
+            </a>
+        {% endif %}
+    </div>
 {% endif %}
-
+</div>
 {% endblock %}
+
 
