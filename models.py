@@ -597,7 +597,6 @@ class AnswerBestMark(db.Model):
 # RESOURCE HUB MODULE 
 # -------------------------------
 
-<<<<<<< HEAD
 class ResourceRating(db.Model):
     __tablename__ = 'resource_ratings'
     __table_args__ = (
@@ -618,7 +617,7 @@ class ResourceRating(db.Model):
 
     def __init__(self, rating=None, resource_id=None, user_id=None, **kwargs):
         super().__init__(**kwargs)
-        if rating:
+        if rating is not None:
             self.rating = rating
         if resource_id:
             self.resource_id = resource_id
@@ -719,11 +718,15 @@ class ResourceCollection(db.Model):
         """Average rating derived from all member resources."""
         all_ratings = [rating.rating for r in self.resources for rating in r.ratings]
         if not all_ratings:
-            return None
+            return 0.0
         return round(sum(all_ratings) / len(all_ratings), 1)
 
     @property
     def file_count(self):
+        return len(self.resources)
+
+    @property
+    def files_count(self):
         return len(self.resources)
 
     @property
@@ -736,6 +739,10 @@ class ResourceCollection(db.Model):
         return sum(r.file_size or 0 for r in self.resources)
 
     @property
+    def total_size(self):
+        return self.total_size_bytes
+
+    @property
     def formatted_total_size(self):
         size = self.total_size_bytes
         if not size:
@@ -746,12 +753,18 @@ class ResourceCollection(db.Model):
             size /= 1024.0
         return f"{size:.1f} TB"
 
+    @property
+    def formatted_size(self):
+        return self.formatted_total_size
+
+    @property
+    def is_collection(self):
+        return True
+
     def __repr__(self):
-        return f'<ResourceCollection {self.id}: {self.title} ({self.file_count} files)>'
+        return f'<ResourceCollection #{self.id}: {self.title} ({len(self.resources)} files)>'
 
 
-=======
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 class Resource(db.Model):
     __tablename__ = 'resources'
     __table_args__ = (
@@ -768,18 +781,14 @@ class Resource(db.Model):
     category = db.Column(db.String(50), nullable=False, default='Lecture Notes')
     faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
 
-<<<<<<< HEAD
     # Academic Metadata Fields
     course_code = db.Column(db.String(20), nullable=True)
     course_name = db.Column(db.String(150), nullable=True)
     academic_year = db.Column(db.String(20), nullable=True)
     semester = db.Column(db.String(20), nullable=True)
 
-    # Week 4 Additions
+    # Download count & Collection membership
     download_count = db.Column(db.Integer, nullable=False, default=0)
-=======
-    download_count = db.Column(db.Integer, default=0, nullable=False)
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     collection_id = db.Column(db.Integer, db.ForeignKey('resource_collections.id', name='fk_resources_collection_id', ondelete='CASCADE'), nullable=True)
     relative_path = db.Column(db.String(500), nullable=True)
 
@@ -836,7 +845,6 @@ class Resource(db.Model):
         """Returns number of ratings submitted for this resource."""
         return len(self.ratings)
 
-<<<<<<< HEAD
     @property
     def is_reviewed_by_professor(self):
         """Returns True if at least one professor has reviewed/endorsed this resource."""
@@ -849,21 +857,17 @@ class Resource(db.Model):
 
     def is_reviewed_by(self, user):
         """Returns True if the given user has reviewed this resource."""
-        if not user or not user.is_authenticated:
+        if not user or not getattr(user, 'is_authenticated', False):
             return False
         return any(rev.professor_id == user.id for rev in self.reviews)
 
-    def user_rating(self, user):
-        """Returns the rating given by a specific user, or None."""
-        if not user or not user.is_authenticated:
-=======
-    def user_rating(self, user_id):
-        """Returns the rating value (1-5) submitted by user_id, or None."""
-        if not user_id:
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
+    def user_rating(self, user_or_id):
+        """Returns the rating value (1-5) submitted by user or user_id, or None."""
+        if not user_or_id:
             return None
+        uid = getattr(user_or_id, 'id', user_or_id)
         for r in self.ratings:
-            if r.user_id == user_id:
+            if r.user_id == uid:
                 return r.rating
         return None
 
@@ -873,116 +877,6 @@ class Resource(db.Model):
 
     def __repr__(self):
         return f'<Resource {self.id}: {self.title} ({self.filename})>'
-
-
-class ResourceRating(db.Model):
-    __tablename__ = 'resource_ratings'
-    __table_args__ = (
-        db.UniqueConstraint('resource_id', 'user_id', name='uq_resource_user_rating'),
-        db.CheckConstraint('rating >= 1 AND rating <= 5', name='ck_rating_range'),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    resource_id = db.Column(db.Integer, db.ForeignKey('resources.id', name='fk_ratings_resource_id', ondelete='CASCADE'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_ratings_user_id', ondelete='CASCADE'), nullable=False)
-    rating = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-
-    # Relationships
-    resource = db.relationship('Resource', backref=db.backref('ratings', cascade='all, delete-orphan', lazy=True))
-    user = db.relationship('User', backref=db.backref('resource_ratings', cascade='all, delete-orphan', lazy=True))
-
-    def __init__(self, resource_id=None, user_id=None, rating=None, **kwargs):
-        super().__init__(**kwargs)
-        if resource_id:
-            self.resource_id = resource_id
-        if user_id:
-            self.user_id = user_id
-        if rating is not None:
-            self.rating = rating
-
-    def __repr__(self):
-        return f'<ResourceRating Resource #{self.resource_id} by User #{self.user_id}: {self.rating} stars>'
-
-
-class ResourceCollection(db.Model):
-    __tablename__ = 'resource_collections'
-    __table_args__ = (
-        db.CheckConstraint(f"faculty IN {tuple(FACULTY_CODES)}", name='ck_collection_faculty_valid'),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(150), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    category = db.Column(db.String(50), nullable=False, default='Lecture Notes')
-    faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
-    uploader_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_collections_uploader_id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-
-    # Relationships
-    uploader = db.relationship('User', backref=db.backref('resource_collections', lazy=True))
-    resources = db.relationship('Resource', backref='collection', cascade='all, delete-orphan', lazy=True, order_by='Resource.relative_path')
-
-    def __init__(self, title=None, description=None, category='Lecture Notes', faculty=FACULTY_CODES[0], uploader_id=None, **kwargs):
-        super().__init__(**kwargs)
-        if title:
-            self.title = title
-        if description:
-            self.description = description
-        self.category = category
-        self.faculty = faculty
-        if uploader_id:
-            self.uploader_id = uploader_id
-
-    @property
-    def download_count(self):
-        """Sum of download counts across all member resources."""
-        return sum(r.download_count for r in self.resources)
-
-    @property
-    def average_rating(self):
-        """Average rating across all member resources."""
-        all_ratings = []
-        for r in self.resources:
-            all_ratings.extend([rt.rating for rt in r.ratings])
-        if not all_ratings:
-            return 0.0
-        return round(sum(all_ratings) / len(all_ratings), 1)
-
-    @property
-    def rating_count(self):
-        """Total rating count across all member resources."""
-        return sum(len(r.ratings) for r in self.resources)
-
-    @property
-    def files_count(self):
-        """Total number of files in this collection."""
-        return len(self.resources)
-
-    @property
-    def total_size(self):
-        """Total size in bytes across all member resources."""
-        return sum(r.file_size for r in self.resources)
-
-    @property
-    def formatted_size(self):
-        """Returns human-readable total collection size."""
-        size = self.total_size
-        if not size:
-            return '0 B'
-        for unit in ['B', 'KB', 'MB', 'GB']:
-            if size < 1024.0:
-                return f"{size:.1f} {unit}" if unit != 'B' else f"{int(size)} B"
-            size /= 1024.0
-        return f"{size:.1f} TB"
-
-    @property
-    def is_collection(self):
-        return True
-
-    def __repr__(self):
-        return f'<ResourceCollection #{self.id}: {self.title} ({len(self.resources)} files)>'
 
 
 # -------------------------------
