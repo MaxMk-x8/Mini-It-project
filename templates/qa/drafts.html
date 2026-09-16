@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2>My Draft Questions</h2>
+            <p>Incomplete or work-in-progress questions saved privately to your account. Drafts are never visible publicly.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('qa_ask') }}">+ Create New Question</a>
+        </div>
+    </div>
+</div>
+
+<hr>
+
+<div>
+    {% if drafts %}
+        <table class="table-bordered">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Faculty</th>
+                    <th>Target Audience</th>
+                    <th>Saved On</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in drafts %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('qa_edit_draft', draft_id=d.id) }}">
+                                <strong>{{ d.title }}</strong>
+                            </a>
+                            {% if d.content %}
+                                <br>
+                                <small style="color: #64748b;">{{ d.content[:80] }}{% if d.content|length > 80 %}...{% endif %}</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ d.category }}</td>
+                        <td>{{ d.faculty }}</td>
+                        <td>
+                            {% if d.visibility == 'friends' %}
+                                👥 Friends Only
+                            {% else %}
+                                🌐 Public
+                            {% endif %}
+                        </td>
+                        <td>{{ d.created_at.strftime('%Y-%m-%d %H:%M') if d.created_at else 'N/A' }}</td>
+                        <td>
+                            <a href="{{ url_for('qa_edit_draft', draft_id=d.id) }}">Edit / Publish</a>
+                            &nbsp;|&nbsp;
+                            <form method="POST" action="{{ url_for('qa_delete_draft', draft_id=d.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" style="color: #dc2626;" onclick="return confirm('Permanently delete this draft question?');">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>You have no saved draft questions.</p>
+        <p><a href="{{ url_for('qa_ask') }}">Start writing a question</a> and choose <strong>Save as Draft</strong> if you want to complete it later.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

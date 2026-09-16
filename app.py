@@ -1,27 +1,50 @@
 import os
 import random
 import uuid
+<<<<<<< HEAD
 import io
 import zipfile
+=======
+import re
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory, send_file, session, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, AnonymousUserMixin
 from flask_mail import Mail, Message
 from flask_wtf.csrf import CSRFProtect
+from markupsafe import Markup, escape
 from werkzeug.utils import secure_filename
 from PIL import Image
 
+<<<<<<< HEAD
 from models import db, User, Question, Answer, Resource, ResourceRating, ResourceCollection, ResourceReview, AnswerBestMark, QAAttachment, Report, ModeratorApplication, BannedEmail, UserWarning
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
     QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
     RatingForm, CollectionForm, CollectionEditForm, CollectionUploadForm, ProfessorReviewForm, AddFilesToCollectionForm, SEMESTER_CHOICES,
+=======
+from models import (
+    db, User, Question, Answer, Resource, AnswerBestMark, QAAttachment,
+    Report, ModeratorApplication, BannedEmail, UserWarning, ResourceRating,
+    ResourceCollection, UserFollow, SavedQuestionFolder, SavedQuestion,
+    UsernameChangeRequest, SavedAnswer, Notification, ChatMessage, ChatBlock
+)
+from forms import (
+    RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
+    QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     ALLOWED_SCREENSHOT_EXTENSIONS, MAX_SCREENSHOT_SIZE, MAX_SCREENSHOTS_COUNT,
     ChangePasswordForm, LogoutForm, ReportActionForm,
     ModeratorApplicationForm, ModeratorApplicationReviewForm,
-    ForgotPasswordForm, ResetPasswordForm, BanUserForm, SuspendUserForm, IssueWarningForm
+    ForgotPasswordForm, ResetPasswordForm, ResetPasswordOTPForm, SetNewPasswordForm,
+    BanUserForm, SuspendUserForm, IssueWarningForm,
+    ResourceRatingForm, CollectionUploadForm, CollectionEditForm,
+    MAX_RESOURCE_FILE_SIZE, MAX_COLLECTION_FILES, MAX_COLLECTION_TOTAL_SIZE,
+    EditProfileForm, CreateFolderForm, MoveSavedQuestionForm,
+    UsernameChangeRequestForm, ReviewUsernameRequestForm,
+    POST_VISIBILITY_CHOICES, DraftQuestionForm, ChatMessageForm
 )
-from constants import FACULTIES, FACULTY_CODES
+from constants import FACULTIES, FACULTY_CODES, contains_profanity
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -41,9 +64,12 @@ SCREENSHOTS_FOLDER = os.path.join(app.root_path, 'uploads', 'screenshots')
 os.makedirs(SCREENSHOTS_FOLDER, exist_ok=True)
 app.config['SCREENSHOTS_FOLDER'] = SCREENSHOTS_FOLDER
 
-# Max request limit set to 60MB to support complete folder uploads (up to 50MB) and screenshots safely
-app.config['MAX_CONTENT_LENGTH'] = 60 * 1024 * 1024
+AVATARS_FOLDER = os.path.join(app.root_path, 'uploads', 'avatars')
+os.makedirs(AVATARS_FOLDER, exist_ok=True)
+app.config['AVATARS_FOLDER'] = AVATARS_FOLDER
 
+# Max request limit set to 60MB to support 50MB collection uploads safely while preserving single-file and screenshot limits
+app.config['MAX_CONTENT_LENGTH'] = 60 * 1024 * 1024
 
 
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
@@ -56,6 +82,38 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 db.init_app(app)
 mail = Mail(app)
+
+# Automatically create all tables and sync new columns on startup
+with app.app_context():
+    try:
+        db.create_all()
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        with db.engine.connect() as conn:
+            for table_name, table in db.metadata.tables.items():
+                if table_name in existing_tables:
+                    existing_cols = set(c['name'] for c in inspector.get_columns(table_name))
+                    for col in table.columns:
+                        if col.name not in existing_cols:
+                            col_type = col.type.compile(db.engine.dialect)
+                            default_clause = ""
+                            if col.default is not None and col.default.is_scalar:
+                                val = col.default.arg
+                                if isinstance(val, bool):
+                                    default_clause = " DEFAULT 1" if val else " DEFAULT 0"
+                                elif isinstance(val, str):
+                                    default_clause = f" DEFAULT '{val}'"
+                                else:
+                                    default_clause = f" DEFAULT {val}"
+                            elif col.nullable:
+                                default_clause = " DEFAULT NULL"
+                            
+                            stmt = f"ALTER TABLE {table_name} ADD COLUMN {col.name} {col_type}{default_clause}"
+                            conn.execute(text(stmt))
+            conn.commit()
+    except Exception as e:
+        app.logger.warning(f"Database startup sync notice: {e}")
 
 class AnonymousUser(AnonymousUserMixin):
     username = 'Anonymous'
@@ -82,6 +140,42 @@ class AnonymousUser(AnonymousUserMixin):
         return 0
 
     @property
+    def unread_notifications_count(self):
+        return 0
+
+    @property
+    def total_unread_chats_count(self):
+        return 0
+
+    @property
+    def unread_total_inbox_count(self):
+        return 0
+
+    def is_following(self, target_user):
+        return False
+
+    def has_pending_follow(self, target_user):
+        return False
+
+    def has_saved_question(self, question_id):
+        return False
+
+    def has_saved_answer(self, answer_id):
+        return False
+
+    def has_blocked_chat(self, target_user):
+        return False
+
+    def is_chat_blocked_by(self, target_user):
+        return False
+
+    def is_chat_mutually_available(self, target_user):
+        return False
+
+    def unread_chat_count_from(self, peer_user):
+        return 0
+
+    @property
     def has_pending_moderator_application(self):
         return False
 
@@ -100,6 +194,81 @@ login_manager.login_message_category = 'warning'
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+
+# =====================================================================
+# USER MENTION HELPERS & JINJA FILTERS (HABIB)
+# =====================================================================
+
+def process_mentions(content_text, author, content_type, content_id, question_id):
+    """
+    Finds valid @username mentions in text (excluding emails and code blocks).
+    Creates in-app Notification records for mentioned users (deduplicated, excluding author).
+    """
+    if not content_text or not author:
+        return
+
+    # Strip multi-line code blocks and inline code snippets
+    cleaned_text = re.sub(r'```.*?```', '', content_text, flags=re.DOTALL)
+    cleaned_text = re.sub(r'`.*?`', '', cleaned_text)
+
+    # Regex: Lookbehind to avoid matching email addresses (e.g., name@student.mmu.edu.my)
+    mention_pattern = r'(?<![\w@])@([a-zA-Z0-9_]{3,50})\b'
+    raw_usernames = re.findall(mention_pattern, cleaned_text)
+
+    seen_user_ids = set()
+    for uname in set(raw_usernames):
+        target_user = User.query.filter(User.username.ilike(uname), User.is_banned == False).first()
+        if target_user and target_user.id != author.id and target_user.id not in seen_user_ids:
+            seen_user_ids.add(target_user.id)
+            link_url = url_for('qa_detail', question_id=question_id)
+            if content_type in ('answer', 'reply'):
+                link_url += f'#answer-{content_id}'
+
+            notif = Notification(
+                user_id=target_user.id,
+                sender_id=author.id,
+                notification_type='mention',
+                title=f'@{author.username} mentioned you in a {content_type}',
+                message=f'@{author.username} mentioned you in a {content_type} on CodeNest Q&A.',
+                link_url=link_url
+            )
+            db.session.add(notif)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Failed to commit mention notifications: {e}")
+
+
+@app.template_filter('render_mentions')
+def render_mentions_filter(text):
+    """
+    Converts valid @username mentions into safe, clickable profile links.
+    Escapes general HTML content first to prevent XSS.
+    """
+    if not text:
+        return ''
+
+    escaped_text = str(escape(text))
+
+    def replace_mention(match):
+        uname = match.group(1)
+        user = User.query.filter(User.username.ilike(uname), User.is_banned == False).first()
+        if user:
+            try:
+                from flask import has_request_context
+                profile_link = url_for('public_profile', username=user.username) if has_request_context() else f"/user/{user.username}"
+            except Exception:
+                profile_link = f"/user/{user.username}"
+            return f'<a href="{profile_link}" style="font-weight: 600; text-decoration: underline;">@{user.username}</a>'
+        return match.group(0)
+
+    mention_pattern = r'(?<![\w@])@([a-zA-Z0-9_]{3,50})\b'
+    linked_text = re.sub(mention_pattern, replace_mention, escaped_text)
+    return Markup(linked_text)
+
 
 
 @app.route('/')
@@ -382,7 +551,7 @@ def forgot_password():
                 if now < avail:
                     remaining = int((avail - now).total_seconds())
                     flash(f'Please wait {max(1, remaining)} seconds before requesting another reset code.', 'warning')
-                    return redirect(url_for('reset_password', user_id=user.id))
+                    return redirect(url_for('verify_reset_code', user_id=user.id))
 
             code = str(random.randint(100000, 999999))
             user.reset_code = code
@@ -405,15 +574,20 @@ def forgot_password():
             except Exception as e:
                 flash(f'Failed to send reset email: {e}. [Dev Mode Code: {code}]', 'warning')
 
-            return redirect(url_for('reset_password', user_id=user.id))
+            return redirect(url_for('verify_reset_code', user_id=user.id))
         else:
             flash('No account found with that email or username.', 'danger')
 
     return render_template('forgot_password.html', form=form)
 
 
-@app.route('/reset-password/<int:user_id>', methods=['GET', 'POST'])
-def reset_password(user_id):
+@app.route('/reset-password/verify/<int:user_id>', methods=['GET', 'POST'])
+def verify_reset_code(user_id):
+    """
+    Dedicated OTP Verification Page:
+    Strictly contains only the 6-digit OTP verification field.
+    Upon successful verification, unlocks the separate new password page.
+    """
     if current_user.is_authenticated:
         return redirect(url_for('home'))
 
@@ -422,21 +596,51 @@ def reset_password(user_id):
         flash('User not found.', 'danger')
         return redirect(url_for('forgot_password'))
 
-    form = ResetPasswordForm()
+    form = ResetPasswordOTPForm()
     if form.validate_on_submit():
         is_valid, err_msg = user.is_reset_code_valid(form.code.data.strip())
         if is_valid:
-            user.set_password(form.new_password.data)
-            user.reset_code = None
-            user.reset_code_created_at = None
-            user.reset_resend_available_at = None
-            user.reset_attempts = 0
-            user.reset_login_lockout()
-            db.session.commit()
-            flash('Password reset successful! You may now log in with your new password.', 'success')
-            return redirect(url_for('login'))
+            session['reset_password_verified_user_id'] = user.id
+            flash('Reset code verified successfully! Please enter your new password.', 'success')
+            return redirect(url_for('reset_password', user_id=user.id))
         else:
             flash(err_msg, 'danger')
+
+    return render_template('verify_reset_code.html', form=form, user=user)
+
+
+@app.route('/reset-password/<int:user_id>', methods=['GET', 'POST'])
+def reset_password(user_id):
+    """
+    Dedicated Set New Password Page:
+    Strictly contains only the new password & confirmation fields with strength meter.
+    Requires successful OTP verification in the prior step.
+    """
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    # Guard: Require prior successful OTP verification
+    if session.get('reset_password_verified_user_id') != user.id:
+        flash('Please enter and verify your 6-digit reset code first.', 'warning')
+        return redirect(url_for('verify_reset_code', user_id=user.id))
+
+    form = SetNewPasswordForm()
+    if form.validate_on_submit():
+        user.set_password(form.new_password.data)
+        user.reset_code = None
+        user.reset_code_created_at = None
+        user.reset_resend_available_at = None
+        user.reset_attempts = 0
+        user.reset_login_lockout()
+        session.pop('reset_password_verified_user_id', None)
+        db.session.commit()
+        flash('Password reset successful! You may now log in with your new password.', 'success')
+        return redirect(url_for('login'))
 
     return render_template('reset_password.html', form=form, user=user)
 
@@ -456,7 +660,7 @@ def resend_reset_code(user_id):
         if now < avail:
             remaining = int((avail - now).total_seconds())
             flash(f'Please wait {max(1, remaining)} seconds before requesting a new reset code.', 'warning')
-            return redirect(url_for('reset_password', user_id=user.id))
+            return redirect(url_for('verify_reset_code', user_id=user.id))
 
     code = str(random.randint(100000, 999999))
     user.reset_code = code
@@ -479,7 +683,7 @@ def resend_reset_code(user_id):
     except Exception as e:
         flash(f'Failed to send reset email: {e}. [Dev Mode Code: {code}]', 'warning')
 
-    return redirect(url_for('reset_password', user_id=user.id))
+    return redirect(url_for('verify_reset_code', user_id=user.id))
 
 
 # -------------------------------
@@ -530,40 +734,621 @@ def logout():
         return redirect(url_for('settings'))
 
     logout_user()
+    session.clear()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('home'))
+    resp = redirect(url_for('home'))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "-1"
+    return resp
+
+
+# =====================================================================
+# WEEK 6: PROFILES, PRIVACY, FOLLOWS & SAVED QUESTIONS (MOHAMMAD KHAN)
+# =====================================================================
+
+@app.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    form = EditProfileForm(obj=current_user)
+
+    if form.validate_on_submit():
+        # Handle avatar file upload if provided
+        photo_file = form.profile_photo.data
+        if photo_file and getattr(photo_file, 'filename', None):
+            filename_raw = secure_filename(photo_file.filename)
+            ext = os.path.splitext(filename_raw)[1].lower().lstrip('.')
+            if ext not in ['png', 'jpg', 'jpeg', 'webp']:
+                flash('Invalid image format. Allowed formats: PNG, JPG, JPEG, WEBP.', 'danger')
+                return render_template('edit_profile.html', form=form)
+
+            try:
+                photo_file.seek(0)
+                img = Image.open(photo_file)
+                img.verify()
+                photo_file.seek(0)
+            except Exception:
+                flash('The uploaded file is not a valid or readable image.', 'danger')
+                return render_template('edit_profile.html', form=form)
+
+            unique_name = f"{int(datetime.now(timezone.utc).timestamp())}_{uuid.uuid4().hex[:8]}_{filename_raw}"
+            save_path = os.path.join(app.config['AVATARS_FOLDER'], unique_name)
+            photo_file.save(save_path)
+
+            # Remove previous custom avatar if exists
+            if current_user.profile_pic:
+                old_path = os.path.join(app.config['AVATARS_FOLDER'], current_user.profile_pic)
+                if os.path.exists(old_path):
+                    try:
+                        os.remove(old_path)
+                    except Exception as e:
+                        app.logger.warning(f"Failed to remove old avatar {old_path}: {e}")
+
+            current_user.profile_pic = unique_name
+
+        current_user.bio = form.bio.data.strip() if form.bio.data and form.bio.data.strip() else None
+        current_user.contact_email = form.contact_email.data.strip() if form.contact_email.data and form.contact_email.data.strip() else None
+        current_user.github_url = form.github_url.data.strip() if form.github_url.data and form.github_url.data.strip() else None
+        current_user.linkedin_url = form.linkedin_url.data.strip() if form.linkedin_url.data and form.linkedin_url.data.strip() else None
+        current_user.website_url = form.website_url.data.strip() if form.website_url.data and form.website_url.data.strip() else None
+        current_user.require_follow_approval = bool(form.require_follow_approval.data)
+        current_user.contact_email_privacy = form.contact_email_privacy.data
+        current_user.social_links_privacy = form.social_links_privacy.data
+
+        db.session.commit()
+        flash('Your profile has been updated successfully!', 'success')
+        return redirect(url_for('public_profile', username=current_user.username))
+
+    return render_template('edit_profile.html', form=form)
+
+
+@app.route('/profile/remove-photo', methods=['POST'])
+@login_required
+def remove_profile_photo():
+    if current_user.profile_pic:
+        old_path = os.path.join(app.config['AVATARS_FOLDER'], current_user.profile_pic)
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except Exception as e:
+                app.logger.warning(f"Failed to remove avatar {old_path}: {e}")
+        current_user.profile_pic = None
+        db.session.commit()
+        flash('Profile photo removed. Your avatar has reverted to default initials.', 'info')
+    else:
+        flash('You do not have a custom profile photo to remove.', 'warning')
+    return redirect(url_for('edit_profile'))
+
+
+@app.route('/profile/request-username-change', methods=['GET', 'POST'])
+@login_required
+def request_username_change():
+    form = UsernameChangeRequestForm()
+    pending_request = current_user.pending_username_request
+    request_history = UsernameChangeRequest.query.filter_by(
+        user_id=current_user.id
+    ).order_by(UsernameChangeRequest.created_at.desc()).all()
+
+    if form.validate_on_submit():
+        if pending_request and not current_user.is_admin():
+            flash('You already have an active username change request pending review.', 'warning')
+            return redirect(url_for('request_username_change'))
+
+        new_name = form.new_username.data.strip()
+
+        # Cannot be identical to current username
+        if new_name.lower() == current_user.username.lower():
+            flash('The requested username is already your current username.', 'danger')
+            return render_template(
+                'username_change_request.html',
+                form=form,
+                pending_request=pending_request,
+                request_history=request_history
+            )
+
+        # Cannot be taken by an existing user
+        existing_user = User.query.filter(db.func.lower(User.username) == new_name.lower()).first()
+        if existing_user:
+            flash(f'The username "@{new_name}" is already taken by another member. Please choose a different username.', 'danger')
+            return render_template(
+                'username_change_request.html',
+                form=form,
+                pending_request=pending_request,
+                request_history=request_history
+            )
+
+        # Cannot conflict with another user's pending request
+        conflicting_request = UsernameChangeRequest.query.filter(
+            UsernameChangeRequest.status == 'pending',
+            db.func.lower(UsernameChangeRequest.new_username) == new_name.lower(),
+            UsernameChangeRequest.user_id != current_user.id
+        ).first()
+        if conflicting_request:
+            flash(f'The username "@{new_name}" is currently reserved by another member\'s pending request. Please choose a different username.', 'warning')
+            return render_template(
+                'username_change_request.html',
+                form=form,
+                pending_request=pending_request,
+                request_history=request_history
+            )
+
+        # ADMIN PRIVILEGE: Administrators update username directly without queuing
+        if current_user.is_admin():
+            old_name = current_user.username
+            current_user.username = new_name
+            audit_req = UsernameChangeRequest(
+                user_id=current_user.id,
+                current_username=old_name,
+                new_username=new_name,
+                reason=form.reason.data.strip() if form.reason.data else "Direct administrator update",
+                status='approved',
+                reviewed_by_id=current_user.id,
+                reviewed_at=datetime.now(timezone.utc),
+                reviewer_note="Direct Administrator update applied immediately."
+            )
+            db.session.add(audit_req)
+            db.session.commit()
+            flash(f'Administrator Privilege: Your username was updated directly to "@{new_name}"!', 'success')
+            return redirect(url_for('edit_profile'))
+
+        req = UsernameChangeRequest(
+            user_id=current_user.id,
+            current_username=current_user.username,
+            new_username=new_name,
+            reason=form.reason.data.strip() if form.reason.data else None
+        )
+        db.session.add(req)
+        db.session.commit()
+        flash(f'Your request to change username to "@{new_name}" has been submitted for review!', 'success')
+        return redirect(url_for('request_username_change'))
+
+    return render_template(
+        'username_change_request.html',
+        form=form,
+        pending_request=pending_request,
+        request_history=request_history
+    )
+
+
+@app.route('/profile/cancel-username-request/<int:request_id>', methods=['POST'])
+@login_required
+def cancel_username_request(request_id):
+    req = UsernameChangeRequest.query.filter_by(
+        id=request_id,
+        user_id=current_user.id,
+        status='pending'
+    ).first_or_404()
+
+    req.status = 'cancelled'
+    db.session.commit()
+    flash(f'Your username change request to "@{req.new_username}" has been cancelled.', 'info')
+    return redirect(url_for('request_username_change'))
+
+
+@app.route('/user/<username>')
+@login_required
+def public_profile(username):
+    user = User.query.filter_by(username=username).first_or_404()
+
+    is_own_profile = (current_user.id == user.id)
+    is_following = current_user.is_following(user)
+    has_pending_follow = current_user.has_pending_follow(user)
+
+    can_see_contact = user.can_view_contact(current_user)
+    can_see_social = user.can_view_social(current_user)
+    contact_restricted = bool(user.contact_email and not can_see_contact and user.contact_email_privacy == 'followers')
+    social_restricted = bool((user.github_url or user.linkedin_url or user.website_url) and not can_see_social and user.social_links_privacy == 'followers')
+
+    # Contributions with visibility and draft enforcement
+    all_user_questions = Question.query.filter_by(author_id=user.id, is_draft=False).order_by(Question.created_at.desc()).all()
+    questions = [q for q in all_user_questions if q.can_view(current_user)]
+
+    all_user_answers = Answer.query.filter_by(author_id=user.id).order_by(Answer.created_at.desc()).all()
+    answers = [a for a in all_user_answers if a.can_view(current_user)]
+
+    resources = Resource.query.filter_by(uploader_id=user.id).order_by(Resource.created_at.desc()).all()
+
+    active_tab = request.args.get('tab', 'questions')
+    if active_tab not in ['questions', 'answers', 'resources']:
+        active_tab = 'questions'
+
+    return render_template(
+        'profile.html',
+        user=user,
+        is_own_profile=is_own_profile,
+        is_following=is_following,
+        has_pending_follow=has_pending_follow,
+        can_see_contact=can_see_contact,
+        can_see_social=can_see_social,
+        contact_restricted=contact_restricted,
+        social_restricted=social_restricted,
+        questions=questions,
+        answers=answers,
+        resources=resources,
+        active_tab=active_tab
+    )
+
+
+@app.route('/user/<username>/followers')
+@login_required
+def user_followers(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    page = request.args.get('page', 1, type=int)
+    if page < 1:
+        page = 1
+
+    follows_query = UserFollow.query.filter_by(followed_id=user.id, status='accepted').order_by(UserFollow.created_at.desc())
+    pagination = follows_query.paginate(page=page, per_page=20, error_out=False)
+    followers = pagination.items
+
+    return render_template('user_followers.html', user=user, pagination=pagination, followers=followers)
+
+
+@app.route('/user/<username>/following')
+@login_required
+def user_following(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    page = request.args.get('page', 1, type=int)
+    if page < 1:
+        page = 1
+
+    follows_query = UserFollow.query.filter_by(follower_id=user.id, status='accepted').order_by(UserFollow.created_at.desc())
+    pagination = follows_query.paginate(page=page, per_page=20, error_out=False)
+    following_users = pagination.items
+
+    return render_template('user_following.html', user=user, pagination=pagination, following_users=following_users)
+
+
+@app.route('/users/search')
+@app.route('/user/search')
+def search_users():
+    query_text = request.args.get('q', '').strip()
+    is_json = request.headers.get('Accept') == 'application/json' or request.args.get('format') == 'json'
+
+    users = []
+    if query_text:
+        search_term = query_text.lstrip('@').strip()
+        if search_term:
+            users = User.query.filter(
+                User.username.ilike(f"%{search_term}%"),
+                User.is_banned == False,
+                User.is_verified == True
+            ).order_by(User.username.asc()).limit(50).all()
+
+    if is_json:
+        return jsonify({
+            'query': query_text,
+            'users': [
+                {
+                    'id': u.id,
+                    'username': u.username,
+                    'role': u.role,
+                    'faculty': u.faculty,
+                    'avatar_url': u.avatar_url,
+                    'profile_url': url_for('public_profile', username=u.username)
+                } for u in users
+            ]
+        })
+
+    return render_template('user_search.html', users=users, query_text=query_text)
+
+
+@app.route('/user/<username>/follow', methods=['POST'])
+@login_required
+def follow_user(username):
+    target_user = User.query.filter_by(username=username).first_or_404()
+
+    if target_user.id == current_user.id:
+        flash('You cannot follow yourself.', 'warning')
+        return redirect(url_for('public_profile', username=username))
+
+    existing = UserFollow.query.filter_by(
+        follower_id=current_user.id,
+        followed_id=target_user.id
+    ).first()
+
+    if existing:
+        if existing.status == 'accepted':
+            flash(f'You are already following @{target_user.username}.', 'info')
+        else:
+            flash(f'Follow request to @{target_user.username} is already pending approval.', 'info')
+        return redirect(url_for('public_profile', username=username))
+
+    if target_user.require_follow_approval:
+        follow_rel = UserFollow(
+            follower_id=current_user.id,
+            followed_id=target_user.id,
+            status='pending'
+        )
+        db.session.add(follow_rel)
+        db.session.commit()
+        flash(f'Follow request sent to @{target_user.username}. Waiting for approval.', 'info')
+    else:
+        follow_rel = UserFollow(
+            follower_id=current_user.id,
+            followed_id=target_user.id,
+            status='accepted'
+        )
+        db.session.add(follow_rel)
+        db.session.commit()
+        flash(f'You are now following @{target_user.username}!', 'success')
+
+    return redirect(url_for('public_profile', username=username))
+
+
+@app.route('/user/<username>/unfollow', methods=['POST'])
+@login_required
+def unfollow_user(username):
+    target_user = User.query.filter_by(username=username).first_or_404()
+
+    follow_rel = UserFollow.query.filter_by(
+        follower_id=current_user.id,
+        followed_id=target_user.id
+    ).first()
+
+    if follow_rel:
+        was_pending = (follow_rel.status == 'pending')
+        db.session.delete(follow_rel)
+        db.session.commit()
+        if was_pending:
+            flash(f'Follow request to @{target_user.username} cancelled.', 'info')
+        else:
+            flash(f'You have unfollowed @{target_user.username}.', 'info')
+    else:
+        flash(f'You are not following @{target_user.username}.', 'warning')
+
+    return redirect(url_for('public_profile', username=username))
+
+
+@app.route('/follow-requests')
+@login_required
+def follow_requests():
+    requests = UserFollow.query.filter_by(
+        followed_id=current_user.id,
+        status='pending'
+    ).order_by(UserFollow.created_at.desc()).all()
+    return render_template('follow_requests.html', follow_requests=requests)
+
+
+@app.route('/follow-requests/<int:request_id>/accept', methods=['POST'])
+@login_required
+def accept_follow_request(request_id):
+    req = UserFollow.query.filter_by(
+        id=request_id,
+        followed_id=current_user.id,
+        status='pending'
+    ).first_or_404()
+
+    req.status = 'accepted'
+    db.session.commit()
+    flash(f'Accepted follow request from @{req.follower.username}. They are now following you.', 'success')
+    return redirect(url_for('follow_requests'))
+
+
+@app.route('/follow-requests/<int:request_id>/decline', methods=['POST'])
+@login_required
+def decline_follow_request(request_id):
+    req = UserFollow.query.filter_by(
+        id=request_id,
+        followed_id=current_user.id,
+        status='pending'
+    ).first_or_404()
+
+    follower_name = req.follower.username
+    db.session.delete(req)
+    db.session.commit()
+    flash(f'Declined follow request from @{follower_name}.', 'info')
+    return redirect(url_for('follow_requests'))
+
+
+@app.route('/qa/questions/<int:question_id>/save', methods=['POST'])
+@login_required
+def toggle_save_question(question_id):
+    question = db.session.get(Question, question_id)
+    if not question:
+        abort(404)
+
+    saved = SavedQuestion.query.filter_by(
+        user_id=current_user.id,
+        question_id=question.id
+    ).first()
+
+    if saved:
+        db.session.delete(saved)
+        db.session.commit()
+        flash('Question removed from bookmarks.', 'info')
+    else:
+        new_saved = SavedQuestion(user_id=current_user.id, question_id=question.id)
+        db.session.add(new_saved)
+        db.session.commit()
+        flash('Question added to your bookmarks!', 'success')
+
+    next_url = request.form.get('next') or request.referrer or url_for('qa_detail', question_id=question.id)
+    return redirect(next_url)
+
+
+@app.route('/qa/answers/<int:answer_id>/favourite', methods=['POST'])
+@app.route('/qa/answer/<int:answer_id>/favourite', methods=['POST'])
+@login_required
+def toggle_favourite_answer(answer_id):
+    answer = db.session.get(Answer, answer_id)
+    if not answer:
+        abort(404)
+
+    saved = SavedAnswer.query.filter_by(
+        user_id=current_user.id,
+        answer_id=answer.id
+    ).first()
+
+    if saved:
+        db.session.delete(saved)
+        db.session.commit()
+        flash('Answer removed from your favourites.', 'info')
+    else:
+        new_saved = SavedAnswer(user_id=current_user.id, answer_id=answer.id)
+        db.session.add(new_saved)
+        db.session.commit()
+        flash('Answer added to your favourites!', 'success')
+
+    next_url = request.form.get('next') or request.referrer or (url_for('qa_detail', question_id=answer.question_id) + f'#answer-{answer.id}')
+    return redirect(next_url)
+
+
+@app.route('/bookmarks')
+@app.route('/saved-questions')
+@app.route('/favourites')
+@login_required
+def saved_questions():
+    main_tab = request.args.get('tab', 'questions')
+    if main_tab not in ['questions', 'answers']:
+        main_tab = 'questions'
+
+    folder_filter = request.args.get('folder', 'all')
+    user_folders = SavedQuestionFolder.query.filter_by(
+        user_id=current_user.id
+    ).order_by(SavedQuestionFolder.name.asc()).all()
+
+    query = SavedQuestion.query.filter_by(user_id=current_user.id)
+
+    active_folder = None
+    if folder_filter == 'uncategorized':
+        query = query.filter(SavedQuestion.folder_id.is_(None))
+    elif folder_filter != 'all':
+        try:
+            folder_id_int = int(folder_filter)
+            active_folder = SavedQuestionFolder.query.filter_by(
+                id=folder_id_int,
+                user_id=current_user.id
+            ).first()
+            if active_folder:
+                query = query.filter_by(folder_id=active_folder.id)
+            else:
+                folder_filter = 'all'
+        except (ValueError, TypeError):
+            folder_filter = 'all'
+
+    saved_items = query.order_by(SavedQuestion.created_at.desc()).all()
+
+    total_saved_count = SavedQuestion.query.filter_by(user_id=current_user.id).count()
+    uncategorized_count = SavedQuestion.query.filter_by(user_id=current_user.id, folder_id=None).count()
+
+    # Query favorited answers for current user
+    saved_answers = SavedAnswer.query.filter_by(user_id=current_user.id).order_by(SavedAnswer.created_at.desc()).all()
+    total_favourited_answers_count = len(saved_answers)
+
+    create_folder_form = CreateFolderForm()
+    move_form = MoveSavedQuestionForm()
+    move_form.folder_id.choices = [(0, 'Uncategorized')] + [(f.id, f.name) for f in user_folders]
+
+    return render_template(
+        'saved_questions.html',
+        main_tab=main_tab,
+        saved_items=saved_items,
+        saved_answers=saved_answers,
+        user_folders=user_folders,
+        folder_filter=folder_filter,
+        active_folder=active_folder,
+        total_saved_count=total_saved_count,
+        uncategorized_count=uncategorized_count,
+        total_favourited_answers_count=total_favourited_answers_count,
+        create_folder_form=create_folder_form,
+        move_form=move_form
+    )
+
+
+
+@app.route('/saved-questions/folders/create', methods=['POST'])
+@login_required
+def create_saved_folder():
+    form = CreateFolderForm()
+    if form.validate_on_submit():
+        folder_name = form.name.data.strip()
+        existing = SavedQuestionFolder.query.filter_by(
+            user_id=current_user.id,
+            name=folder_name
+        ).first()
+        if existing:
+            flash(f"A folder named '{folder_name}' already exists.", 'danger')
+        else:
+            folder = SavedQuestionFolder(user_id=current_user.id, name=folder_name)
+            db.session.add(folder)
+            db.session.commit()
+            flash(f"Folder '{folder_name}' created successfully.", 'success')
+            return redirect(url_for('saved_questions', folder=folder.id))
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(error, 'danger')
+
+    return redirect(url_for('saved_questions'))
+
+
+@app.route('/saved-questions/folders/<int:folder_id>/delete', methods=['POST'])
+@login_required
+def delete_saved_folder(folder_id):
+    folder = SavedQuestionFolder.query.filter_by(
+        id=folder_id,
+        user_id=current_user.id
+    ).first_or_404()
+
+    folder_name = folder.name
+    SavedQuestion.query.filter_by(folder_id=folder.id).update({'folder_id': None})
+    db.session.delete(folder)
+    db.session.commit()
+
+    flash(f"Folder '{folder_name}' deleted. Bookmarks moved to Uncategorized.", 'info')
+    return redirect(url_for('saved_questions', folder='all'))
+
+
+@app.route('/saved-questions/<int:saved_id>/move', methods=['POST'])
+@login_required
+def move_saved_question(saved_id):
+    saved = SavedQuestion.query.filter_by(
+        id=saved_id,
+        user_id=current_user.id
+    ).first_or_404()
+
+    target_folder_id = request.form.get('folder_id', type=int)
+
+    if not target_folder_id or target_folder_id == 0:
+        saved.folder_id = None
+        db.session.commit()
+        flash('Question moved to Uncategorized.', 'success')
+    else:
+        folder = SavedQuestionFolder.query.filter_by(
+            id=target_folder_id,
+            user_id=current_user.id
+        ).first_or_404()
+        saved.folder_id = folder.id
+        db.session.commit()
+        flash(f"Question moved to '{folder.name}'.", 'success')
+
+    next_folder = request.args.get('folder', 'all')
+    return redirect(url_for('saved_questions', folder=next_folder))
 
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    if current_user.is_professor():
-        return redirect(url_for('professor_dashboard'))
-    elif current_user.is_student():
-        return redirect(url_for('student_dashboard'))
+    if current_user.is_admin():
+        return redirect(url_for('admin_dashboard'))
     elif current_user.is_moderator():
         return redirect(url_for('moderator_dashboard'))
-    elif current_user.is_admin():
-        return redirect(url_for('admin_dashboard'))
-    return redirect(url_for('home'))
+    else:
+        flash('Dashboards are reserved for Community Moderators and Administrators. Your account details and activity are available on your Profile.', 'info')
+        return redirect(url_for('public_profile', username=current_user.username))
 
 
 @app.route('/dashboard/student')
 @login_required
 def student_dashboard():
-    if not current_user.is_student():
-        flash('Not authorized to view the student dashboard.', 'danger')
-        return redirect(url_for('dashboard'))
-    return render_template('student_dashboard.html', user=current_user)
+    return redirect(url_for('public_profile', username=current_user.username))
 
 
 @app.route('/dashboard/professor')
 @login_required
 def professor_dashboard():
-    if not current_user.is_professor():
-        flash('Not authorized to view the professor dashboard.', 'danger')
-        return redirect(url_for('dashboard'))
-    return render_template('professor_dashboard.html', user=current_user)
+    return redirect(url_for('public_profile', username=current_user.username))
 
 
 @app.route('/dashboard/moderator')
@@ -580,12 +1365,31 @@ def moderator_dashboard():
         Report.status != 'pending'
     ).order_by(Report.reviewed_at.desc()).limit(30).all()
 
+    pending_username_requests = UsernameChangeRequest.query.join(
+        User, UsernameChangeRequest.user_id == User.id
+    ).filter(
+        User.faculty == assigned_faculty,
+        UsernameChangeRequest.status == 'pending'
+    ).order_by(UsernameChangeRequest.created_at.desc()).all()
+
+    resolved_username_requests = UsernameChangeRequest.query.join(
+        User, UsernameChangeRequest.user_id == User.id
+    ).filter(
+        User.faculty == assigned_faculty,
+        UsernameChangeRequest.status.in_(['approved', 'rejected'])
+    ).order_by(UsernameChangeRequest.reviewed_at.desc()).limit(20).all()
+
+    review_form = ReviewUsernameRequestForm()
+
     return render_template(
         'moderator_dashboard.html',
         user=current_user,
         assigned_faculty=assigned_faculty,
         pending_reports=pending_reports,
-        resolved_reports=resolved_reports
+        resolved_reports=resolved_reports,
+        pending_username_requests=pending_username_requests,
+        resolved_username_requests=resolved_username_requests,
+        review_form=review_form
     )
 
 
@@ -627,10 +1431,24 @@ def admin_dashboard():
         app_status_filter = 'all'
         moderator_applications = apps_query.order_by(ModeratorApplication.created_at.desc()).all()
 
+    username_status_filter = request.args.get('username_status', 'pending').strip()
+    u_req_query = UsernameChangeRequest.query.join(User, UsernameChangeRequest.user_id == User.id)
+    if selected_faculty in FACULTY_CODES:
+        u_req_query = u_req_query.filter(User.faculty == selected_faculty)
+
+    if username_status_filter == 'pending':
+        username_requests = u_req_query.filter(UsernameChangeRequest.status == 'pending').order_by(UsernameChangeRequest.created_at.desc()).all()
+    elif username_status_filter == 'handled':
+        username_requests = u_req_query.filter(UsernameChangeRequest.status.in_(['approved', 'rejected'])).order_by(UsernameChangeRequest.reviewed_at.desc()).all()
+    else:
+        username_status_filter = 'all'
+        username_requests = u_req_query.order_by(UsernameChangeRequest.created_at.desc()).all()
+
     banned_emails = BannedEmail.query.order_by(BannedEmail.created_at.desc()).all()
     ban_form = BanUserForm()
     suspend_form = SuspendUserForm()
     warn_form = IssueWarningForm()
+    review_form = ReviewUsernameRequestForm()
 
     return render_template(
         'admin_dashboard.html',
@@ -640,14 +1458,138 @@ def admin_dashboard():
         reports=reports,
         moderator_applications=moderator_applications,
         app_status_filter=app_status_filter,
+        username_requests=username_requests,
+        username_status_filter=username_status_filter,
         selected_faculty=selected_faculty,
         status_filter=status_filter,
         faculties=FACULTIES,
         banned_emails=banned_emails,
         ban_form=ban_form,
         suspend_form=suspend_form,
-        warn_form=warn_form
+        warn_form=warn_form,
+        review_form=review_form
     )
+
+
+@app.route('/dashboard/username-requests')
+@login_required
+def username_requests_queue():
+    if not (current_user.is_admin() or current_user.is_moderator()):
+        flash('Access restricted to Administrators and Community Moderators.', 'danger')
+        return redirect(url_for('home'))
+
+    status_filter = request.args.get('status', 'pending').strip()
+    selected_faculty = request.args.get('faculty', '').strip()
+
+    query = UsernameChangeRequest.query.join(User, UsernameChangeRequest.user_id == User.id)
+
+    # If community moderator, default to their assigned faculty unless they specify or are admin
+    if current_user.is_moderator() and not current_user.is_admin():
+        if not selected_faculty:
+            selected_faculty = current_user.faculty
+        query = query.filter(User.faculty == selected_faculty)
+    elif selected_faculty in FACULTY_CODES:
+        query = query.filter(User.faculty == selected_faculty)
+
+    if status_filter == 'pending':
+        query = query.filter(UsernameChangeRequest.status == 'pending').order_by(UsernameChangeRequest.created_at.desc())
+    elif status_filter == 'handled':
+        query = query.filter(UsernameChangeRequest.status.in_(['approved', 'rejected'])).order_by(UsernameChangeRequest.reviewed_at.desc())
+    elif status_filter in ['approved', 'rejected', 'cancelled']:
+        query = query.filter(UsernameChangeRequest.status == status_filter).order_by(UsernameChangeRequest.created_at.desc())
+    else:
+        status_filter = 'all'
+        query = query.order_by(UsernameChangeRequest.created_at.desc())
+
+    username_requests = query.all()
+    review_form = ReviewUsernameRequestForm()
+
+    return render_template(
+        'username_requests_queue.html',
+        username_requests=username_requests,
+        status_filter=status_filter,
+        selected_faculty=selected_faculty,
+        faculties=FACULTIES,
+        review_form=review_form
+    )
+
+
+@app.route('/dashboard/username-requests/<int:request_id>/approve', methods=['POST'])
+@login_required
+def approve_username_request(request_id):
+    if not (current_user.is_admin() or current_user.is_moderator()):
+        flash('Not authorized to review username requests.', 'danger')
+        return redirect(url_for('home'))
+
+    req = UsernameChangeRequest.query.filter_by(id=request_id, status='pending').first_or_404()
+
+    # Rule: If requester is a Community Moderator, ONLY Administrators can approve
+    if req.user.is_moderator() and not current_user.is_admin():
+        flash('Only Administrators can approve username change requests submitted by Community Moderators.', 'danger')
+        return redirect(request.referrer or url_for('username_requests_queue'))
+
+    # If moderator, ensure request user is within their faculty
+    if current_user.is_moderator() and not current_user.is_admin():
+        if req.user.faculty != current_user.faculty:
+            flash(f'You are only authorized to moderate users in {current_user.faculty}.', 'danger')
+            return redirect(request.referrer or url_for('username_requests_queue'))
+
+    form = ReviewUsernameRequestForm()
+    reviewer_note = form.reviewer_note.data.strip() if form.reviewer_note.data and form.reviewer_note.data.strip() else None
+
+    # Re-verify uniqueness
+    existing = User.query.filter(
+        db.func.lower(User.username) == req.new_username.lower(),
+        User.id != req.user_id
+    ).first()
+    if existing:
+        flash(f'Cannot approve: Username "@{req.new_username}" is already in use by another user.', 'danger')
+        return redirect(request.referrer or url_for('username_requests_queue'))
+
+    old_username = req.user.username
+    req.user.username = req.new_username
+    req.status = 'approved'
+    req.reviewed_by_id = current_user.id
+    req.reviewed_at = datetime.now(timezone.utc)
+    req.reviewer_note = reviewer_note or ('Approved by Administrator' if current_user.is_admin() else 'Approved by Moderator')
+    db.session.commit()
+
+    flash(f'Approved! Username for {old_username} has been changed to "@{req.new_username}".', 'success')
+    return redirect(request.referrer or url_for('username_requests_queue'))
+
+
+@app.route('/dashboard/username-requests/<int:request_id>/reject', methods=['POST'])
+@login_required
+def reject_username_request(request_id):
+    if not (current_user.is_admin() or current_user.is_moderator()):
+        flash('Not authorized to review username requests.', 'danger')
+        return redirect(url_for('home'))
+
+    req = UsernameChangeRequest.query.filter_by(id=request_id, status='pending').first_or_404()
+
+    # Rule: If requester is a Community Moderator, ONLY Administrators can review/disapprove
+    if req.user.is_moderator() and not current_user.is_admin():
+        flash('Only Administrators can review username change requests submitted by Community Moderators.', 'danger')
+        return redirect(request.referrer or url_for('username_requests_queue'))
+
+    # If moderator, ensure request user is within their faculty
+    if current_user.is_moderator() and not current_user.is_admin():
+        if req.user.faculty != current_user.faculty:
+            flash(f'You are only authorized to moderate users in {current_user.faculty}.', 'danger')
+            return redirect(request.referrer or url_for('username_requests_queue'))
+
+    form = ReviewUsernameRequestForm()
+    reviewer_note = form.reviewer_note.data.strip() if form.reviewer_note.data and form.reviewer_note.data.strip() else None
+
+    req.status = 'rejected'
+    req.reviewed_by_id = current_user.id
+    req.reviewed_at = datetime.now(timezone.utc)
+    req.reviewer_note = reviewer_note or ('Disapproved by Administrator' if current_user.is_admin() else 'Disapproved by Moderator')
+    db.session.commit()
+
+    flash(f'Username change request for @{req.current_username} (requested "@{req.new_username}") has been disapproved.', 'info')
+    return redirect(request.referrer or url_for('username_requests_queue'))
+
 
 
 # -------------------------------
@@ -1181,7 +2123,8 @@ def issue_warning(user_id):
 @login_required
 def inbox():
     warnings = UserWarning.query.filter_by(user_id=current_user.id).order_by(UserWarning.created_at.desc()).all()
-    return render_template('inbox.html', warnings=warnings)
+    notifications = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc()).all()
+    return render_template('inbox.html', warnings=warnings, notifications=notifications)
 
 
 @app.route('/inbox/<int:warning_id>/read', methods=['POST'])
@@ -1194,6 +2137,28 @@ def mark_warning_read(warning_id):
     warning.is_read = True
     db.session.commit()
     flash('Warning marked as acknowledged.', 'info')
+    return redirect(url_for('inbox'))
+
+
+@app.route('/notifications/<int:notif_id>/read', methods=['POST'])
+@login_required
+def mark_notification_read(notif_id):
+    notif = db.session.get(Notification, notif_id)
+    if not notif or notif.user_id != current_user.id:
+        abort(404)
+
+    notif.is_read = True
+    db.session.commit()
+    redirect_target = request.form.get('next') or notif.link_url or url_for('inbox')
+    return redirect(redirect_target)
+
+
+@app.route('/notifications/mark-all-read', methods=['POST'])
+@login_required
+def mark_all_notifications_read():
+    Notification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
+    db.session.commit()
+    flash('All notifications marked as read.', 'info')
     return redirect(url_for('inbox'))
 
 
@@ -1307,6 +2272,12 @@ def serve_screenshot(filename):
     return send_from_directory(app.config['SCREENSHOTS_FOLDER'], filename)
 
 
+@app.route('/uploads/avatars/<filename>')
+def serve_avatar(filename):
+    """Serves uploaded user avatar profile photos."""
+    return send_from_directory(app.config['AVATARS_FOLDER'], filename)
+
+
 @app.route('/qa')
 def qa_list():
     query_text = request.args.get('q', '').strip()
@@ -1320,6 +2291,29 @@ def qa_list():
         page = 1
 
     query = Question.query
+
+    # Privacy and Visibility Enforcement (Habib)
+    if current_user.is_authenticated:
+        if current_user.is_admin() or current_user.is_moderator() or current_user.is_professor():
+            # Special roles override: can view all non-draft questions across faculties
+            query = query.filter(Question.is_draft == False)
+        else:
+            # Regular students: can view public questions, own questions, and questions from followed users
+            followed_ids = [f.followed_id for f in UserFollow.query.filter_by(follower_id=current_user.id, status='accepted').all()]
+            if followed_ids:
+                visibility_filter = (
+                    (Question.visibility == 'public') |
+                    (Question.author_id == current_user.id) |
+                    (Question.author_id.in_(followed_ids))
+                )
+            else:
+                visibility_filter = (
+                    (Question.visibility == 'public') |
+                    (Question.author_id == current_user.id)
+                )
+            query = query.filter((Question.is_draft == False) & visibility_filter)
+    else:
+        query = query.filter((Question.is_draft == False) & (Question.visibility == 'public'))
 
     if query_text:
         search_filter = f"%{query_text}%"
@@ -1366,42 +2360,200 @@ def qa_ask():
     if request.method == 'GET' and hasattr(current_user, 'faculty') and current_user.faculty:
         form.faculty.data = current_user.faculty
 
-    if form.validate_on_submit():
-        # Handle optional screenshot uploads (up to 3)
-        files = request.files.getlist('screenshots')
-        attachments, err = validate_and_save_screenshots(files, current_user.id)
-        if err:
-            flash(err, 'danger')
-            return render_template('qa/ask.html', form=form)
+    is_saving_draft = bool(request.form.get('save_draft') or request.form.get('action') == 'draft')
 
-        try:
-            question = Question(
-                title=form.title.data.strip(),
-                content=form.content.data.strip(),
-                category=form.category.data,
-                faculty=form.faculty.data,
-                author_id=current_user.id,
-                views=0
-            )
-            db.session.add(question)
-            db.session.flush()
+    if request.method == 'POST':
+        if is_saving_draft:
+            # Relaxed validation for saving incomplete questions as drafts
+            title = request.form.get('title', '').strip()
+            category = request.form.get('category', 'General')
+            faculty = request.form.get('faculty', current_user.faculty or FACULTY_CODES[0])
+            visibility = request.form.get('visibility', 'public')
+            content = request.form.get('content', '').strip()
 
-            for att in attachments:
-                att.question_id = question.id
-                db.session.add(att)
+            if not title:
+                flash('Please enter at least a title to save a draft question.', 'danger')
+                return render_template('qa/ask.html', form=form)
 
-            db.session.commit()
-            flash('Your question has been posted!', 'success')
-            return redirect(url_for('qa_detail', question_id=question.id))
+            has_prof, p_term = contains_profanity(title)
+            if has_prof:
+                flash(f"Draft title contains prohibited language ('{p_term}').", 'danger')
+                return render_template('qa/ask.html', form=form)
 
-        except Exception as e:
-            app.logger.error(f"Error saving question: {e}")
-            db.session.rollback()
-            delete_attachment_files(attachments)
-            flash('An error occurred while saving your question. Please try again.', 'danger')
-            return render_template('qa/ask.html', form=form)
+            if content:
+                has_prof_c, c_term = contains_profanity(content)
+                if has_prof_c:
+                    flash(f"Draft content contains prohibited language ('{c_term}').", 'danger')
+                    return render_template('qa/ask.html', form=form)
+
+            files = request.files.getlist('screenshots')
+            attachments, err = validate_and_save_screenshots(files, current_user.id)
+            if err:
+                flash(err, 'danger')
+                return render_template('qa/ask.html', form=form)
+
+            try:
+                question = Question(
+                    title=title,
+                    content=content,
+                    category=category,
+                    faculty=faculty,
+                    visibility=visibility,
+                    author_id=current_user.id,
+                    views=0,
+                    is_draft=True
+                )
+                db.session.add(question)
+                db.session.flush()
+
+                for att in attachments:
+                    att.question_id = question.id
+                    db.session.add(att)
+
+                db.session.commit()
+                flash('Question saved as a private draft! You can access it anytime under Drafts.', 'info')
+                return redirect(url_for('qa_drafts'))
+
+            except Exception as e:
+                db.session.rollback()
+                delete_attachment_files(attachments)
+                flash(f'An error occurred while saving your draft: {e}', 'danger')
+                return render_template('qa/ask.html', form=form)
+
+        elif form.validate_on_submit():
+            # Standard publish flow with full validation
+            files = request.files.getlist('screenshots')
+            attachments, err = validate_and_save_screenshots(files, current_user.id)
+            if err:
+                flash(err, 'danger')
+                return render_template('qa/ask.html', form=form)
+
+            try:
+                question = Question(
+                    title=form.title.data.strip(),
+                    content=form.content.data.strip(),
+                    category=form.category.data,
+                    faculty=form.faculty.data,
+                    visibility=form.visibility.data,
+                    author_id=current_user.id,
+                    views=0,
+                    is_draft=False
+                )
+                db.session.add(question)
+                db.session.flush()
+
+                for att in attachments:
+                    att.question_id = question.id
+                    db.session.add(att)
+
+                db.session.commit()
+                # Process mentions in question body
+                process_mentions(question.content, current_user, 'question', question.id, question.id)
+
+                flash('Your question has been posted!', 'success')
+                return redirect(url_for('qa_detail', question_id=question.id))
+
+            except Exception as e:
+                app.logger.error(f"Error saving question: {e}")
+                db.session.rollback()
+                delete_attachment_files(attachments)
+                flash('An error occurred while saving your question. Please try again.', 'danger')
+                return render_template('qa/ask.html', form=form)
 
     return render_template('qa/ask.html', form=form)
+
+
+@app.route('/qa/drafts')
+@login_required
+def qa_drafts():
+    drafts = Question.query.filter_by(
+        author_id=current_user.id,
+        is_draft=True
+    ).order_by(Question.created_at.desc()).all()
+    return render_template('qa/drafts.html', drafts=drafts)
+
+
+@app.route('/qa/drafts/<int:draft_id>/edit', methods=['GET', 'POST'])
+@login_required
+def qa_edit_draft(draft_id):
+    draft = db.session.get(Question, draft_id)
+    if not draft:
+        flash('Draft not found.', 'danger')
+        return redirect(url_for('qa_drafts'))
+
+    if draft.author_id != current_user.id:
+        flash('You are not authorized to access this draft.', 'danger')
+        return redirect(url_for('qa_drafts'))
+
+    form = DraftQuestionForm(obj=draft)
+
+    if form.validate_on_submit():
+        is_publish = bool(form.submit_publish.data or request.form.get('action') == 'publish')
+
+        draft.title = form.title.data.strip()
+        draft.category = form.category.data
+        draft.faculty = form.faculty.data
+        draft.visibility = form.visibility.data
+        draft.content = form.content.data.strip() if form.content.data else ''
+
+        # Handle screenshot attachments
+        files = request.files.getlist('screenshots')
+        if any(f and getattr(f, 'filename', None) for f in files):
+            attachments, err = validate_and_save_screenshots(files, current_user.id, question_id=draft.id)
+            if err:
+                flash(err, 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+            for att in attachments:
+                att.question_id = draft.id
+                db.session.add(att)
+
+        if is_publish:
+            # Full validation before publishing
+            if len(draft.title) < 5:
+                flash('Question title must be at least 5 characters long to publish.', 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+            if len(draft.content) < 10:
+                flash('Question details must be at least 10 characters long to publish.', 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+            has_prof_t, term_t = contains_profanity(draft.title)
+            if has_prof_t:
+                flash(f"Title contains prohibited language ('{term_t}').", 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+            has_prof_c, term_c = contains_profanity(draft.content)
+            if has_prof_c:
+                flash(f"Question details contain prohibited language ('{term_c}').", 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+            draft.is_draft = False
+            draft.created_at = datetime.now(timezone.utc)
+            db.session.commit()
+            process_mentions(draft.content, current_user, 'question', draft.id, draft.id)
+            flash('Your question has been published!', 'success')
+            return redirect(url_for('qa_detail', question_id=draft.id))
+        else:
+            db.session.commit()
+            flash('Draft updated successfully.', 'info')
+            return redirect(url_for('qa_drafts'))
+
+    return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+
+@app.route('/qa/drafts/<int:draft_id>/delete', methods=['POST'])
+@login_required
+def qa_delete_draft(draft_id):
+    draft = db.session.get(Question, draft_id)
+    if not draft or draft.author_id != current_user.id:
+        flash('Draft not found or unauthorized.', 'danger')
+        return redirect(url_for('qa_drafts'))
+
+    delete_attachment_files(draft.attachments)
+    db.session.delete(draft)
+    db.session.commit()
+    flash('Draft question deleted.', 'info')
+    return redirect(url_for('qa_drafts'))
 
 
 @app.route('/qa/<int:question_id>', methods=['GET', 'POST'])
@@ -1409,6 +2561,14 @@ def qa_detail(question_id):
     question = db.session.get(Question, question_id)
     if not question:
         flash('Question not found.', 'danger')
+        return redirect(url_for('qa_list'))
+
+    # Question Visibility & Draft Access Check
+    if not question.can_view(current_user):
+        if question.is_draft:
+            flash('This question is a private draft and can only be accessed by its author.', 'warning')
+        else:
+            flash(f"This question is private (Friends Only). You must be an accepted follower of @{question.author.username} to view it.", 'danger')
         return redirect(url_for('qa_list'))
 
     form = AnswerForm()
@@ -1422,12 +2582,11 @@ def qa_detail(question_id):
         parent_answer_id = None
         if parent_id_val and parent_id_val.isdigit():
             parent_id_int = int(parent_id_val)
-            # Verify the parent answer exists and belongs to this question
             parent_answer = db.session.get(Answer, parent_id_int)
             if parent_answer and parent_answer.question_id == question.id:
                 parent_answer_id = parent_id_int
 
-        # Handle optional screenshots (from main answer form or reply form)
+        # Handle optional screenshots
         files = request.files.getlist('screenshots')
         if not any(f and f.filename for f in files):
             reply_files = request.files.getlist('reply_screenshots')
@@ -1444,7 +2603,8 @@ def qa_detail(question_id):
                 content=form.content.data.strip(),
                 question_id=question.id,
                 author_id=current_user.id,
-                parent_answer_id=parent_answer_id  # --- Reply-to-answer feature (Habib) ---
+                parent_answer_id=parent_answer_id,
+                visibility=form.visibility.data
             )
             db.session.add(answer)
             db.session.flush()
@@ -1454,11 +2614,15 @@ def qa_detail(question_id):
                 db.session.add(att)
 
             db.session.commit()
+
+            # Process mentions in answer or reply
+            process_mentions(answer.content, current_user, 'reply' if parent_answer_id else 'answer', answer.id, question.id)
+
             if parent_answer_id:
                 flash('Your reply has been submitted!', 'success')
             else:
                 flash('Your answer has been submitted!', 'success')
-            return redirect(url_for('qa_detail', question_id=question.id))
+            return redirect(url_for('qa_detail', question_id=question.id) + f'#answer-{answer.id}')
 
         except Exception as e:
             app.logger.error(f"Error submitting answer: {e}")
@@ -1467,7 +2631,7 @@ def qa_detail(question_id):
             flash('An error occurred while submitting your answer. Please try again.', 'danger')
             return redirect(url_for('qa_detail', question_id=question.id))
 
-    # View count tracking on valid GET requests (at most once per browser session)
+    # View count tracking on valid GET requests (at most once per session)
     if request.method == 'GET':
         viewed_questions = session.get('viewed_questions', [])
         if question.id not in viewed_questions:
@@ -1476,11 +2640,8 @@ def qa_detail(question_id):
             viewed_questions.append(question.id)
             session['viewed_questions'] = viewed_questions
 
-    # Priority sorting (for top-level answers):
-    # 1. Total Points (Professor endorsement = 50 pts, Student mark = 5 pts)
-    # 2. Professor Answers next (authority boost)
-    # 3. Oldest to newest or chronologically
-    top_level_answers = [a for a in question.answers if a.parent_answer_id is None]
+    # Priority sorting (for visible top-level answers):
+    top_level_answers = [a for a in question.answers if a.parent_answer_id is None and a.can_view(current_user)]
     sorted_answers = sorted(
         top_level_answers,
         key=lambda a: (
@@ -1509,7 +2670,7 @@ def mark_best_answer(answer_id):
         flash('You cannot mark your own answer as the best answer.', 'warning')
         return redirect(url_for('qa_detail', question_id=question.id))
 
-    # Toggle best mark (like a Facebook like / upvote)
+    # Toggle best mark
     existing_mark = AnswerBestMark.query.filter_by(user_id=current_user.id, answer_id=answer.id).first()
     if existing_mark:
         db.session.delete(existing_mark)
@@ -1526,7 +2687,7 @@ def mark_best_answer(answer_id):
             flash('Marked as Best Answer (+5 pts)!', 'success')
 
     db.session.commit()
-    return redirect(url_for('qa_detail', question_id=question.id))
+    return redirect(url_for('qa_detail', question_id=question.id) + f'#answer-{answer.id}')
 
 
 @app.route('/qa/answer/<int:answer_id>/edit', methods=['GET', 'POST'])
@@ -1544,9 +2705,14 @@ def edit_answer(answer_id):
     form = AnswerForm(obj=answer)
     if form.validate_on_submit():
         answer.content = form.content.data.strip()
+        answer.visibility = form.visibility.data
         db.session.commit()
+
+        # Process mentions on edit
+        process_mentions(answer.content, current_user, 'reply' if answer.parent_answer_id else 'answer', answer.id, answer.question_id)
+
         flash('Your answer has been updated.', 'success')
-        return redirect(url_for('qa_detail', question_id=answer.question_id))
+        return redirect(url_for('qa_detail', question_id=answer.question_id) + f'#answer-{answer.id}')
 
     return render_template('qa/edit_answer.html', form=form, answer=answer)
 
@@ -1567,7 +2733,7 @@ def delete_answer(answer_id):
     if answer.is_best_answer or (answer.question and answer.question.best_answer_id == answer.id):
         answer.question.best_answer_id = None
 
-    # Clean up physical screenshot files for this answer and any nested replies
+    # Clean up physical screenshot files
     attachments_to_delete = list(answer.attachments)
     for reply in answer.replies:
         attachments_to_delete.extend(reply.attachments)
@@ -1579,10 +2745,200 @@ def delete_answer(answer_id):
     return redirect(url_for('qa_detail', question_id=question_id))
 
 
+# =====================================================================
+# ONE-TO-ONE PRIVATE CHAT & BLOCKING ROUTES (HABIB)
+# =====================================================================
+
+@app.route('/chat')
+@login_required
+def chat_list():
+    sent_peers = db.session.query(ChatMessage.recipient_id).filter_by(sender_id=current_user.id)
+    recv_peers = db.session.query(ChatMessage.sender_id).filter_by(recipient_id=current_user.id)
+    peer_ids = list(set([pid[0] for pid in sent_peers.union(recv_peers).all()]))
+
+    conversations = []
+    for pid in peer_ids:
+        peer = db.session.get(User, pid)
+        if not peer:
+            continue
+
+        last_msg = ChatMessage.query.filter(
+            ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
+            ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+        ).order_by(ChatMessage.created_at.desc()).first()
+
+        unread_count = ChatMessage.query.filter_by(
+            sender_id=peer.id,
+            recipient_id=current_user.id,
+            is_read=False
+        ).count()
+
+        is_blocked = current_user.has_blocked_chat(peer)
+        is_blocked_by = current_user.is_chat_blocked_by(peer)
+
+        conversations.append({
+            'peer': peer,
+            'last_message': last_msg,
+            'unread_count': unread_count,
+            'is_blocked': is_blocked,
+            'is_blocked_by': is_blocked_by
+        })
+
+    conversations.sort(
+        key=lambda c: c['last_message'].created_at if c['last_message'] and c['last_message'].created_at else datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True
+    )
+
+    # Fetch users followed by current_user for Instagram-style quick messaging
+    following_relations = UserFollow.query.filter_by(follower_id=current_user.id, status='accepted').all()
+    followed_users = [rel.followed for rel in following_relations if rel.followed and not rel.followed.is_banned]
+
+    return render_template('chat_list.html', conversations=conversations, followed_users=followed_users)
+
+
+@app.route('/chat/<username>', methods=['GET', 'POST'])
+@app.route('/chat/user/<username>', methods=['GET', 'POST'])
+@login_required
+def chat_conversation(username):
+    peer = User.query.filter_by(username=username).first_or_404()
+
+    if peer.id == current_user.id:
+        flash('You cannot initiate a private chat with yourself.', 'info')
+        return redirect(url_for('chat_list'))
+
+    is_blocked_by_me = current_user.has_blocked_chat(peer)
+    is_blocked_by_peer = current_user.is_chat_blocked_by(peer)
+    is_messaging_disabled = is_blocked_by_me or is_blocked_by_peer
+
+    form = ChatMessageForm()
+    if form.validate_on_submit():
+        if is_messaging_disabled:
+            flash('Messaging is unavailable with this user.', 'danger')
+            return redirect(url_for('chat_conversation', username=peer.username))
+
+        msg_content = form.message.data.strip()
+        new_msg = ChatMessage(
+            sender_id=current_user.id,
+            recipient_id=peer.id,
+            message=msg_content
+        )
+        db.session.add(new_msg)
+        db.session.commit()
+
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({
+                'success': True,
+                'message': {
+                    'id': new_msg.id,
+                    'sender_id': current_user.id,
+                    'sender_username': current_user.username,
+                    'message': new_msg.message,
+                    'created_at': new_msg.created_at.strftime('%b %d, %H:%M'),
+                    'is_mine': True
+                }
+            })
+
+        flash('Message sent.', 'success')
+        return redirect(url_for('chat_conversation', username=peer.username))
+
+    # Mark incoming unread messages as read
+    ChatMessage.query.filter_by(
+        sender_id=peer.id,
+        recipient_id=current_user.id,
+        is_read=False
+    ).update({'is_read': True})
+    db.session.commit()
+
+    messages = ChatMessage.query.filter(
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
+        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+    ).order_by(ChatMessage.created_at.asc()).all()
+
+    return render_template(
+        'chat_conversation.html',
+        peer=peer,
+        messages=messages,
+        form=form,
+        is_blocked_by_me=is_blocked_by_me,
+        is_blocked_by_peer=is_blocked_by_peer,
+        is_messaging_disabled=is_messaging_disabled
+    )
+
+
+@app.route('/chat/<username>/poll')
+@login_required
+def chat_poll(username):
+    peer = User.query.filter_by(username=username).first_or_404()
+    last_id = request.args.get('last_id', 0, type=int)
+
+    new_messages = ChatMessage.query.filter(
+        ChatMessage.id > last_id,
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
+        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+    ).order_by(ChatMessage.created_at.asc()).all()
+
+    # Mark incoming new messages as read
+    for m in new_messages:
+        if m.recipient_id == current_user.id and not m.is_read:
+            m.is_read = True
+    if new_messages:
+        db.session.commit()
+
+    return jsonify({
+        'messages': [
+            {
+                'id': m.id,
+                'sender_id': m.sender_id,
+                'sender_username': m.sender.username,
+                'message': m.message,
+                'created_at': m.created_at.strftime('%b %d, %H:%M') if m.created_at else '',
+                'is_mine': (m.sender_id == current_user.id)
+            } for m in new_messages
+        ],
+        'is_blocked': current_user.has_blocked_chat(peer) or peer.has_blocked_chat(current_user)
+    })
+
+
+@app.route('/chat/<username>/block', methods=['POST'])
+@login_required
+def chat_block_user(username):
+    peer = User.query.filter_by(username=username).first_or_404()
+    if peer.id == current_user.id:
+        flash('You cannot block yourself.', 'warning')
+        return redirect(url_for('chat_list'))
+
+    existing = ChatBlock.query.filter_by(blocker_id=current_user.id, blocked_id=peer.id).first()
+    if not existing:
+        block = ChatBlock(blocker_id=current_user.id, blocked_id=peer.id)
+        db.session.add(block)
+        db.session.commit()
+        flash(f'You have blocked @{peer.username} from private chat.', 'info')
+    else:
+        flash(f'@{peer.username} is already blocked in chat.', 'info')
+
+    return redirect(url_for('chat_conversation', username=peer.username))
+
+
+@app.route('/chat/<username>/unblock', methods=['POST'])
+@login_required
+def chat_unblock_user(username):
+    peer = User.query.filter_by(username=username).first_or_404()
+    block = ChatBlock.query.filter_by(blocker_id=current_user.id, blocked_id=peer.id).first()
+    if block:
+        db.session.delete(block)
+        db.session.commit()
+        flash(f'You have unblocked @{peer.username}.', 'success')
+    else:
+        flash(f'@{peer.username} is not blocked.', 'info')
+
+    return redirect(url_for('chat_conversation', username=peer.username))
+
+
 #-------------------------------
-# RESOURCE HUB MODULE ROUTES (WEEK 4)
+# RESOURCE HUB MODULE ROUTES 
 #-------------------------------
 
+<<<<<<< HEAD
 # Configuration Limits for Collections & Uploads
 MAX_COLLECTION_FILES = 30
 MAX_COLLECTION_TOTAL_SIZE = 50 * 1024 * 1024  # 50 MB total per collection
@@ -1591,63 +2947,31 @@ RESOURCES_PER_PAGE = 10
 
 
 def sort_feed_items(items, sort_mode='newest'):
+=======
+def sanitize_relative_path(raw_path):
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     """
-    Sorts a combined list of standalone resources and collections.
-    - 'newest': newest creation date first
-    - 'downloads': most downloads first, tie-breaker newest first
-    - 'rating': highest average rating first, then rating count, unrated last, tie-breaker newest first
-    """
-    if sort_mode == 'downloads':
-        return sorted(
-            items,
-            key=lambda x: (
-                x.download_count or 0,
-                x.created_at if x.created_at else datetime.min.replace(tzinfo=timezone.utc)
-            ),
-            reverse=True
-        )
-    elif sort_mode == 'rating':
-        def rating_key(x):
-            has_rating = 1 if (x.average_rating is not None) else 0
-            avg_r = x.average_rating if x.average_rating is not None else 0.0
-            count_r = x.rating_count or 0
-            created = x.created_at if x.created_at else datetime.min.replace(tzinfo=timezone.utc)
-            return (has_rating, avg_r, count_r, created)
-        return sorted(items, key=rating_key, reverse=True)
-    else:  # newest
-        return sorted(
-            items,
-            key=lambda x: x.created_at if x.created_at else datetime.min.replace(tzinfo=timezone.utc),
-            reverse=True
-        )
-
-
-def sanitize_relative_path(raw_path, base_filename):
-    """
-    Sanitizes browser-supplied folder relative path to prevent path traversal.
-    Rejects '..', null bytes, or absolute paths.
+    Sanitizes a client-supplied relative path from a folder upload.
+    - Normalizes slashes to '/'
+    - Strips leading/trailing slashes and whitespace
+    - Rejects path traversal components like '..' and '.'
+    - Secures each folder name and filename component
+    - Returns a clean relative path (e.g. 'week1/notes.pdf') or None if invalid.
     """
     if not raw_path:
-        return secure_filename(base_filename)
-
-    clean_path = raw_path.replace('\\', '/').strip('/')
-    segments = clean_path.split('/')
-    safe_segments = []
-
-    for seg in segments:
-        seg = seg.strip()
-        if not seg or seg == '.':
-            continue
-        if seg == '..' or '\x00' in seg:
-            return None  # Path traversal attempt
-        safe_seg = secure_filename(seg)
-        if safe_seg:
-            safe_segments.append(safe_seg)
-
-    if not safe_segments:
-        return secure_filename(base_filename)
-
-    return '/'.join(safe_segments)
+        return None
+    normalized = raw_path.replace('\\', '/').strip().strip('/')
+    parts = [p.strip() for p in normalized.split('/') if p.strip()]
+    if not parts:
+        return None
+    # Strict directory traversal check
+    for p in parts:
+        if p in ('.', '..') or '..' in p or '/' in p or '\\' in p:
+            return None
+    safe_parts = [secure_filename(p) for p in parts]
+    if any(not p for p in safe_parts):
+        return None
+    return '/'.join(safe_parts)
 
 
 @app.route('/resources')
@@ -1655,19 +2979,20 @@ def resources_list():
     query_text = request.args.get('q', '').strip()
     selected_faculty = request.args.get('faculty', '').strip()
     selected_category = request.args.get('category', '').strip()
+<<<<<<< HEAD
     selected_course_code = request.args.get('course_code', '').strip().upper()
     selected_semester = request.args.get('semester', '').strip()
     selected_sort = request.args.get('sort', 'newest').strip()
+=======
+    sort_by = request.args.get('sort', 'newest').strip()
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 
-    try:
-        page = int(request.args.get('page', 1))
-        if page < 1:
-            page = 1
-    except (ValueError, TypeError):
-        page = 1
-
-    # 1. Fetch standalone resources (not part of any collection)
+    # Query standalone resources (top-level only, exclude collection member files)
     res_query = Resource.query.filter(Resource.collection_id.is_(None))
+
+    # Query notes collections
+    col_query = ResourceCollection.query
+
     if query_text:
         search_filter = f"%{query_text}%"
         res_query = res_query.filter(
@@ -1677,10 +3002,20 @@ def resources_list():
             (Resource.course_code.ilike(search_filter)) |
             (Resource.course_name.ilike(search_filter))
         )
+        col_query = col_query.outerjoin(Resource, ResourceCollection.id == Resource.collection_id).filter(
+            (ResourceCollection.title.ilike(search_filter)) |
+            (ResourceCollection.description.ilike(search_filter)) |
+            (Resource.filename.ilike(search_filter)) |
+            (Resource.title.ilike(search_filter))
+        ).distinct()
+
     if selected_faculty:
         res_query = res_query.filter(Resource.faculty == selected_faculty)
+        col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
+
     if selected_category:
         res_query = res_query.filter(Resource.category == selected_category)
+<<<<<<< HEAD
     if selected_course_code:
         res_query = res_query.filter(Resource.course_code.ilike(f"%{selected_course_code}%"))
     if selected_semester:
@@ -1701,40 +3036,76 @@ def resources_list():
     if selected_faculty:
         col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
     if selected_category:
+=======
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
         col_query = col_query.filter(ResourceCollection.category == selected_category)
     if selected_course_code:
         col_query = col_query.filter(ResourceCollection.course_code.ilike(f"%{selected_course_code}%"))
     if selected_semester:
         col_query = col_query.filter(ResourceCollection.semester == selected_semester)
 
-    collections = col_query.all()
+    res_items = res_query.all()
+    col_items = col_query.all()
+    all_items = list(res_items) + list(col_items)
 
-    # 3. Combine and sort unified feed items
-    all_items = standalone_resources + collections
-    sorted_items = sort_feed_items(all_items, selected_sort)
+    # Sorting
+    if sort_by == 'downloads':
+        # Descending download count, newest first as tie-breaker
+        all_items.sort(
+            key=lambda x: (x.download_count, x.created_at.timestamp() if x.created_at else 0),
+            reverse=True
+        )
+    elif sort_by == 'rating':
+        # Highest Rated: rated items first (descending average rating, then rating count),
+        # unrated items after rated items, newest first as final tie-breaker
+        all_items.sort(
+            key=lambda x: (
+                1 if x.rating_count > 0 else 0,
+                x.average_rating if x.rating_count > 0 else 0.0,
+                x.rating_count,
+                x.created_at.timestamp() if x.created_at else 0
+            ),
+            reverse=True
+        )
+    else:
+        # Default: Newest first
+        sort_by = 'newest'
+        all_items.sort(
+            key=lambda x: x.created_at.timestamp() if x.created_at else 0,
+            reverse=True
+        )
 
-    # 4. Pagination
-    total_items = len(sorted_items)
-    total_pages = max(1, (total_items + RESOURCES_PER_PAGE - 1) // RESOURCES_PER_PAGE)
-    if page > total_pages and total_items > 0:
+    # Pagination: 10 items per page
+    PER_PAGE = 10
+    total_items = len(all_items)
+    total_pages = max(1, (total_items + PER_PAGE - 1) // PER_PAGE)
+    try:
+        page = int(request.args.get('page', 1))
+    except (ValueError, TypeError):
+        page = 1
+    if page < 1:
+        page = 1
+    elif page > total_pages and total_items > 0:
         page = total_pages
 
-    start_idx = (page - 1) * RESOURCES_PER_PAGE
-    end_idx = start_idx + RESOURCES_PER_PAGE
-    paged_items = sorted_items[start_idx:end_idx]
+    start_idx = (page - 1) * PER_PAGE
+    end_idx = start_idx + PER_PAGE
+    items_for_page = all_items[start_idx:end_idx]
 
+<<<<<<< HEAD
     rating_form = RatingForm()
     review_form = ProfessorReviewForm()
+=======
+    rating_form = ResourceRatingForm()
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 
     return render_template(
         'resources/index.html',
-        items=paged_items,
-        page=page,
-        total_pages=total_pages,
-        total_items=total_items,
+        items=items_for_page,
         query_text=query_text,
         selected_faculty=selected_faculty,
         selected_category=selected_category,
+<<<<<<< HEAD
         selected_course_code=selected_course_code,
         selected_semester=selected_semester,
         selected_sort=selected_sort,
@@ -1743,31 +3114,44 @@ def resources_list():
         semesters=SEMESTER_CHOICES,
         rating_form=rating_form,
         review_form=review_form
+=======
+        sort_by=sort_by,
+        faculties=FACULTIES,
+        categories=RESOURCE_CATEGORIES,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        rating_form=rating_form
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     )
 
 
 @app.route('/resources/my-uploads')
 @login_required
 def my_uploads():
+    """Login-protected page displaying only current user's uploads (resources & collections)."""
     query_text = request.args.get('q', '').strip()
     selected_faculty = request.args.get('faculty', '').strip()
     selected_category = request.args.get('category', '').strip()
+<<<<<<< HEAD
     selected_course_code = request.args.get('course_code', '').strip().upper()
     selected_semester = request.args.get('semester', '').strip()
     selected_sort = request.args.get('sort', 'newest').strip()
+=======
+    sort_by = request.args.get('sort', 'newest').strip()
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 
-    try:
-        page = int(request.args.get('page', 1))
-        if page < 1:
-            page = 1
-    except (ValueError, TypeError):
-        page = 1
-
-    # Fetch user's standalone resources
+    # Query user's standalone resources
     res_query = Resource.query.filter(
         Resource.uploader_id == current_user.id,
         Resource.collection_id.is_(None)
     )
+
+    # Query user's collections
+    col_query = ResourceCollection.query.filter(
+        ResourceCollection.uploader_id == current_user.id
+    )
+
     if query_text:
         search_filter = f"%{query_text}%"
         res_query = res_query.filter(
@@ -1777,10 +3161,20 @@ def my_uploads():
             (Resource.course_code.ilike(search_filter)) |
             (Resource.course_name.ilike(search_filter))
         )
+        col_query = col_query.outerjoin(Resource, ResourceCollection.id == Resource.collection_id).filter(
+            (ResourceCollection.title.ilike(search_filter)) |
+            (ResourceCollection.description.ilike(search_filter)) |
+            (Resource.filename.ilike(search_filter)) |
+            (Resource.title.ilike(search_filter))
+        ).distinct()
+
     if selected_faculty:
         res_query = res_query.filter(Resource.faculty == selected_faculty)
+        col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
+
     if selected_category:
         res_query = res_query.filter(Resource.category == selected_category)
+<<<<<<< HEAD
     if selected_course_code:
         res_query = res_query.filter(Resource.course_code.ilike(f"%{selected_course_code}%"))
     if selected_semester:
@@ -1801,38 +3195,72 @@ def my_uploads():
     if selected_faculty:
         col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
     if selected_category:
+=======
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
         col_query = col_query.filter(ResourceCollection.category == selected_category)
     if selected_course_code:
         col_query = col_query.filter(ResourceCollection.course_code.ilike(f"%{selected_course_code}%"))
     if selected_semester:
         col_query = col_query.filter(ResourceCollection.semester == selected_semester)
 
-    user_collections = col_query.all()
+    res_items = res_query.all()
+    col_items = col_query.all()
+    all_items = list(res_items) + list(col_items)
 
-    all_items = user_resources + user_collections
-    sorted_items = sort_feed_items(all_items, selected_sort)
+    # Sorting
+    if sort_by == 'downloads':
+        all_items.sort(
+            key=lambda x: (x.download_count, x.created_at.timestamp() if x.created_at else 0),
+            reverse=True
+        )
+    elif sort_by == 'rating':
+        all_items.sort(
+            key=lambda x: (
+                1 if x.rating_count > 0 else 0,
+                x.average_rating if x.rating_count > 0 else 0.0,
+                x.rating_count,
+                x.created_at.timestamp() if x.created_at else 0
+            ),
+            reverse=True
+        )
+    else:
+        sort_by = 'newest'
+        all_items.sort(
+            key=lambda x: x.created_at.timestamp() if x.created_at else 0,
+            reverse=True
+        )
 
-    total_items = len(sorted_items)
-    total_pages = max(1, (total_items + RESOURCES_PER_PAGE - 1) // RESOURCES_PER_PAGE)
-    if page > total_pages and total_items > 0:
+    # Pagination: 10 per page
+    PER_PAGE = 10
+    total_items = len(all_items)
+    total_pages = max(1, (total_items + PER_PAGE - 1) // PER_PAGE)
+    try:
+        page = int(request.args.get('page', 1))
+    except (ValueError, TypeError):
+        page = 1
+    if page < 1:
+        page = 1
+    elif page > total_pages and total_items > 0:
         page = total_pages
 
-    start_idx = (page - 1) * RESOURCES_PER_PAGE
-    end_idx = start_idx + RESOURCES_PER_PAGE
-    paged_items = sorted_items[start_idx:end_idx]
+    start_idx = (page - 1) * PER_PAGE
+    end_idx = start_idx + PER_PAGE
+    items_for_page = all_items[start_idx:end_idx]
 
+<<<<<<< HEAD
     rating_form = RatingForm()
     review_form = ProfessorReviewForm()
+=======
+    rating_form = ResourceRatingForm()
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 
     return render_template(
         'resources/my_uploads.html',
-        items=paged_items,
-        page=page,
-        total_pages=total_pages,
-        total_items=total_items,
+        items=items_for_page,
         query_text=query_text,
         selected_faculty=selected_faculty,
         selected_category=selected_category,
+<<<<<<< HEAD
         selected_course_code=selected_course_code,
         selected_semester=selected_semester,
         selected_sort=selected_sort,
@@ -2017,9 +3445,22 @@ def resource_preview(resource_id):
         return redirect(request.referrer or url_for('resources_list'))
 
 
+=======
+        sort_by=sort_by,
+        faculties=FACULTIES,
+        categories=RESOURCE_CATEGORIES,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        rating_form=rating_form
+    )
+
+
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 @app.route('/resources/upload', methods=['GET', 'POST'])
 @login_required
 def resource_upload():
+    """Preserved individual resource upload flow with 10MB limit and profanity filtering."""
     form = ResourceForm()
     if request.method == 'GET' and hasattr(current_user, 'faculty') and current_user.faculty:
         form.faculty.data = current_user.faculty
@@ -2054,8 +3495,8 @@ def resource_upload():
         # Verify file size on disk
         file_size = os.path.getsize(file_path)
 
-        # 10MB individual size limit check
-        if file_size > MAX_INDIVIDUAL_FILE_SIZE:
+        # 10MB size limit check (Resource Hub specific)
+        if file_size > MAX_RESOURCE_FILE_SIZE:
             if os.path.exists(file_path):
                 os.remove(file_path)
             flash('File exceeds the 10MB size limit.', 'danger')
@@ -2077,12 +3518,16 @@ def resource_upload():
             file_type=file_ext,
             category=form.category.data,
             faculty=form.faculty.data,
+<<<<<<< HEAD
             uploader_id=current_user.id,
             course_code=raw_code,
             course_name=c_name,
             academic_year=acad_yr,
             semester=sem,
             download_count=0
+=======
+            uploader_id=current_user.id
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
         )
         db.session.add(resource)
         db.session.commit()
@@ -2095,78 +3540,106 @@ def resource_upload():
 
 @app.route('/resources/upload-folder', methods=['GET', 'POST'])
 @login_required
-def resource_upload_folder():
-    form = CollectionForm()
+def resource_collection_upload():
+    """Upload an entire folder containing multiple files as one notes collection."""
+    form = CollectionUploadForm()
     if request.method == 'GET' and hasattr(current_user, 'faculty') and current_user.faculty:
         form.faculty.data = current_user.faculty
 
     if form.validate_on_submit():
-        raw_files = request.files.getlist('files')
-        valid_selected_files = [f for f in raw_files if f and f.filename and f.filename.strip() != '']
+        title = form.title.data.strip()
+        description = form.description.data.strip() if form.description.data else ''
+        category = form.category.data
+        faculty = form.faculty.data
 
-        if not valid_selected_files:
-            flash('Please select a folder containing notes files to upload.', 'danger')
+        # Shared profanity checks before handling files
+        has_prof_title, term_t = contains_profanity(title)
+        if has_prof_title:
+            flash(f"Collection title contains prohibited language ('{term_t}').", 'danger')
             return render_template('resources/upload_folder.html', form=form)
 
-        if len(valid_selected_files) > MAX_COLLECTION_FILES:
-            flash(f'The selected folder contains too many files ({len(valid_selected_files)}). Maximum allowed is {MAX_COLLECTION_FILES} files per collection.', 'danger')
+        if description:
+            has_prof_desc, term_d = contains_profanity(description)
+            if has_prof_desc:
+                flash(f"Collection description contains prohibited language ('{term_d}').", 'danger')
+                return render_template('resources/upload_folder.html', form=form)
+
+        files = request.files.getlist('files')
+        relative_paths = request.form.getlist('relative_paths')
+
+        if not files or len(files) == 0 or all(f.filename == '' for f in files):
+            flash('Please select a folder with files to upload.', 'danger')
+            return render_template('resources/upload_folder.html', form=form)
+
+        # File count limit check
+        if len(files) > MAX_COLLECTION_FILES:
+            flash(f"Folder contains too many files ({len(files)}). Maximum allowed is {MAX_COLLECTION_FILES} files.", 'danger')
             return render_template('resources/upload_folder.html', form=form)
 
         valid_files_to_save = []
-        skipped_files = []
-        total_collection_size = 0
+        rejected_files = []
+        total_size = 0
         seen_relative_paths = set()
 
-        for file_obj in valid_selected_files:
-            raw_filename = file_obj.filename.strip()
-            
-            # Extract base filename and relative path
-            clean_rel = raw_filename.replace('\\', '/').strip('/')
-            base_filename = os.path.basename(clean_rel)
-            
-            safe_rel_path = sanitize_relative_path(clean_rel, base_filename)
+        for idx, file in enumerate(files):
+            if not file or file.filename == '':
+                continue
+
+            raw_rel_path = relative_paths[idx] if idx < len(relative_paths) and relative_paths[idx] else file.filename
+            safe_rel_path = sanitize_relative_path(raw_rel_path)
+
             if not safe_rel_path:
-                skipped_files.append((raw_filename, 'Unsafe path characters or directory traversal detected'))
+                rejected_files.append((file.filename, "Invalid or unsafe path/filename."))
                 continue
 
-            if safe_rel_path in seen_relative_paths:
-                skipped_files.append((raw_filename, 'Duplicate relative file path in folder'))
+            if safe_rel_path.lower() in seen_relative_paths:
+                rejected_files.append((safe_rel_path, "Duplicate file path in upload."))
                 continue
+            seen_relative_paths.add(safe_rel_path.lower())
 
+            original_filename = safe_rel_path.split('/')[-1]
             file_ext = ''
-            if '.' in base_filename:
-                file_ext = base_filename.rsplit('.', 1)[1].lower()
+            if '.' in original_filename:
+                file_ext = original_filename.rsplit('.', 1)[1].lower()
 
             if file_ext not in ALLOWED_EXTENSIONS:
-                skipped_files.append((raw_filename, f"Invalid format '.{file_ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS).upper()}"))
+                rejected_files.append((safe_rel_path, f"Unsupported file type '.{file_ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS).upper()}"))
                 continue
 
-            # Read file stream size safely without memory exhaustion
-            file_obj.seek(0, os.SEEK_END)
-            file_size = file_obj.tell()
-            file_obj.seek(0)
+            file.seek(0, os.SEEK_END)
+            f_size = file.tell()
+            file.seek(0)
 
-            if file_size == 0:
-                skipped_files.append((raw_filename, 'File is empty (0 bytes)'))
+            if f_size > MAX_RESOURCE_FILE_SIZE:
+                rejected_files.append((safe_rel_path, f"Exceeds individual 10MB limit ({f_size / (1024*1024):.1f} MB)."))
                 continue
 
-            if file_size > MAX_INDIVIDUAL_FILE_SIZE:
-                skipped_files.append((raw_filename, f'Exceeds individual 10MB limit ({file_size / (1024*1024):.1f} MB)'))
+            if f_size == 0:
+                rejected_files.append((safe_rel_path, "File is empty (0 bytes)."))
                 continue
 
-            if total_collection_size + file_size > MAX_COLLECTION_TOTAL_SIZE:
-                skipped_files.append((raw_filename, f'Exceeds 50MB collection total size limit'))
+            total_size += f_size
+            if total_size > MAX_COLLECTION_TOTAL_SIZE:
+                rejected_files.append((safe_rel_path, "Exceeds total collection 50MB limit."))
                 continue
 
-            seen_relative_paths.add(safe_rel_path)
-            total_collection_size += file_size
-            valid_files_to_save.append((file_obj, safe_rel_path, base_filename, file_ext, file_size))
+            valid_files_to_save.append({
+                'file': file,
+                'filename': original_filename,
+                'relative_path': safe_rel_path,
+                'file_size': f_size,
+                'file_type': file_ext
+            })
 
+        # If all files are rejected, do not leave an empty collection
         if not valid_files_to_save:
-            reasons = "; ".join([f"{name} ({reason})" for name, reason in skipped_files])
-            flash(f'No valid files could be uploaded from the selected folder. Reasons: {reasons}', 'danger')
+            err_msg = "No valid files could be uploaded from this folder. "
+            if rejected_files:
+                err_msg += "Reasons: " + "; ".join([f"{f}: {r}" for f, r in rejected_files[:5]])
+            flash(err_msg, 'danger')
             return render_template('resources/upload_folder.html', form=form)
 
+<<<<<<< HEAD
         # Normalize academic metadata
         raw_code = form.course_code.data.strip().upper() if form.course_code.data and form.course_code.data.strip() else None
         c_name = form.course_name.data.strip() if form.course_name.data and form.course_name.data.strip() else None
@@ -2189,69 +3662,94 @@ def resource_upload_folder():
         db.session.flush()  # Obtain collection.id
 
         saved_disk_files = []
+=======
+        saved_disk_paths = []
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
         try:
-            for file_obj, safe_rel_path, base_filename, file_ext, file_size in valid_files_to_save:
+            collection = ResourceCollection(
+                title=title,
+                description=description,
+                category=category,
+                faculty=faculty,
+                uploader_id=current_user.id
+            )
+            db.session.add(collection)
+            db.session.flush()
+
+            for item in valid_files_to_save:
                 timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
                 unique_token = uuid.uuid4().hex[:8]
-                clean_sec_name = secure_filename(base_filename) or "notes_file"
-                stored_filename = f"{timestamp}_{unique_token}_{clean_sec_name}"
-                disk_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
+                stored_filename = f"{timestamp}_{unique_token}_{item['filename']}"
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
 
-                file_obj.save(disk_path)
-                saved_disk_files.append(disk_path)
+                item['file'].save(file_path)
+                saved_disk_paths.append(file_path)
 
-                member_resource = Resource(
-                    title=base_filename,
-                    description='',
-                    filename=base_filename,
+                resource = Resource(
+                    title=item['filename'],
+                    description=f"Part of notes collection: {collection.title}",
+                    filename=item['filename'],
                     stored_filename=stored_filename,
-                    file_size=file_size,
-                    file_type=file_ext,
-                    category=collection.category,
-                    faculty=collection.faculty,
+                    file_size=item['file_size'],
+                    file_type=item['file_type'],
+                    category=category,
+                    faculty=faculty,
                     uploader_id=current_user.id,
                     collection_id=collection.id,
+<<<<<<< HEAD
                     relative_path=safe_rel_path,
                     course_code=collection.course_code,
                     course_name=collection.course_name,
                     academic_year=collection.academic_year,
                     semester=collection.semester,
                     download_count=0
+=======
+                    relative_path=item['relative_path']
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
                 )
-                db.session.add(member_resource)
+                db.session.add(resource)
 
             db.session.commit()
+
+            success_msg = f"Notes collection '{collection.title}' uploaded successfully with {len(valid_files_to_save)} file(s)!"
+            flash(success_msg, 'success')
+
+            if rejected_files:
+                rej_msg = f"{len(rejected_files)} file(s) were rejected: " + "; ".join([f"{f} ({r})" for f, r in rejected_files])
+                flash(rej_msg, 'warning')
+
+            return redirect(url_for('resource_collection_detail', collection_id=collection.id))
+
         except Exception as e:
             db.session.rollback()
-            # Clean up saved files on disk
-            for disk_file in saved_disk_files:
-                if os.path.exists(disk_file):
+            # Clean up newly saved physical files on disk
+            for p in saved_disk_paths:
+                if os.path.exists(p):
                     try:
-                        os.remove(disk_file)
+                        os.remove(p)
                     except Exception:
                         pass
-            flash(f'An unexpected error occurred while saving the collection: {e}', 'danger')
+            app.logger.error(f"Failed to save folder collection: {e}")
+            flash('An error occurred while saving the collection. All uploaded files were cleaned up. Please try again.', 'danger')
             return render_template('resources/upload_folder.html', form=form)
-
-        flash(f"Notes Collection '{collection.title}' uploaded successfully with {len(valid_files_to_save)} file(s)!", 'success')
-        if skipped_files:
-            skipped_summary = "; ".join([f"{name}: {reason}" for name, reason in skipped_files])
-            flash(f"Notice: {len(skipped_files)} file(s) were skipped: {skipped_summary}", 'warning')
-
-        return redirect(url_for('collection_detail', collection_id=collection.id))
 
     return render_template('resources/upload_folder.html', form=form)
 
 
-@app.route('/resources/collection/<int:collection_id>')
-def collection_detail(collection_id):
+@app.route('/resources/collections/<int:collection_id>')
+def resource_collection_detail(collection_id):
+    """View collection details, subfolders, member files, downloads, and ratings."""
     collection = db.session.get(ResourceCollection, collection_id)
     if not collection:
-        flash('Notes collection not found.', 'danger')
+        flash('Collection not found.', 'danger')
         return redirect(url_for('resources_list'))
 
+<<<<<<< HEAD
     rating_form = RatingForm()
     review_form = ProfessorReviewForm()
+=======
+    rating_form = ResourceRatingForm()
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     return render_template(
         'resources/collection_detail.html',
         collection=collection,
@@ -2260,9 +3758,10 @@ def collection_detail(collection_id):
     )
 
 
-@app.route('/resources/collection/<int:collection_id>/edit', methods=['GET', 'POST'])
+@app.route('/resources/collections/<int:collection_id>/edit', methods=['GET', 'POST'])
 @login_required
-def collection_edit(collection_id):
+def resource_collection_edit(collection_id):
+    """Edit collection metadata with profanity checks. Enforce uploader or admin permission."""
     collection = db.session.get(ResourceCollection, collection_id)
     if not collection:
         flash('Collection not found.', 'danger')
@@ -2270,7 +3769,7 @@ def collection_edit(collection_id):
 
     if collection.uploader_id != current_user.id and not current_user.is_admin():
         flash('You are not authorized to edit this collection.', 'danger')
-        return redirect(url_for('collection_detail', collection_id=collection.id))
+        return redirect(url_for('resource_collection_detail', collection_id=collection.id))
 
     form = CollectionEditForm(obj=collection)
     if form.validate_on_submit():
@@ -2283,6 +3782,7 @@ def collection_edit(collection_id):
         collection.academic_year = form.academic_year.data.strip() if form.academic_year.data and form.academic_year.data.strip() else None
         collection.semester = form.semester.data.strip() if form.semester.data and form.semester.data.strip() else None
 
+<<<<<<< HEAD
         # Synchronize faculty, category, and academic metadata across member resources
         for member in collection.resources:
             member.category = collection.category
@@ -2291,17 +3791,24 @@ def collection_edit(collection_id):
             member.course_name = collection.course_name
             member.academic_year = collection.academic_year
             member.semester = collection.semester
+=======
+        # Update faculty and category on member resources to stay consistent
+        for r in collection.resources:
+            r.category = collection.category
+            r.faculty = collection.faculty
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 
         db.session.commit()
-        flash(f"Collection '{collection.title}' details updated successfully!", 'success')
-        return redirect(url_for('collection_detail', collection_id=collection.id))
+        flash('Collection details updated successfully!', 'success')
+        return redirect(url_for('resource_collection_detail', collection_id=collection.id))
 
     return render_template('resources/collection_edit.html', form=form, collection=collection)
 
 
-@app.route('/resources/collection/<int:collection_id>/delete', methods=['POST'])
+@app.route('/resources/collections/<int:collection_id>/delete', methods=['POST'])
 @login_required
-def collection_delete(collection_id):
+def resource_collection_delete(collection_id):
+    """Delete a collection, all its member physical files, ratings, and records."""
     collection = db.session.get(ResourceCollection, collection_id)
     if not collection:
         flash('Collection not found.', 'danger')
@@ -2311,22 +3818,20 @@ def collection_delete(collection_id):
         flash('You are not authorized to delete this collection.', 'danger')
         return redirect(url_for('resources_list'))
 
-    # Remove physical files for all member resources from disk
-    removed_count = 0
-    for member in collection.resources:
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], member.stored_filename)
+    # Delete all member physical files from disk
+    for r in collection.resources:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], r.stored_filename)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
-                removed_count += 1
             except Exception as e:
                 app.logger.warning(f"Failed to remove member file {file_path}: {e}")
 
-    collection_title = collection.title
+    title = collection.title
     db.session.delete(collection)
     db.session.commit()
 
-    flash(f"Notes collection '{collection_title}' and its {removed_count} member file(s) have been deleted.", 'info')
+    flash(f"Notes collection '{title}' and all its files have been deleted.", 'info')
     return redirect(url_for('resources_list'))
 
 
@@ -2538,6 +4043,12 @@ def collection_add_files(collection_id):
 
 @app.route('/resources/download/<int:resource_id>')
 def resource_download(resource_id):
+    """
+    Download a resource file.
+    Increments download count atomically only after confirming the resource
+    and physical file exist and preparing a valid download response.
+    Note: Records download requests served by the server, not proof that the browser finished saving.
+    """
     resource = db.session.get(Resource, resource_id)
     if not resource:
         flash('Resource not found.', 'danger')
@@ -2548,10 +4059,10 @@ def resource_download(resource_id):
         flash('The requested file is no longer available on disk.', 'danger')
         return redirect(url_for('resources_list'))
 
-    # Atomic download count increment (only after confirming physical file exists)
-    Resource.query.filter_by(id=resource.id).update({
-        Resource.download_count: Resource.download_count + 1
-    })
+    # Atomic increment in database
+    Resource.query.filter_by(id=resource.id).update(
+        {Resource.download_count: Resource.download_count + 1}
+    )
     db.session.commit()
 
     return send_from_directory(
@@ -2560,6 +4071,44 @@ def resource_download(resource_id):
         as_attachment=True,
         download_name=resource.filename
     )
+
+
+@app.route('/resources/<int:resource_id>/rate', methods=['POST'])
+@login_required
+def resource_rate(resource_id):
+    """Submit or update a 1-5 star rating for a resource. Protected by CSRF and ownership checks."""
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(request.referrer or url_for('resources_list'))
+
+    # Prevent users from rating their own uploads
+    if resource.uploader_id == current_user.id:
+        flash('You cannot rate your own upload.', 'warning')
+        return redirect(request.referrer or url_for('resources_list'))
+
+    form = ResourceRatingForm()
+    if form.validate_on_submit():
+        rating_val = form.rating.data
+        if not (1 <= rating_val <= 5):
+            flash('Rating must be between 1 and 5 stars.', 'danger')
+            return redirect(request.referrer or url_for('resources_list'))
+
+        existing = ResourceRating.query.filter_by(resource_id=resource.id, user_id=current_user.id).first()
+        if existing:
+            existing.rating = rating_val
+            existing.updated_at = datetime.now(timezone.utc)
+            flash(f"Your rating for '{resource.title}' was updated to {rating_val} stars!", 'success')
+        else:
+            new_rating = ResourceRating(resource_id=resource.id, user_id=current_user.id, rating=rating_val)
+            db.session.add(new_rating)
+            flash(f"Thank you for rating '{resource.title}' ({rating_val} stars)!", 'success')
+        db.session.commit()
+    else:
+        errors = [err for errs in form.errors.values() for err in errs]
+        flash(f"Failed to submit rating: {', '.join(errors)}", 'danger')
+
+    return redirect(request.referrer or url_for('resources_list'))
 
 
 @app.route('/resources/<int:resource_id>/edit', methods=['GET', 'POST'])
@@ -2588,6 +4137,8 @@ def resource_edit(resource_id):
 
         db.session.commit()
         flash('Resource details updated successfully!', 'success')
+        if resource.collection_id:
+            return redirect(url_for('resource_collection_detail', collection_id=resource.collection_id))
         return redirect(url_for('resources_list'))
 
     return render_template('resources/edit.html', form=form, resource=resource)
@@ -2606,6 +4157,8 @@ def resource_delete(resource_id):
         flash('You are not authorized to delete this resource.', 'danger')
         return redirect(url_for('resources_list'))
 
+    col_id = resource.collection_id
+
     # Remove physical file from disk
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], resource.stored_filename)
     if os.path.exists(file_path):
@@ -2614,18 +4167,23 @@ def resource_delete(resource_id):
         except Exception as e:
             app.logger.warning(f"Failed to remove physical file {file_path}: {e}")
 
+<<<<<<< HEAD
     # Remove database record (cascades to ratings and reviews)
+=======
+    # Remove database record (ratings are deleted via cascade)
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     db.session.delete(resource)
     db.session.commit()
 
     flash(f"Resource '{resource.title}' has been deleted.", 'info')
+    if col_id:
+        return redirect(url_for('resource_collection_detail', collection_id=col_id))
     return redirect(url_for('resources_list'))
 
 
 @app.context_processor
 def inject_global_vars():
     return dict(app_name="Codenest")
-
 
 
 # -------------------------------
@@ -2669,17 +4227,23 @@ def check_account_restrictions():
             return redirect(url_for('login'))
 
 
-
-def auto_migrate_week4():
-    """Safely upgrades existing database tables and columns if not present."""
-    try:
-        from migrate_week4 import migrate_database
-        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-        if 'codenest.db' in db_uri:
-            db_path = os.path.join(app.root_path, 'instance', 'codenest.db')
-            migrate_database(db_path)
-    except Exception as e:
-        app.logger.warning(f"Auto-migration notice: {e}")
+# -------------------------------
+# SECURITY & BROWSER CACHE CONTROL HOOK
+# -------------------------------
+@app.after_request
+def set_security_cache_headers(response):
+    """
+    Prevent browsers from storing authenticated responses in the local disk cache
+    or back-forward cache (bfcache). When users log out and press the browser 'Back'
+    button, the browser is forced to re-validate with the server, where @login_required
+    intercepts the request and redirects to the login screen.
+    """
+    content_type = response.headers.get('Content-Type', '')
+    if 'text/html' in content_type or current_user.is_authenticated:
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '-1'
+    return response
 
 
 
@@ -2689,6 +4253,4 @@ def auto_migrate_week4():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        auto_migrate_week4()
     app.run(debug=True, port=int(os.environ.get('PORT', 5050)))
-

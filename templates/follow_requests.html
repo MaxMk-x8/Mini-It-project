@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <h2>Incoming Follow Requests</h2>
+    <p>
+        <a href="{{ url_for('public_profile', username=current_user.username) }}">← Back to Profile</a> |
+        <a href="{{ url_for('edit_profile') }}">Edit Profile Settings</a>
+    </p>
+</div>
+
+<hr>
+
+{% if follow_requests %}
+    <p>The following users have requested to follow your account:</p>
+
+    <table class="table-bordered">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Role</th>
+                <th>Faculty</th>
+                <th>Requested On</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in follow_requests %}
+                <tr>
+                    <td>
+                        {% if req.follower.avatar_url %}
+                            <img src="{{ req.follower.avatar_url }}" alt="Avatar" width="32" height="32" style="border-radius: 50%; vertical-align: middle; margin-right: 8px;">
+                        {% endif %}
+                        <a href="{{ url_for('public_profile', username=req.follower.username) }}">
+                            <strong>@{{ req.follower.username }}</strong>
+                        </a>
+                    </td>
+                    <td>{{ req.follower.role }}</td>
+                    <td>{{ req.follower.faculty }}</td>
+                    <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M UTC') if req.created_at else 'N/A' }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('accept_follow_request', request_id=req.id) }}" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" style="color: green;">Accept</button>
+                        </form>
+                        &nbsp;
+                        <form method="POST" action="{{ url_for('decline_follow_request', request_id=req.id) }}" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" style="color: red;" onclick="return confirm('Decline request from @{{ req.follower.username }}?');">Decline</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>You have no pending follow requests.</p>
+    <p style="color: #64748b;">
+        <em>Note: Follow requests are generated when other users follow you while "Require approval for new followers" is enabled in your <a href="{{ url_for('edit_profile') }}">Profile Settings</a>.</em>
+    </p>
+{% endif %}
+
+{% endblock %}

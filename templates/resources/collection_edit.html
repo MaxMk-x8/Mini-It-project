@@ -3,45 +3,45 @@
 {% block content %}
 <h2>Edit Notes Collection</h2>
 
-<p><a href="{{ url_for('collection_detail', collection_id=collection.id) }}">&larr; Back to Collection</a> | <a href="{{ url_for('resources_list') }}">Resource Hub</a></p>
+<p><a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}">&larr; Back to Collection</a></p>
 
-<div style="max-width: 600px; padding: 12px 16px; background-color: #f1f5f9; border-left: 4px solid #059669; border-radius: 4px; margin-bottom: 20px;">
-    <strong>Collection:</strong> {{ collection.title }} ({{ collection.file_count }} files &bull; {{ collection.formatted_total_size }})<br>
+<div style="max-width: 600px; padding: 12px 16px; background-color: #fffbeb; border-left: 4px solid #d97706; margin-bottom: 20px; border-radius: 4px;">
+    <strong>Collection:</strong> {{ collection.title }} ({{ collection.files_count }} files &bull; {{ collection.formatted_size }})<br>
     <small style="color: #64748b;">Created on {{ collection.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</small>
 </div>
 
-<form method="POST" action="{{ url_for('collection_edit', collection_id=collection.id) }}" style="max-width: 600px;">
+<form method="POST" action="{{ url_for('resource_collection_edit', collection_id=collection.id) }}" style="max-width: 600px;">
     {{ form.hidden_tag() }}
 
-    <div style="margin-bottom: 16px;">
+    <div style="margin-bottom: 15px;">
         {{ form.title.label }}<br>
-        {{ form.title(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;") }}
+        {{ form.title(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
         {% for error in form.title.errors %}
-            <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 16px;">
+    <div style="margin-bottom: 15px;">
         {{ form.category.label }}<br>
-        {{ form.category(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;") }}
+        {{ form.category(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
         {% for error in form.category.errors %}
-            <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 16px;">
+    <div style="margin-bottom: 15px;">
         {{ form.faculty.label }}<br>
-        {{ form.faculty(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;") }}
+        {{ form.faculty(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
         {% for error in form.faculty.errors %}
-            <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 16px;">
+    <div style="margin-bottom: 15px;">
         {{ form.description.label }}<br>
-        {{ form.description(rows=4, style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;") }}
+        {{ form.description(rows=4, style="width: 100%; padding: 8px; box-sizing: border-box;") }}
         {% for error in form.description.errors %}
-            <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
         {% endfor %}
     </div>
 
@@ -80,9 +80,9 @@
     </div>
 
     <div>
-        {{ form.submit(style="padding: 9px 20px; font-weight: bold; background-color: #059669; color: white; border: none; border-radius: 4px; cursor: pointer;") }}
+        {{ form.submit(style="padding: 10px 20px; font-weight: bold; background: #d97706; color: white; border: none; border-radius: 4px; cursor: pointer;") }}
         &nbsp;
-        <a href="{{ url_for('collection_detail', collection_id=collection.id) }}" style="color: #64748b; text-decoration: none;">Cancel</a>
+        <a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}" style="color: #64748b;">Cancel</a>
     </div>
 </form>
 

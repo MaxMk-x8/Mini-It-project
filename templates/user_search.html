@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <h2>User Search</h2>
+    <form action="{{ url_for('search_users') }}" method="GET">
+        <input type="text" name="q" placeholder="Search users by username..." value="{{ query_text }}" size="35" autofocus>
+        <button type="submit">Search</button>
+    </form>
+</div>
+
+<hr>
+
+<div>
+    {% if query_text %}
+        <h3>Search Results for "{{ query_text }}" ({{ users|length }})</h3>
+
+        {% if users %}
+            <table class="table-bordered">
+                <thead>
+                    <tr>
+                        <th>Avatar</th>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Faculty</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                        <tr>
+                            <td style="width: 50px; text-align: center;">
+                                {% if u.avatar_url %}
+                                    <img src="{{ u.avatar_url }}" alt="{{ u.username }}" width="40" height="40" style="border-radius: 50%; object-fit: cover;">
+                                {% else %}
+                                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; color: #475569;">
+                                        {{ u.username[:2]|upper }}
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('public_profile', username=u.username) }}">
+                                    <strong>@{{ u.username }}</strong>
+                                </a>
+                                {% if u.bio %}
+                                    <br>
+                                    <small style="color: #64748b;">{{ u.bio[:80] }}{% if u.bio|length > 80 %}...{% endif %}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ u.role }}</td>
+                            <td>{{ u.faculty }}</td>
+                            <td>
+                                <a href="{{ url_for('public_profile', username=u.username) }}">View Profile</a>
+                                {% if current_user.is_authenticated and current_user.id != u.id %}
+                                    &nbsp;|&nbsp;
+                                    <a href="{{ url_for('chat_conversation', username=u.username) }}">Chat</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No users found matching '{{ query_text }}'.</p>
+        {% endif %}
+    {% else %}
+        <p>Type a username above to search for students, professors, and moderators across CodeNest.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

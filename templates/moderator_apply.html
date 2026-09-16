@@ -3,7 +3,7 @@
 <h2>Apply to Become a Community Moderator</h2>
 
 <p>
-    <a href="{{ url_for('student_dashboard') }}">&larr; Back to Student Dashboard</a> |
+    <a href="{{ url_for('public_profile', username=current_user.username) }}">&larr; Back to Profile</a> |
     <a href="{{ url_for('moderator_status') }}">View Application Status</a>
 </p>
 
@@ -65,7 +65,7 @@
 
         <div>
             {{ form.submit(style="background: #2563eb; color: white; border: none; padding: 9px 20px; font-weight: bold; border-radius: 4px; cursor: pointer;") }}
-            <a href="{{ url_for('student_dashboard') }}" style="margin-left: 12px; color: #64748b; text-decoration: none;">Cancel</a>
+            <a href="{{ url_for('public_profile', username=current_user.username) }}" style="margin-left: 12px; color: #64748b; text-decoration: none;">Cancel</a>
         </div>
     </form>
 </div>

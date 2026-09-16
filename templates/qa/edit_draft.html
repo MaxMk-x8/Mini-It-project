@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <p><a href="{{ url_for('qa_drafts') }}">&larr; Back to My Drafts</a></p>
+    <h2>Edit Draft Question</h2>
+    <p>Complete your draft and publish it to the community, or update your saved draft.</p>
+</div>
+
+<hr>
+
+<div>
+    <form method="POST" action="{{ url_for('qa_edit_draft', draft_id=draft.id) }}" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+
+        <div style="margin-bottom: 12px;">
+            {{ form.title.label }}<br>
+            {{ form.title(size="60", style="width: 100%; box-sizing: border-box; padding: 6px;") }}
+            {% for error in form.title.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </div>
+
+        <div style="margin-bottom: 12px; display: flex; gap: 15px;">
+            <div style="flex: 1;">
+                {{ form.category.label }}<br>
+                {{ form.category(style="width: 100%; padding: 6px;") }}
+            </div>
+            <div style="flex: 1;">
+                {{ form.faculty.label }}<br>
+                {{ form.faculty(style="width: 100%; padding: 6px;") }}
+            </div>
+            <div style="flex: 1;">
+                {{ form.visibility.label }}<br>
+                {{ form.visibility(style="width: 100%; padding: 6px;") }}
+            </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+            {{ form.content.label }}<br>
+            {{ form.content(rows="10", style="width: 100%; box-sizing: border-box; padding: 6px;") }}
+            {% for error in form.content.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </div>
+
+        {% if draft.attachments %}
+            <div style="margin-bottom: 12px;">
+                <strong>Attached Screenshots ({{ draft.attachments|length }}):</strong>
+                <div>
+                    {% for att in draft.attachments %}
+                        <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank">
+                            <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" width="80" height="80" style="object-fit: cover; border: 1px solid #cbd5e1; margin-right: 5px; margin-top: 5px;">
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <div style="margin-bottom: 15px;">
+            {{ form.screenshots.label }}<br>
+            {{ form.screenshots() }}
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" name="action" value="publish" style="padding: 6px 14px; font-weight: bold;">Publish Question</button>
+            <button type="submit" name="action" value="draft" style="padding: 6px 14px;">Save as Draft</button>
+            <a href="{{ url_for('qa_drafts') }}" style="align-self: center; margin-left: 10px;">Cancel</a>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

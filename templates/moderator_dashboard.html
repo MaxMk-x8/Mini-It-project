@@ -3,6 +3,15 @@
 <h2>Community Moderator Dashboard</h2>
 <p>Welcome, <strong>{{ user.username }}</strong>. Your assigned moderation faculty is <strong>{{ assigned_faculty }}</strong>.</p>
 <p><em>You are authorized to review and act on reports originating from {{ assigned_faculty }} content only.</em></p>
+<p>
+    <a href="{{ url_for('public_profile', username=user.username) }}">View My Profile</a> |
+    <a href="{{ url_for('edit_profile') }}">Edit Profile</a> |
+    <a href="{{ url_for('saved_questions') }}">Bookmarks</a> |
+    <a href="{{ url_for('username_requests_queue') }}">Username Requests</a>
+    {% if user.pending_follow_requests_count > 0 %}
+        | <a href="{{ url_for('follow_requests') }}">Follow Requests (<strong>{{ user.pending_follow_requests_count }}</strong>)</a>
+    {% endif %}
+</p>
 
 <hr>
 
@@ -84,6 +93,71 @@
 </table>
 {% else %}
 <p>No handled reports recorded for {{ assigned_faculty }} yet.</p>
+{% endif %}
+
+<hr>
+
+<h3>Username Change Requests ({{ assigned_faculty }})</h3>
+<p>
+    <a href="{{ url_for('username_requests_queue') }}">View Full Requests Queue &rarr;</a>
+</p>
+
+{% if pending_username_requests %}
+<table class="table-bordered" style="width: 100%; margin-bottom: 25px;">
+    <thead style="background: #f3f4f6;">
+        <tr>
+            <th>ID</th>
+            <th>Requester</th>
+            <th>Desired New Username</th>
+            <th>Student Email</th>
+            <th>Reason</th>
+            <th>Submitted</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in pending_username_requests %}
+        <tr>
+            <td>#{{ r.id }}</td>
+            <td>
+                <a href="{{ url_for('public_profile', username=r.current_username) }}">@{{ r.current_username }}</a>
+                {% if r.user.is_moderator() %}
+                    <span style="background: #e0e7ff; color: #3730a3; font-weight: bold; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Moderator</span>
+                {% endif %}
+            </td>
+            <td style="font-size: 1.05em; color: #1e3a8a;"><strong>@{{ r.new_username }}</strong></td>
+            <td><code>{{ r.user.email }}</code></td>
+            <td>{{ r.reason or '-' }}</td>
+            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+                {% if r.user.is_moderator() %}
+                    <span style="color: #b45309; font-size: 0.85em; font-weight: bold; background: #fef3c7; padding: 4px 8px; border-radius: 4px; display: inline-block;">
+                        🔒 Admin Review Required
+                    </span>
+                {% else %}
+                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" onclick="return confirm('Approve username change to @{{ r.new_username }}?');" style="background: #059669; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                                ✔ Approve
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 4px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <input type="text" name="reviewer_note" placeholder="Reason (opt)" style="font-size: 0.8em; padding: 2px 4px; width: 110px; border: 1px solid #cbd5e1; border-radius: 3px;"/>
+                            <button type="submit" onclick="return confirm('Disapprove username change request?');" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                                ✖ Disapprove
+                            </button>
+                        </form>
+                    </div>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color: #16a34a;">✔ No pending username change requests in the {{ assigned_faculty }} queue.</p>
 {% endif %}
 
 {% endblock %}

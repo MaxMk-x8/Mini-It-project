@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <h2>Username Change Requests Queue</h2>
+    <p>
+        {% if current_user.is_admin() %}
+            <a href="{{ url_for('admin_dashboard') }}">← Back to Admin Dashboard</a> |
+        {% else %}
+            <a href="{{ url_for('moderator_dashboard') }}">← Back to Moderator Dashboard</a> |
+        {% endif %}
+        <a href="{{ url_for('settings') }}">Settings</a> |
+        <a href="{{ url_for('public_profile', username=current_user.username) }}">My Profile</a>
+    </p>
+</div>
+
+<p>
+    Reviewer: <strong>{{ current_user.username }}</strong> 
+    ({{ current_user.role }}{% if current_user.is_moderator() %} - {{ current_user.faculty }}{% endif %})
+</p>
+
+<hr>
+
+<div style="margin-bottom: 20px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+    <strong>Filter Status:</strong>
+    <a href="{{ url_for('username_requests_queue', status='pending', faculty=selected_faculty) }}" style="margin: 0 6px; {% if status_filter == 'pending' %}font-weight: bold; text-decoration: underline;{% endif %}">Pending</a> |
+    <a href="{{ url_for('username_requests_queue', status='handled', faculty=selected_faculty) }}" style="margin: 0 6px; {% if status_filter == 'handled' %}font-weight: bold; text-decoration: underline;{% endif %}">Handled</a> |
+    <a href="{{ url_for('username_requests_queue', status='all', faculty=selected_faculty) }}" style="margin: 0 6px; {% if status_filter == 'all' %}font-weight: bold; text-decoration: underline;{% endif %}">All</a>
+
+    {% if current_user.is_admin() %}
+    <span style="margin-left: 20px;"><strong>Faculty:</strong></span>
+    <a href="{{ url_for('username_requests_queue', status=status_filter, faculty='') }}" style="margin: 0 6px; {% if not selected_faculty %}font-weight: bold; text-decoration: underline;{% endif %}">All Faculties</a> |
+    {% for code, name in faculties %}
+        <a href="{{ url_for('username_requests_queue', status=status_filter, faculty=code) }}" style="margin: 0 6px; {% if selected_faculty == code %}font-weight: bold; text-decoration: underline;{% endif %}">{{ code }}</a> |
+    {% endfor %}
+    {% endif %}
+</div>
+
+{% if username_requests %}
+<table class="table-bordered" style="width: 100%; margin-bottom: 30px;">
+    <thead style="background: #f3f4f6;">
+        <tr>
+            <th>ID</th>
+            <th>Faculty</th>
+            <th>Requester (Current)</th>
+            <th>Desired New Username</th>
+            <th>Student Email (Immutable)</th>
+            <th>Reason</th>
+            <th>Submitted At</th>
+            <th>Status</th>
+            <th>Review Decision / Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in username_requests %}
+        <tr>
+            <td>#{{ r.id }}</td>
+            <td><strong>{{ r.user.faculty }}</strong></td>
+            <td>
+                <a href="{{ url_for('public_profile', username=r.current_username) }}">
+                    @{{ r.current_username }}
+                </a>
+                {% if r.user.is_moderator() %}
+                    <span style="background: #e0e7ff; color: #3730a3; font-weight: bold; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Moderator</span>
+                {% endif %}
+            </td>
+            <td style="font-size: 1.05em; color: #1e3a8a;">
+                <strong>@{{ r.new_username }}</strong>
+            </td>
+            <td><code>{{ r.user.email }}</code></td>
+            <td>{{ r.reason or '-' }}</td>
+            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+                {% if r.status == 'pending' %}
+                    <span style="color: #d97706; font-weight: bold;">PENDING</span>
+                {% elif r.status == 'approved' %}
+                    <span style="color: #059669; font-weight: bold;">APPROVED</span>
+                {% elif r.status == 'rejected' %}
+                    <span style="color: #dc2626; font-weight: bold;">DISAPPROVED</span>
+                {% elif r.status == 'cancelled' %}
+                    <span style="color: #64748b; font-weight: bold;">CANCELLED</span>
+                {% else %}
+                    {{ r.status }}
+                {% endif %}
+            </td>
+            <td>
+                {% if r.status == 'pending' %}
+                    {% if r.user.is_moderator() and not current_user.is_admin() %}
+                        <span style="color: #b45309; font-size: 0.85em; font-weight: bold; background: #fef3c7; padding: 4px 8px; border-radius: 4px; display: inline-block;">
+                            🔒 Admin Review Required
+                        </span>
+                    {% else %}
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <!-- Approve Form -->
+                            <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" onclick="return confirm('Approve username change for @{{ r.current_username }} to @{{ r.new_username }}?');" style="background: #059669; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                                    ✔ Approve
+                                </button>
+                            </form>
+
+                            <!-- Reject Form with Note -->
+                            <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 4px;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <input type="text" name="reviewer_note" placeholder="Reason (optional)" style="font-size: 0.85em; padding: 3px 6px; width: 140px; border: 1px solid #cbd5e1; border-radius: 3px;"/>
+                                <button type="submit" onclick="return confirm('Disapprove username change request for @{{ r.current_username }}?');" style="background: #dc2626; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                                    ✖ Disapprove
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <small style="color: #64748b;">
+                        {% if r.reviewer %}
+                            By <strong>{{ r.reviewer.username }}</strong>
+                        {% endif %}
+                        {% if r.reviewer_note %}
+                            <br><em>"{{ r.reviewer_note }}"</em>
+                        {% endif %}
+                        {% if r.reviewed_at %}
+                            <br>{{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') }}
+                        {% endif %}
+                    </small>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color: #64748b;">No username change requests found for the selected filter.</p>
+{% endif %}
+
+{% endblock %}

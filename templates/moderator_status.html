@@ -4,7 +4,7 @@
 
 <p>
     {% if current_user.is_student() %}
-        <a href="{{ url_for('student_dashboard') }}">&larr; Back to Student Dashboard</a>
+        <a href="{{ url_for('public_profile', username=current_user.username) }}">&larr; Back to Profile</a>
     {% elif current_user.is_moderator() %}
         <a href="{{ url_for('moderator_dashboard') }}">&larr; Go to Moderator Dashboard</a>
     {% else %}

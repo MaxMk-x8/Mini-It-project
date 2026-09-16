@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <p><a href="{{ url_for('chat_list') }}">&larr; Back to All Conversations</a></p>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            {% if peer.avatar_url %}
+                <img src="{{ peer.avatar_url }}" alt="{{ peer.username }}" width="50" height="50" style="border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 10px;">
+            {% else %}
+                <div style="width: 50px; height: 50px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; color: #475569; vertical-align: middle; margin-right: 10px;">
+                    {{ peer.username[:2]|upper }}
+                </div>
+            {% endif %}
+            
+            <div style="display: inline-block; vertical-align: middle;">
+                <h3 style="margin: 0;">
+                    <a href="{{ url_for('public_profile', username=peer.username) }}">@{{ peer.username }}</a>
+                </h3>
+                <small style="color: #64748b;">{{ peer.role }} &bull; {{ peer.faculty }}</small>
+            </div>
+        </div>
+
+        <div>
+            {% if is_blocked_by_me %}
+                <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" onclick="return confirm('Unblock @{{ peer.username }}?');">Unblock User</button>
+                </form>
+            {% else %}
+                <form method="POST" action="{{ url_for('chat_block_user', username=peer.username) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" style="color: #dc2626;" onclick="return confirm('Block private messages from @{{ peer.username }}?');">Block User</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<hr>
+
+{# Chat Messages Thread #}
+<div id="chat-messages-container" style="min-height: 300px; max-height: 500px; overflow-y: auto; border: 1px solid #cbd5e1; padding: 15px; border-radius: 4px; background: #f8fafc; margin-bottom: 20px;">
+    {% if messages %}
+        <div id="messages-list">
+            {% for m in messages %}
+                <div class="chat-message-item" data-message-id="{{ m.id }}" style="margin-bottom: 12px; text-align: {% if m.sender_id == current_user.id %}right{% else %}left{% endif %};">
+                    <div style="display: inline-block; max-width: 70%; padding: 8px 12px; border-radius: 6px; text-align: left; background: {% if m.sender_id == current_user.id %}#dbeafe; border: 1px solid #bfdbfe;{% else %}#ffffff; border: 1px solid #e2e8f0;{% endif %}">
+                        <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 2px;">
+                            <strong>{% if m.sender_id == current_user.id %}You{% else %}@{{ m.sender.username }}{% endif %}</strong> &bull; {{ m.created_at.strftime('%b %d, %H:%M') if m.created_at else '' }}
+                        </div>
+                        <div style="word-break: break-word; white-space: pre-wrap;">{{ m.message }}</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div id="messages-list">
+            <p id="no-messages-prompt" style="color: #64748b; text-align: center;">No messages exchanged yet. Say hello to @{{ peer.username }}!</p>
+        </div>
+    {% endif %}
+</div>
+
+{# Chat Message Composer / Blocked Banner #}
+<div>
+    {% if is_messaging_disabled %}
+        <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 4px; padding: 12px; color: #991b1b; text-align: center;">
+            <p style="margin: 0; font-weight: bold;">🚫 Messaging is unavailable with this user.</p>
+            <p style="margin: 5px 0 0 0; font-size: 0.9rem;">
+                {% if is_blocked_by_me %}
+                    You have blocked @{{ peer.username }}. Unblock this user above to send messages.
+                {% else %}
+                    This user has restricted private messages.
+                {% endif %}
+            </p>
+        </div>
+    {% else %}
+        <form id="chat-form" method="POST" action="{{ url_for('chat_conversation', username=peer.username) }}">
+            {{ form.hidden_tag() }}
+            <div>
+                {{ form.message(id="chat-input", rows="3", style="width: 100%; box-sizing: border-box; padding: 8px;", placeholder="Write a private message to @" ~ peer.username ~ " (max 1000 characters)...") }}
+            </div>
+            <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <small style="color: #64748b;">Academic discourse only. Profanity is strictly prohibited.</small>
+                {{ form.submit(id="chat-submit-btn") }}
+            </div>
+        </form>
+    {% endif %}
+</div>
+
+<script>
+(function() {
+    var container = document.getElementById('chat-messages-container');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+    }
+
+    var peerUsername = {{ peer.username|tojson }};
+    var currentUserId = {{ current_user.id }};
+    var pollUrl = "{{ url_for('chat_poll', username=peer.username) }}";
+
+    function getLastMessageId() {
+        var msgItems = document.querySelectorAll('.chat-message-item');
+        if (msgItems.length > 0) {
+            var lastItem = msgItems[msgItems.length - 1];
+            return parseInt(lastItem.getAttribute('data-message-id') || '0', 10);
+        }
+        return 0;
+    }
+
+    function appendMessage(msg) {
+        var existing = document.querySelector('.chat-message-item[data-message-id="' + msg.id + '"]');
+        if (existing) return;
+
+        var noPrompt = document.getElementById('no-messages-prompt');
+        if (noPrompt) {
+            noPrompt.remove();
+        }
+
+        var list = document.getElementById('messages-list');
+        if (!list) return;
+
+        var isMine = (msg.sender_id === currentUserId);
+        var msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-message-item';
+        msgDiv.setAttribute('data-message-id', msg.id);
+        msgDiv.style.marginBottom = '12px';
+        msgDiv.style.textAlign = isMine ? 'right' : 'left';
+
+        var bubble = document.createElement('div');
+        bubble.style.display = 'inline-block';
+        bubble.style.maxWidth = '70%';
+        bubble.style.padding = '8px 12px';
+        bubble.style.borderRadius = '6px';
+        bubble.style.textAlign = 'left';
+        bubble.style.background = isMine ? '#dbeafe' : '#ffffff';
+        bubble.style.border = isMine ? '1px solid #bfdbfe' : '1px solid #e2e8f0';
+
+        var meta = document.createElement('div');
+        meta.style.fontSize = '0.75rem';
+        meta.style.color = '#64748b';
+        meta.style.marginBottom = '2px';
+        meta.innerHTML = '<strong>' + (isMine ? 'You' : '@' + msg.sender_username) + '</strong> &bull; ' + (msg.created_at || '');
+
+        var body = document.createElement('div');
+        body.style.wordBreak = 'break-word';
+        body.style.whiteSpace = 'pre-wrap';
+        body.textContent = msg.message;
+
+        bubble.appendChild(meta);
+        bubble.appendChild(body);
+        msgDiv.appendChild(bubble);
+        list.appendChild(msgDiv);
+
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    // Real-time polling every 3 seconds
+    setInterval(function() {
+        var lastId = getLastMessageId();
+        fetch(pollUrl + '?last_id=' + lastId, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+        .then(function(res) {
+            if (res.ok) return res.json();
+            return null;
+        })
+        .then(function(data) {
+            if (data && data.messages && data.messages.length > 0) {
+                for (var i = 0; i < data.messages.length; i++) {
+                    appendMessage(data.messages[i]);
+                }
+            }
+        })
+        .catch(function(err) {
+            // Silently handle polling errors
+        });
+    }, 3000);
+})();
+</script>
+
+{% endblock %}

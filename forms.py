@@ -1,6 +1,13 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SelectField, SubmitField, TextAreaField, MultipleFileField, IntegerField
-from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError, NumberRange
+from flask_wtf.file import FileField, FileAllowed
+from wtforms import (
+    StringField, PasswordField, SelectField, SubmitField,
+    TextAreaField, MultipleFileField, IntegerField, BooleanField
+)
+from wtforms.validators import (
+    DataRequired, Email, Length, EqualTo, ValidationError,
+    NumberRange, Optional, Regexp
+)
 
 from constants import FACULTIES, contains_profanity
 
@@ -56,17 +63,26 @@ MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024  # 5 MB per image
 MAX_SCREENSHOTS_COUNT = 3
 
 
+POST_VISIBILITY_CHOICES = [
+    ('public', '🌐 Public (Everyone)'),
+    ('friends', '👥 Friends Only (Accepted Followers)')
+]
+
+
 class QuestionForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired(), Length(min=5, max=150), NoProfanity()])
     category = SelectField('Category', choices=QUESTION_CATEGORIES, validators=[DataRequired()])
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
     content = TextAreaField('Question Details', validators=[DataRequired(), Length(min=10), NoProfanity()])
     screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
     submit = SubmitField('Post Question')
+    save_draft = SubmitField('Save as Draft')
 
 
 class AnswerForm(FlaskForm):
     content = TextAreaField('Your Answer', validators=[DataRequired(), Length(min=2), NoProfanity()])
+    visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
     screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
     submit = SubmitField('Submit Answer')
 
@@ -97,6 +113,9 @@ SEMESTER_CHOICES = [
 ]
 
 ALLOWED_EXTENSIONS = ['pdf', 'docx', 'pptx', 'txt', 'zip']
+MAX_RESOURCE_FILE_SIZE = 10 * 1024 * 1024  # 10 MB per file
+MAX_COLLECTION_FILES = 30  # Max files per folder collection
+MAX_COLLECTION_TOTAL_SIZE = 50 * 1024 * 1024  # 50 MB total collection size
 
 
 class ResourceForm(FlaskForm):
@@ -127,17 +146,15 @@ class ResourceEditForm(FlaskForm):
     submit = SubmitField('Update Resource')
 
 
-class RatingForm(FlaskForm):
-    rating = SelectField('Your Rating', choices=[
-        (5, '★★★★★ (5 - Excellent)'),
-        (4, '★★★★☆ (4 - Very Good)'),
-        (3, '★★★☆☆ (3 - Good)'),
-        (2, '★★☆☆☆ (2 - Fair)'),
-        (1, '★☆☆☆☆ (1 - Poor)')
-    ], coerce=int, validators=[DataRequired(message='Please choose a rating (1 to 5 stars).')])
-    submit = SubmitField('Submit Rating')
+class ResourceRatingForm(FlaskForm):
+    rating = IntegerField('Rating', validators=[
+        DataRequired(message='Please provide a rating between 1 and 5.'),
+        NumberRange(min=1, max=5, message='Rating must be between 1 and 5.')
+    ])
+    submit = SubmitField('Rate')
 
 
+<<<<<<< HEAD
 class ProfessorReviewForm(FlaskForm):
     review_note = TextAreaField('Endorsement / Review Note (Optional)', validators=[Length(max=255), NoProfanity()])
     submit = SubmitField('Endorse & Review')
@@ -153,6 +170,13 @@ class CollectionForm(FlaskForm):
     academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
     semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
     files = MultipleFileField('Notes Folder / Files')
+=======
+class CollectionUploadForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired(), Length(min=3, max=150), NoProfanity()])
+    category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
+    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     submit = SubmitField('Upload Notes Collection')
 
 
@@ -161,7 +185,7 @@ CollectionUploadForm = CollectionForm
 
 
 class CollectionEditForm(FlaskForm):
-    title = StringField('Collection Title', validators=[DataRequired(), Length(min=3, max=150), NoProfanity()])
+    title = StringField('Title', validators=[DataRequired(), Length(min=3, max=150), NoProfanity()])
     category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
     description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
@@ -172,12 +196,15 @@ class CollectionEditForm(FlaskForm):
     submit = SubmitField('Update Collection')
 
 
+<<<<<<< HEAD
 class AddFilesToCollectionForm(FlaskForm):
     files = MultipleFileField('Additional Files / Folder', validators=[DataRequired(message='Please select files to add.')])
     submit = SubmitField('Add Files to Collection')
 
 
 
+=======
+>>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 # -------------------------------
 # SETTINGS & AUTH FORMS 
 # -------------------------------
@@ -272,6 +299,26 @@ class ForgotPasswordForm(FlaskForm):
     submit = SubmitField('Send Password Reset Code')
 
 
+class ResetPasswordOTPForm(FlaskForm):
+    code = StringField('6-Digit Reset Code', validators=[
+        DataRequired(message='Please enter the 6-digit code sent to your email.'),
+        Length(min=6, max=6, message='Reset code must be exactly 6 digits.')
+    ])
+    submit = SubmitField('Verify Code')
+
+
+class SetNewPasswordForm(FlaskForm):
+    new_password = PasswordField('New Password', validators=[
+        DataRequired(message='Please enter a new password.'),
+        Length(min=6, message='Password must be at least 6 characters long.')
+    ])
+    confirm_password = PasswordField('Confirm New Password', validators=[
+        DataRequired(message='Please confirm your new password.'),
+        EqualTo('new_password', message='New password and confirmation do not match.')
+    ])
+    submit = SubmitField('Reset Password')
+
+
 class ResetPasswordForm(FlaskForm):
     code = StringField('6-Digit Reset Code', validators=[
         DataRequired(message='Please enter the 6-digit code sent to your email.'),
@@ -308,6 +355,128 @@ class IssueWarningForm(FlaskForm):
         Length(min=5, max=1000, message='Warning message must be between 5 and 1000 characters.')
     ])
     submit = SubmitField('Send Official Warning')
+
+
+# =====================================================================
+# WEEK 6: PROFILES, PRIVACY & SAVED QUESTIONS (MOHAMMAD KHAN)
+# =====================================================================
+
+PRIVACY_CHOICES = [
+    ('all', 'Show to Everyone'),
+    ('followers', 'Show Only to Followers'),
+    ('private', 'Private (Only Me)')
+]
+
+
+class EditProfileForm(FlaskForm):
+    bio = TextAreaField('Bio', validators=[
+        Optional(),
+        Length(max=500, message='Bio cannot exceed 500 characters.'),
+        NoProfanity()
+    ])
+    profile_photo = FileField('Profile Photo', validators=[
+        FileAllowed(['png', 'jpg', 'jpeg', 'webp'], 'Only image files (.png, .jpg, .jpeg, .webp) are allowed.')
+    ])
+    contact_email = StringField('Contact Email', validators=[
+        Optional(),
+        Length(max=120),
+        Email(message='Please enter a valid email address.')
+    ])
+    github_url = StringField('GitHub Profile URL', validators=[
+        Optional(),
+        Length(max=200, message='GitHub URL cannot exceed 200 characters.')
+    ])
+    linkedin_url = StringField('LinkedIn Profile URL', validators=[
+        Optional(),
+        Length(max=200, message='LinkedIn URL cannot exceed 200 characters.')
+    ])
+    website_url = StringField('Personal Website / Portfolio', validators=[
+        Optional(),
+        Length(max=200, message='Website URL cannot exceed 200 characters.')
+    ])
+    require_follow_approval = BooleanField('Require approval for new followers (Private Account)')
+    contact_email_privacy = SelectField(
+        'Contact Email Visibility',
+        choices=PRIVACY_CHOICES,
+        default='private',
+        validators=[DataRequired()]
+    )
+    social_links_privacy = SelectField(
+        'Social Links Visibility',
+        choices=PRIVACY_CHOICES,
+        default='all',
+        validators=[DataRequired()]
+    )
+    submit = SubmitField('Save Profile')
+
+
+class CreateFolderForm(FlaskForm):
+    name = StringField('Folder Name', validators=[
+        DataRequired(message='Folder name cannot be empty.'),
+        Length(min=1, max=100, message='Folder name must be between 1 and 100 characters.'),
+        NoProfanity()
+    ])
+    submit = SubmitField('Create Folder')
+
+
+class MoveSavedQuestionForm(FlaskForm):
+    folder_id = SelectField('Folder', coerce=int)
+    submit = SubmitField('Move')
+
+
+class UsernameChangeRequestForm(FlaskForm):
+    new_username = StringField('Desired New Username', validators=[
+        DataRequired(message='Please enter your desired new username.'),
+        Length(min=3, max=50, message='Username must be between 3 and 50 characters.'),
+        Regexp(r'^[a-zA-Z0-9_]+$', message='Username can only contain letters, numbers, and underscores.'),
+        NoProfanity()
+    ])
+    reason = TextAreaField('Reason for Request (Optional)', validators=[
+        Optional(),
+        Length(max=300, message='Reason cannot exceed 300 characters.'),
+        NoProfanity()
+    ])
+    submit = SubmitField('Submit Request')
+
+
+class ReviewUsernameRequestForm(FlaskForm):
+    reviewer_note = TextAreaField('Decision Note / Justification (Optional)', validators=[
+        Optional(),
+        Length(max=255, message='Decision note cannot exceed 255 characters.')
+    ])
+    submit_approve = SubmitField('Approve Request')
+    submit_reject = SubmitField('Disapprove Request')
+
+
+# =====================================================================
+# WEEK 7: DRAFTS & CHAT FORMS (HABIB)
+# =====================================================================
+
+class DraftQuestionForm(FlaskForm):
+    title = StringField('Title', validators=[
+        DataRequired(message='Title is required to save a draft.'),
+        Length(min=2, max=150, message='Title must be between 2 and 150 characters.'),
+        NoProfanity()
+    ])
+    category = SelectField('Category', choices=QUESTION_CATEGORIES, validators=[DataRequired()])
+    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
+    content = TextAreaField('Question Details', validators=[Optional(), NoProfanity()])
+    screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
+    submit_save = SubmitField('Save Draft')
+    submit_publish = SubmitField('Publish Question')
+
+
+class ChatMessageForm(FlaskForm):
+    message = TextAreaField('Message', validators=[
+        DataRequired(message='Message cannot be empty.'),
+        Length(min=1, max=1000, message='Message must be between 1 and 1000 characters.'),
+        NoProfanity()
+    ])
+    submit = SubmitField('Send Message')
+
+
+
 
 
 
