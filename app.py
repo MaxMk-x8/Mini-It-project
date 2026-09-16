@@ -1,11 +1,13 @@
 import os
 import random
 import uuid
+import re
 from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory, session, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, AnonymousUserMixin
 from flask_mail import Mail, Message
 from flask_wtf.csrf import CSRFProtect
+from markupsafe import Markup, escape
 from werkzeug.utils import secure_filename
 from PIL import Image
 
@@ -13,7 +15,7 @@ from models import (
     db, User, Question, Answer, Resource, AnswerBestMark, QAAttachment,
     Report, ModeratorApplication, BannedEmail, UserWarning, ResourceRating,
     ResourceCollection, UserFollow, SavedQuestionFolder, SavedQuestion,
-    UsernameChangeRequest
+    UsernameChangeRequest, SavedAnswer, Notification, ChatMessage, ChatBlock
 )
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
@@ -26,7 +28,8 @@ from forms import (
     ResourceRatingForm, CollectionUploadForm, CollectionEditForm,
     MAX_RESOURCE_FILE_SIZE, MAX_COLLECTION_FILES, MAX_COLLECTION_TOTAL_SIZE,
     EditProfileForm, CreateFolderForm, MoveSavedQuestionForm,
-    UsernameChangeRequestForm, ReviewUsernameRequestForm
+    UsernameChangeRequestForm, ReviewUsernameRequestForm,
+    POST_VISIBILITY_CHOICES, DraftQuestionForm, ChatMessageForm
 )
 from constants import FACULTIES, FACULTY_CODES, contains_profanity
 from dotenv import load_dotenv
@@ -67,6 +70,38 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 db.init_app(app)
 mail = Mail(app)
 
+# Automatically create all tables and sync new columns on startup
+with app.app_context():
+    try:
+        db.create_all()
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        with db.engine.connect() as conn:
+            for table_name, table in db.metadata.tables.items():
+                if table_name in existing_tables:
+                    existing_cols = set(c['name'] for c in inspector.get_columns(table_name))
+                    for col in table.columns:
+                        if col.name not in existing_cols:
+                            col_type = col.type.compile(db.engine.dialect)
+                            default_clause = ""
+                            if col.default is not None and col.default.is_scalar:
+                                val = col.default.arg
+                                if isinstance(val, bool):
+                                    default_clause = " DEFAULT 1" if val else " DEFAULT 0"
+                                elif isinstance(val, str):
+                                    default_clause = f" DEFAULT '{val}'"
+                                else:
+                                    default_clause = f" DEFAULT {val}"
+                            elif col.nullable:
+                                default_clause = " DEFAULT NULL"
+                            
+                            stmt = f"ALTER TABLE {table_name} ADD COLUMN {col.name} {col_type}{default_clause}"
+                            conn.execute(text(stmt))
+            conn.commit()
+    except Exception as e:
+        app.logger.warning(f"Database startup sync notice: {e}")
+
 class AnonymousUser(AnonymousUserMixin):
     username = 'Anonymous'
     faculty = None
@@ -92,6 +127,42 @@ class AnonymousUser(AnonymousUserMixin):
         return 0
 
     @property
+    def unread_notifications_count(self):
+        return 0
+
+    @property
+    def total_unread_chats_count(self):
+        return 0
+
+    @property
+    def unread_total_inbox_count(self):
+        return 0
+
+    def is_following(self, target_user):
+        return False
+
+    def has_pending_follow(self, target_user):
+        return False
+
+    def has_saved_question(self, question_id):
+        return False
+
+    def has_saved_answer(self, answer_id):
+        return False
+
+    def has_blocked_chat(self, target_user):
+        return False
+
+    def is_chat_blocked_by(self, target_user):
+        return False
+
+    def is_chat_mutually_available(self, target_user):
+        return False
+
+    def unread_chat_count_from(self, peer_user):
+        return 0
+
+    @property
     def has_pending_moderator_application(self):
         return False
 
@@ -110,6 +181,81 @@ login_manager.login_message_category = 'warning'
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+
+# =====================================================================
+# USER MENTION HELPERS & JINJA FILTERS (HABIB)
+# =====================================================================
+
+def process_mentions(content_text, author, content_type, content_id, question_id):
+    """
+    Finds valid @username mentions in text (excluding emails and code blocks).
+    Creates in-app Notification records for mentioned users (deduplicated, excluding author).
+    """
+    if not content_text or not author:
+        return
+
+    # Strip multi-line code blocks and inline code snippets
+    cleaned_text = re.sub(r'```.*?```', '', content_text, flags=re.DOTALL)
+    cleaned_text = re.sub(r'`.*?`', '', cleaned_text)
+
+    # Regex: Lookbehind to avoid matching email addresses (e.g., name@student.mmu.edu.my)
+    mention_pattern = r'(?<![\w@])@([a-zA-Z0-9_]{3,50})\b'
+    raw_usernames = re.findall(mention_pattern, cleaned_text)
+
+    seen_user_ids = set()
+    for uname in set(raw_usernames):
+        target_user = User.query.filter(User.username.ilike(uname), User.is_banned == False).first()
+        if target_user and target_user.id != author.id and target_user.id not in seen_user_ids:
+            seen_user_ids.add(target_user.id)
+            link_url = url_for('qa_detail', question_id=question_id)
+            if content_type in ('answer', 'reply'):
+                link_url += f'#answer-{content_id}'
+
+            notif = Notification(
+                user_id=target_user.id,
+                sender_id=author.id,
+                notification_type='mention',
+                title=f'@{author.username} mentioned you in a {content_type}',
+                message=f'@{author.username} mentioned you in a {content_type} on CodeNest Q&A.',
+                link_url=link_url
+            )
+            db.session.add(notif)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Failed to commit mention notifications: {e}")
+
+
+@app.template_filter('render_mentions')
+def render_mentions_filter(text):
+    """
+    Converts valid @username mentions into safe, clickable profile links.
+    Escapes general HTML content first to prevent XSS.
+    """
+    if not text:
+        return ''
+
+    escaped_text = str(escape(text))
+
+    def replace_mention(match):
+        uname = match.group(1)
+        user = User.query.filter(User.username.ilike(uname), User.is_banned == False).first()
+        if user:
+            try:
+                from flask import has_request_context
+                profile_link = url_for('public_profile', username=user.username) if has_request_context() else f"/user/{user.username}"
+            except Exception:
+                profile_link = f"/user/{user.username}"
+            return f'<a href="{profile_link}" style="font-weight: 600; text-decoration: underline;">@{user.username}</a>'
+        return match.group(0)
+
+    mention_pattern = r'(?<![\w@])@([a-zA-Z0-9_]{3,50})\b'
+    linked_text = re.sub(mention_pattern, replace_mention, escaped_text)
+    return Markup(linked_text)
+
 
 
 @app.route('/')
@@ -761,9 +907,13 @@ def public_profile(username):
     contact_restricted = bool(user.contact_email and not can_see_contact and user.contact_email_privacy == 'followers')
     social_restricted = bool((user.github_url or user.linkedin_url or user.website_url) and not can_see_social and user.social_links_privacy == 'followers')
 
-    # Contributions
-    questions = Question.query.filter_by(author_id=user.id).order_by(Question.created_at.desc()).all()
-    answers = Answer.query.filter_by(author_id=user.id).order_by(Answer.created_at.desc()).all()
+    # Contributions with visibility and draft enforcement
+    all_user_questions = Question.query.filter_by(author_id=user.id, is_draft=False).order_by(Question.created_at.desc()).all()
+    questions = [q for q in all_user_questions if q.can_view(current_user)]
+
+    all_user_answers = Answer.query.filter_by(author_id=user.id).order_by(Answer.created_at.desc()).all()
+    answers = [a for a in all_user_answers if a.can_view(current_user)]
+
     resources = Resource.query.filter_by(uploader_id=user.id).order_by(Resource.created_at.desc()).all()
 
     active_tab = request.args.get('tab', 'questions')
@@ -785,6 +935,70 @@ def public_profile(username):
         resources=resources,
         active_tab=active_tab
     )
+
+
+@app.route('/user/<username>/followers')
+@login_required
+def user_followers(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    page = request.args.get('page', 1, type=int)
+    if page < 1:
+        page = 1
+
+    follows_query = UserFollow.query.filter_by(followed_id=user.id, status='accepted').order_by(UserFollow.created_at.desc())
+    pagination = follows_query.paginate(page=page, per_page=20, error_out=False)
+    followers = pagination.items
+
+    return render_template('user_followers.html', user=user, pagination=pagination, followers=followers)
+
+
+@app.route('/user/<username>/following')
+@login_required
+def user_following(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    page = request.args.get('page', 1, type=int)
+    if page < 1:
+        page = 1
+
+    follows_query = UserFollow.query.filter_by(follower_id=user.id, status='accepted').order_by(UserFollow.created_at.desc())
+    pagination = follows_query.paginate(page=page, per_page=20, error_out=False)
+    following_users = pagination.items
+
+    return render_template('user_following.html', user=user, pagination=pagination, following_users=following_users)
+
+
+@app.route('/users/search')
+@app.route('/user/search')
+def search_users():
+    query_text = request.args.get('q', '').strip()
+    is_json = request.headers.get('Accept') == 'application/json' or request.args.get('format') == 'json'
+
+    users = []
+    if query_text:
+        search_term = query_text.lstrip('@').strip()
+        if search_term:
+            users = User.query.filter(
+                User.username.ilike(f"%{search_term}%"),
+                User.is_banned == False,
+                User.is_verified == True
+            ).order_by(User.username.asc()).limit(50).all()
+
+    if is_json:
+        return jsonify({
+            'query': query_text,
+            'users': [
+                {
+                    'id': u.id,
+                    'username': u.username,
+                    'role': u.role,
+                    'faculty': u.faculty,
+                    'avatar_url': u.avatar_url,
+                    'profile_url': url_for('public_profile', username=u.username)
+                } for u in users
+            ]
+        })
+
+    return render_template('user_search.html', users=users, query_text=query_text)
 
 
 @app.route('/user/<username>/follow', methods=['POST'])
@@ -921,10 +1135,42 @@ def toggle_save_question(question_id):
     return redirect(next_url)
 
 
+@app.route('/qa/answers/<int:answer_id>/favourite', methods=['POST'])
+@app.route('/qa/answer/<int:answer_id>/favourite', methods=['POST'])
+@login_required
+def toggle_favourite_answer(answer_id):
+    answer = db.session.get(Answer, answer_id)
+    if not answer:
+        abort(404)
+
+    saved = SavedAnswer.query.filter_by(
+        user_id=current_user.id,
+        answer_id=answer.id
+    ).first()
+
+    if saved:
+        db.session.delete(saved)
+        db.session.commit()
+        flash('Answer removed from your favourites.', 'info')
+    else:
+        new_saved = SavedAnswer(user_id=current_user.id, answer_id=answer.id)
+        db.session.add(new_saved)
+        db.session.commit()
+        flash('Answer added to your favourites!', 'success')
+
+    next_url = request.form.get('next') or request.referrer or (url_for('qa_detail', question_id=answer.question_id) + f'#answer-{answer.id}')
+    return redirect(next_url)
+
+
 @app.route('/bookmarks')
 @app.route('/saved-questions')
+@app.route('/favourites')
 @login_required
 def saved_questions():
+    main_tab = request.args.get('tab', 'questions')
+    if main_tab not in ['questions', 'answers']:
+        main_tab = 'questions'
+
     folder_filter = request.args.get('folder', 'all')
     user_folders = SavedQuestionFolder.query.filter_by(
         user_id=current_user.id
@@ -954,21 +1200,29 @@ def saved_questions():
     total_saved_count = SavedQuestion.query.filter_by(user_id=current_user.id).count()
     uncategorized_count = SavedQuestion.query.filter_by(user_id=current_user.id, folder_id=None).count()
 
+    # Query favorited answers for current user
+    saved_answers = SavedAnswer.query.filter_by(user_id=current_user.id).order_by(SavedAnswer.created_at.desc()).all()
+    total_favourited_answers_count = len(saved_answers)
+
     create_folder_form = CreateFolderForm()
     move_form = MoveSavedQuestionForm()
     move_form.folder_id.choices = [(0, 'Uncategorized')] + [(f.id, f.name) for f in user_folders]
 
     return render_template(
         'saved_questions.html',
+        main_tab=main_tab,
         saved_items=saved_items,
+        saved_answers=saved_answers,
         user_folders=user_folders,
         folder_filter=folder_filter,
         active_folder=active_folder,
         total_saved_count=total_saved_count,
         uncategorized_count=uncategorized_count,
+        total_favourited_answers_count=total_favourited_answers_count,
         create_folder_form=create_folder_form,
         move_form=move_form
     )
+
 
 
 @app.route('/saved-questions/folders/create', methods=['POST'])
@@ -1827,7 +2081,8 @@ def issue_warning(user_id):
 @login_required
 def inbox():
     warnings = UserWarning.query.filter_by(user_id=current_user.id).order_by(UserWarning.created_at.desc()).all()
-    return render_template('inbox.html', warnings=warnings)
+    notifications = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc()).all()
+    return render_template('inbox.html', warnings=warnings, notifications=notifications)
 
 
 @app.route('/inbox/<int:warning_id>/read', methods=['POST'])
@@ -1840,6 +2095,28 @@ def mark_warning_read(warning_id):
     warning.is_read = True
     db.session.commit()
     flash('Warning marked as acknowledged.', 'info')
+    return redirect(url_for('inbox'))
+
+
+@app.route('/notifications/<int:notif_id>/read', methods=['POST'])
+@login_required
+def mark_notification_read(notif_id):
+    notif = db.session.get(Notification, notif_id)
+    if not notif or notif.user_id != current_user.id:
+        abort(404)
+
+    notif.is_read = True
+    db.session.commit()
+    redirect_target = request.form.get('next') or notif.link_url or url_for('inbox')
+    return redirect(redirect_target)
+
+
+@app.route('/notifications/mark-all-read', methods=['POST'])
+@login_required
+def mark_all_notifications_read():
+    Notification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
+    db.session.commit()
+    flash('All notifications marked as read.', 'info')
     return redirect(url_for('inbox'))
 
 
@@ -1973,6 +2250,29 @@ def qa_list():
 
     query = Question.query
 
+    # Privacy and Visibility Enforcement (Habib)
+    if current_user.is_authenticated:
+        if current_user.is_admin() or current_user.is_moderator() or current_user.is_professor():
+            # Special roles override: can view all non-draft questions across faculties
+            query = query.filter(Question.is_draft == False)
+        else:
+            # Regular students: can view public questions, own questions, and questions from followed users
+            followed_ids = [f.followed_id for f in UserFollow.query.filter_by(follower_id=current_user.id, status='accepted').all()]
+            if followed_ids:
+                visibility_filter = (
+                    (Question.visibility == 'public') |
+                    (Question.author_id == current_user.id) |
+                    (Question.author_id.in_(followed_ids))
+                )
+            else:
+                visibility_filter = (
+                    (Question.visibility == 'public') |
+                    (Question.author_id == current_user.id)
+                )
+            query = query.filter((Question.is_draft == False) & visibility_filter)
+    else:
+        query = query.filter((Question.is_draft == False) & (Question.visibility == 'public'))
+
     if query_text:
         search_filter = f"%{query_text}%"
         query = query.filter((Question.title.ilike(search_filter)) | (Question.content.ilike(search_filter)))
@@ -2018,42 +2318,200 @@ def qa_ask():
     if request.method == 'GET' and hasattr(current_user, 'faculty') and current_user.faculty:
         form.faculty.data = current_user.faculty
 
-    if form.validate_on_submit():
-        # Handle optional screenshot uploads (up to 3)
-        files = request.files.getlist('screenshots')
-        attachments, err = validate_and_save_screenshots(files, current_user.id)
-        if err:
-            flash(err, 'danger')
-            return render_template('qa/ask.html', form=form)
+    is_saving_draft = bool(request.form.get('save_draft') or request.form.get('action') == 'draft')
 
-        try:
-            question = Question(
-                title=form.title.data.strip(),
-                content=form.content.data.strip(),
-                category=form.category.data,
-                faculty=form.faculty.data,
-                author_id=current_user.id,
-                views=0
-            )
-            db.session.add(question)
-            db.session.flush()
+    if request.method == 'POST':
+        if is_saving_draft:
+            # Relaxed validation for saving incomplete questions as drafts
+            title = request.form.get('title', '').strip()
+            category = request.form.get('category', 'General')
+            faculty = request.form.get('faculty', current_user.faculty or FACULTY_CODES[0])
+            visibility = request.form.get('visibility', 'public')
+            content = request.form.get('content', '').strip()
 
-            for att in attachments:
-                att.question_id = question.id
-                db.session.add(att)
+            if not title:
+                flash('Please enter at least a title to save a draft question.', 'danger')
+                return render_template('qa/ask.html', form=form)
 
-            db.session.commit()
-            flash('Your question has been posted!', 'success')
-            return redirect(url_for('qa_detail', question_id=question.id))
+            has_prof, p_term = contains_profanity(title)
+            if has_prof:
+                flash(f"Draft title contains prohibited language ('{p_term}').", 'danger')
+                return render_template('qa/ask.html', form=form)
 
-        except Exception as e:
-            app.logger.error(f"Error saving question: {e}")
-            db.session.rollback()
-            delete_attachment_files(attachments)
-            flash('An error occurred while saving your question. Please try again.', 'danger')
-            return render_template('qa/ask.html', form=form)
+            if content:
+                has_prof_c, c_term = contains_profanity(content)
+                if has_prof_c:
+                    flash(f"Draft content contains prohibited language ('{c_term}').", 'danger')
+                    return render_template('qa/ask.html', form=form)
+
+            files = request.files.getlist('screenshots')
+            attachments, err = validate_and_save_screenshots(files, current_user.id)
+            if err:
+                flash(err, 'danger')
+                return render_template('qa/ask.html', form=form)
+
+            try:
+                question = Question(
+                    title=title,
+                    content=content,
+                    category=category,
+                    faculty=faculty,
+                    visibility=visibility,
+                    author_id=current_user.id,
+                    views=0,
+                    is_draft=True
+                )
+                db.session.add(question)
+                db.session.flush()
+
+                for att in attachments:
+                    att.question_id = question.id
+                    db.session.add(att)
+
+                db.session.commit()
+                flash('Question saved as a private draft! You can access it anytime under Drafts.', 'info')
+                return redirect(url_for('qa_drafts'))
+
+            except Exception as e:
+                db.session.rollback()
+                delete_attachment_files(attachments)
+                flash(f'An error occurred while saving your draft: {e}', 'danger')
+                return render_template('qa/ask.html', form=form)
+
+        elif form.validate_on_submit():
+            # Standard publish flow with full validation
+            files = request.files.getlist('screenshots')
+            attachments, err = validate_and_save_screenshots(files, current_user.id)
+            if err:
+                flash(err, 'danger')
+                return render_template('qa/ask.html', form=form)
+
+            try:
+                question = Question(
+                    title=form.title.data.strip(),
+                    content=form.content.data.strip(),
+                    category=form.category.data,
+                    faculty=form.faculty.data,
+                    visibility=form.visibility.data,
+                    author_id=current_user.id,
+                    views=0,
+                    is_draft=False
+                )
+                db.session.add(question)
+                db.session.flush()
+
+                for att in attachments:
+                    att.question_id = question.id
+                    db.session.add(att)
+
+                db.session.commit()
+                # Process mentions in question body
+                process_mentions(question.content, current_user, 'question', question.id, question.id)
+
+                flash('Your question has been posted!', 'success')
+                return redirect(url_for('qa_detail', question_id=question.id))
+
+            except Exception as e:
+                app.logger.error(f"Error saving question: {e}")
+                db.session.rollback()
+                delete_attachment_files(attachments)
+                flash('An error occurred while saving your question. Please try again.', 'danger')
+                return render_template('qa/ask.html', form=form)
 
     return render_template('qa/ask.html', form=form)
+
+
+@app.route('/qa/drafts')
+@login_required
+def qa_drafts():
+    drafts = Question.query.filter_by(
+        author_id=current_user.id,
+        is_draft=True
+    ).order_by(Question.created_at.desc()).all()
+    return render_template('qa/drafts.html', drafts=drafts)
+
+
+@app.route('/qa/drafts/<int:draft_id>/edit', methods=['GET', 'POST'])
+@login_required
+def qa_edit_draft(draft_id):
+    draft = db.session.get(Question, draft_id)
+    if not draft:
+        flash('Draft not found.', 'danger')
+        return redirect(url_for('qa_drafts'))
+
+    if draft.author_id != current_user.id:
+        flash('You are not authorized to access this draft.', 'danger')
+        return redirect(url_for('qa_drafts'))
+
+    form = DraftQuestionForm(obj=draft)
+
+    if form.validate_on_submit():
+        is_publish = bool(form.submit_publish.data or request.form.get('action') == 'publish')
+
+        draft.title = form.title.data.strip()
+        draft.category = form.category.data
+        draft.faculty = form.faculty.data
+        draft.visibility = form.visibility.data
+        draft.content = form.content.data.strip() if form.content.data else ''
+
+        # Handle screenshot attachments
+        files = request.files.getlist('screenshots')
+        if any(f and getattr(f, 'filename', None) for f in files):
+            attachments, err = validate_and_save_screenshots(files, current_user.id, question_id=draft.id)
+            if err:
+                flash(err, 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+            for att in attachments:
+                att.question_id = draft.id
+                db.session.add(att)
+
+        if is_publish:
+            # Full validation before publishing
+            if len(draft.title) < 5:
+                flash('Question title must be at least 5 characters long to publish.', 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+            if len(draft.content) < 10:
+                flash('Question details must be at least 10 characters long to publish.', 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+            has_prof_t, term_t = contains_profanity(draft.title)
+            if has_prof_t:
+                flash(f"Title contains prohibited language ('{term_t}').", 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+            has_prof_c, term_c = contains_profanity(draft.content)
+            if has_prof_c:
+                flash(f"Question details contain prohibited language ('{term_c}').", 'danger')
+                return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+            draft.is_draft = False
+            draft.created_at = datetime.now(timezone.utc)
+            db.session.commit()
+            process_mentions(draft.content, current_user, 'question', draft.id, draft.id)
+            flash('Your question has been published!', 'success')
+            return redirect(url_for('qa_detail', question_id=draft.id))
+        else:
+            db.session.commit()
+            flash('Draft updated successfully.', 'info')
+            return redirect(url_for('qa_drafts'))
+
+    return render_template('qa/edit_draft.html', form=form, draft=draft)
+
+
+@app.route('/qa/drafts/<int:draft_id>/delete', methods=['POST'])
+@login_required
+def qa_delete_draft(draft_id):
+    draft = db.session.get(Question, draft_id)
+    if not draft or draft.author_id != current_user.id:
+        flash('Draft not found or unauthorized.', 'danger')
+        return redirect(url_for('qa_drafts'))
+
+    delete_attachment_files(draft.attachments)
+    db.session.delete(draft)
+    db.session.commit()
+    flash('Draft question deleted.', 'info')
+    return redirect(url_for('qa_drafts'))
 
 
 @app.route('/qa/<int:question_id>', methods=['GET', 'POST'])
@@ -2061,6 +2519,14 @@ def qa_detail(question_id):
     question = db.session.get(Question, question_id)
     if not question:
         flash('Question not found.', 'danger')
+        return redirect(url_for('qa_list'))
+
+    # Question Visibility & Draft Access Check
+    if not question.can_view(current_user):
+        if question.is_draft:
+            flash('This question is a private draft and can only be accessed by its author.', 'warning')
+        else:
+            flash(f"This question is private (Friends Only). You must be an accepted follower of @{question.author.username} to view it.", 'danger')
         return redirect(url_for('qa_list'))
 
     form = AnswerForm()
@@ -2074,12 +2540,11 @@ def qa_detail(question_id):
         parent_answer_id = None
         if parent_id_val and parent_id_val.isdigit():
             parent_id_int = int(parent_id_val)
-            # Verify the parent answer exists and belongs to this question
             parent_answer = db.session.get(Answer, parent_id_int)
             if parent_answer and parent_answer.question_id == question.id:
                 parent_answer_id = parent_id_int
 
-        # Handle optional screenshots (from main answer form or reply form)
+        # Handle optional screenshots
         files = request.files.getlist('screenshots')
         if not any(f and f.filename for f in files):
             reply_files = request.files.getlist('reply_screenshots')
@@ -2096,7 +2561,8 @@ def qa_detail(question_id):
                 content=form.content.data.strip(),
                 question_id=question.id,
                 author_id=current_user.id,
-                parent_answer_id=parent_answer_id  # --- Reply-to-answer feature (Habib) ---
+                parent_answer_id=parent_answer_id,
+                visibility=form.visibility.data
             )
             db.session.add(answer)
             db.session.flush()
@@ -2106,11 +2572,15 @@ def qa_detail(question_id):
                 db.session.add(att)
 
             db.session.commit()
+
+            # Process mentions in answer or reply
+            process_mentions(answer.content, current_user, 'reply' if parent_answer_id else 'answer', answer.id, question.id)
+
             if parent_answer_id:
                 flash('Your reply has been submitted!', 'success')
             else:
                 flash('Your answer has been submitted!', 'success')
-            return redirect(url_for('qa_detail', question_id=question.id))
+            return redirect(url_for('qa_detail', question_id=question.id) + f'#answer-{answer.id}')
 
         except Exception as e:
             app.logger.error(f"Error submitting answer: {e}")
@@ -2119,7 +2589,7 @@ def qa_detail(question_id):
             flash('An error occurred while submitting your answer. Please try again.', 'danger')
             return redirect(url_for('qa_detail', question_id=question.id))
 
-    # View count tracking on valid GET requests (at most once per browser session)
+    # View count tracking on valid GET requests (at most once per session)
     if request.method == 'GET':
         viewed_questions = session.get('viewed_questions', [])
         if question.id not in viewed_questions:
@@ -2128,11 +2598,8 @@ def qa_detail(question_id):
             viewed_questions.append(question.id)
             session['viewed_questions'] = viewed_questions
 
-    # Priority sorting (for top-level answers):
-    # 1. Total Points (Professor endorsement = 50 pts, Student mark = 5 pts)
-    # 2. Professor Answers next (authority boost)
-    # 3. Oldest to newest or chronologically
-    top_level_answers = [a for a in question.answers if a.parent_answer_id is None]
+    # Priority sorting (for visible top-level answers):
+    top_level_answers = [a for a in question.answers if a.parent_answer_id is None and a.can_view(current_user)]
     sorted_answers = sorted(
         top_level_answers,
         key=lambda a: (
@@ -2161,7 +2628,7 @@ def mark_best_answer(answer_id):
         flash('You cannot mark your own answer as the best answer.', 'warning')
         return redirect(url_for('qa_detail', question_id=question.id))
 
-    # Toggle best mark (like a Facebook like / upvote)
+    # Toggle best mark
     existing_mark = AnswerBestMark.query.filter_by(user_id=current_user.id, answer_id=answer.id).first()
     if existing_mark:
         db.session.delete(existing_mark)
@@ -2178,7 +2645,7 @@ def mark_best_answer(answer_id):
             flash('Marked as Best Answer (+5 pts)!', 'success')
 
     db.session.commit()
-    return redirect(url_for('qa_detail', question_id=question.id))
+    return redirect(url_for('qa_detail', question_id=question.id) + f'#answer-{answer.id}')
 
 
 @app.route('/qa/answer/<int:answer_id>/edit', methods=['GET', 'POST'])
@@ -2196,9 +2663,14 @@ def edit_answer(answer_id):
     form = AnswerForm(obj=answer)
     if form.validate_on_submit():
         answer.content = form.content.data.strip()
+        answer.visibility = form.visibility.data
         db.session.commit()
+
+        # Process mentions on edit
+        process_mentions(answer.content, current_user, 'reply' if answer.parent_answer_id else 'answer', answer.id, answer.question_id)
+
         flash('Your answer has been updated.', 'success')
-        return redirect(url_for('qa_detail', question_id=answer.question_id))
+        return redirect(url_for('qa_detail', question_id=answer.question_id) + f'#answer-{answer.id}')
 
     return render_template('qa/edit_answer.html', form=form, answer=answer)
 
@@ -2219,7 +2691,7 @@ def delete_answer(answer_id):
     if answer.is_best_answer or (answer.question and answer.question.best_answer_id == answer.id):
         answer.question.best_answer_id = None
 
-    # Clean up physical screenshot files for this answer and any nested replies
+    # Clean up physical screenshot files
     attachments_to_delete = list(answer.attachments)
     for reply in answer.replies:
         attachments_to_delete.extend(reply.attachments)
@@ -2229,6 +2701,195 @@ def delete_answer(answer_id):
     db.session.commit()
     flash('Your answer has been deleted.', 'info')
     return redirect(url_for('qa_detail', question_id=question_id))
+
+
+# =====================================================================
+# ONE-TO-ONE PRIVATE CHAT & BLOCKING ROUTES (HABIB)
+# =====================================================================
+
+@app.route('/chat')
+@login_required
+def chat_list():
+    sent_peers = db.session.query(ChatMessage.recipient_id).filter_by(sender_id=current_user.id)
+    recv_peers = db.session.query(ChatMessage.sender_id).filter_by(recipient_id=current_user.id)
+    peer_ids = list(set([pid[0] for pid in sent_peers.union(recv_peers).all()]))
+
+    conversations = []
+    for pid in peer_ids:
+        peer = db.session.get(User, pid)
+        if not peer:
+            continue
+
+        last_msg = ChatMessage.query.filter(
+            ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
+            ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+        ).order_by(ChatMessage.created_at.desc()).first()
+
+        unread_count = ChatMessage.query.filter_by(
+            sender_id=peer.id,
+            recipient_id=current_user.id,
+            is_read=False
+        ).count()
+
+        is_blocked = current_user.has_blocked_chat(peer)
+        is_blocked_by = current_user.is_chat_blocked_by(peer)
+
+        conversations.append({
+            'peer': peer,
+            'last_message': last_msg,
+            'unread_count': unread_count,
+            'is_blocked': is_blocked,
+            'is_blocked_by': is_blocked_by
+        })
+
+    conversations.sort(
+        key=lambda c: c['last_message'].created_at if c['last_message'] and c['last_message'].created_at else datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True
+    )
+
+    # Fetch users followed by current_user for Instagram-style quick messaging
+    following_relations = UserFollow.query.filter_by(follower_id=current_user.id, status='accepted').all()
+    followed_users = [rel.followed for rel in following_relations if rel.followed and not rel.followed.is_banned]
+
+    return render_template('chat_list.html', conversations=conversations, followed_users=followed_users)
+
+
+@app.route('/chat/<username>', methods=['GET', 'POST'])
+@app.route('/chat/user/<username>', methods=['GET', 'POST'])
+@login_required
+def chat_conversation(username):
+    peer = User.query.filter_by(username=username).first_or_404()
+
+    if peer.id == current_user.id:
+        flash('You cannot initiate a private chat with yourself.', 'info')
+        return redirect(url_for('chat_list'))
+
+    is_blocked_by_me = current_user.has_blocked_chat(peer)
+    is_blocked_by_peer = current_user.is_chat_blocked_by(peer)
+    is_messaging_disabled = is_blocked_by_me or is_blocked_by_peer
+
+    form = ChatMessageForm()
+    if form.validate_on_submit():
+        if is_messaging_disabled:
+            flash('Messaging is unavailable with this user.', 'danger')
+            return redirect(url_for('chat_conversation', username=peer.username))
+
+        msg_content = form.message.data.strip()
+        new_msg = ChatMessage(
+            sender_id=current_user.id,
+            recipient_id=peer.id,
+            message=msg_content
+        )
+        db.session.add(new_msg)
+        db.session.commit()
+
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({
+                'success': True,
+                'message': {
+                    'id': new_msg.id,
+                    'sender_id': current_user.id,
+                    'sender_username': current_user.username,
+                    'message': new_msg.message,
+                    'created_at': new_msg.created_at.strftime('%b %d, %H:%M'),
+                    'is_mine': True
+                }
+            })
+
+        flash('Message sent.', 'success')
+        return redirect(url_for('chat_conversation', username=peer.username))
+
+    # Mark incoming unread messages as read
+    ChatMessage.query.filter_by(
+        sender_id=peer.id,
+        recipient_id=current_user.id,
+        is_read=False
+    ).update({'is_read': True})
+    db.session.commit()
+
+    messages = ChatMessage.query.filter(
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
+        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+    ).order_by(ChatMessage.created_at.asc()).all()
+
+    return render_template(
+        'chat_conversation.html',
+        peer=peer,
+        messages=messages,
+        form=form,
+        is_blocked_by_me=is_blocked_by_me,
+        is_blocked_by_peer=is_blocked_by_peer,
+        is_messaging_disabled=is_messaging_disabled
+    )
+
+
+@app.route('/chat/<username>/poll')
+@login_required
+def chat_poll(username):
+    peer = User.query.filter_by(username=username).first_or_404()
+    last_id = request.args.get('last_id', 0, type=int)
+
+    new_messages = ChatMessage.query.filter(
+        ChatMessage.id > last_id,
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
+        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+    ).order_by(ChatMessage.created_at.asc()).all()
+
+    # Mark incoming new messages as read
+    for m in new_messages:
+        if m.recipient_id == current_user.id and not m.is_read:
+            m.is_read = True
+    if new_messages:
+        db.session.commit()
+
+    return jsonify({
+        'messages': [
+            {
+                'id': m.id,
+                'sender_id': m.sender_id,
+                'sender_username': m.sender.username,
+                'message': m.message,
+                'created_at': m.created_at.strftime('%b %d, %H:%M') if m.created_at else '',
+                'is_mine': (m.sender_id == current_user.id)
+            } for m in new_messages
+        ],
+        'is_blocked': current_user.has_blocked_chat(peer) or peer.has_blocked_chat(current_user)
+    })
+
+
+@app.route('/chat/<username>/block', methods=['POST'])
+@login_required
+def chat_block_user(username):
+    peer = User.query.filter_by(username=username).first_or_404()
+    if peer.id == current_user.id:
+        flash('You cannot block yourself.', 'warning')
+        return redirect(url_for('chat_list'))
+
+    existing = ChatBlock.query.filter_by(blocker_id=current_user.id, blocked_id=peer.id).first()
+    if not existing:
+        block = ChatBlock(blocker_id=current_user.id, blocked_id=peer.id)
+        db.session.add(block)
+        db.session.commit()
+        flash(f'You have blocked @{peer.username} from private chat.', 'info')
+    else:
+        flash(f'@{peer.username} is already blocked in chat.', 'info')
+
+    return redirect(url_for('chat_conversation', username=peer.username))
+
+
+@app.route('/chat/<username>/unblock', methods=['POST'])
+@login_required
+def chat_unblock_user(username):
+    peer = User.query.filter_by(username=username).first_or_404()
+    block = ChatBlock.query.filter_by(blocker_id=current_user.id, blocked_id=peer.id).first()
+    if block:
+        db.session.delete(block)
+        db.session.commit()
+        flash(f'You have unblocked @{peer.username}.', 'success')
+    else:
+        flash(f'@{peer.username} is not blocked.', 'info')
+
+    return redirect(url_for('chat_conversation', username=peer.username))
 
 
 #-------------------------------

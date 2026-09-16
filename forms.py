@@ -63,17 +63,26 @@ MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024  # 5 MB per image
 MAX_SCREENSHOTS_COUNT = 3
 
 
+POST_VISIBILITY_CHOICES = [
+    ('public', '🌐 Public (Everyone)'),
+    ('friends', '👥 Friends Only (Accepted Followers)')
+]
+
+
 class QuestionForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired(), Length(min=5, max=150), NoProfanity()])
     category = SelectField('Category', choices=QUESTION_CATEGORIES, validators=[DataRequired()])
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
     content = TextAreaField('Question Details', validators=[DataRequired(), Length(min=10), NoProfanity()])
     screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
     submit = SubmitField('Post Question')
+    save_draft = SubmitField('Save as Draft')
 
 
 class AnswerForm(FlaskForm):
     content = TextAreaField('Your Answer', validators=[DataRequired(), Length(min=2), NoProfanity()])
+    visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
     screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
     submit = SubmitField('Submit Answer')
 
@@ -384,6 +393,35 @@ class ReviewUsernameRequestForm(FlaskForm):
     ])
     submit_approve = SubmitField('Approve Request')
     submit_reject = SubmitField('Disapprove Request')
+
+
+# =====================================================================
+# WEEK 7: DRAFTS & CHAT FORMS (HABIB)
+# =====================================================================
+
+class DraftQuestionForm(FlaskForm):
+    title = StringField('Title', validators=[
+        DataRequired(message='Title is required to save a draft.'),
+        Length(min=2, max=150, message='Title must be between 2 and 150 characters.'),
+        NoProfanity()
+    ])
+    category = SelectField('Category', choices=QUESTION_CATEGORIES, validators=[DataRequired()])
+    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
+    content = TextAreaField('Question Details', validators=[Optional(), NoProfanity()])
+    screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
+    submit_save = SubmitField('Save Draft')
+    submit_publish = SubmitField('Publish Question')
+
+
+class ChatMessageForm(FlaskForm):
+    message = TextAreaField('Message', validators=[
+        DataRequired(message='Message cannot be empty.'),
+        Length(min=1, max=1000, message='Message must be between 1 and 1000 characters.'),
+        NoProfanity()
+    ])
+    submit = SubmitField('Send Message')
+
 
 
 

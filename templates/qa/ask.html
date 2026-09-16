@@ -33,6 +33,14 @@
     </div>
 
     <div style="margin-bottom: 15px;">
+        {{ form.visibility.label }}<br>
+        {{ form.visibility(style="padding: 6px;") }}
+        {% for error in form.visibility.errors %}
+            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
+        {% endfor %}
+    </div>
+
+    <div style="margin-bottom: 15px;">
         {{ form.content.label }}<br>
         {{ form.content(rows=8, style="width: 100%; box-sizing: border-box; padding: 6px;") }}
         {% for error in form.content.errors %}
@@ -54,6 +62,8 @@
 
     <div>
         {{ form.submit() }}
+        &nbsp;
+        <button type="submit" name="save_draft" value="1" style="padding: 5px 12px; cursor: pointer; background: #e0f2fe; border: 1px solid #0284c7; color: #0369a1; border-radius: 4px; font-weight: bold;">📝 Save as Draft</button>
         &nbsp;
         <a href="{{ url_for('qa_list') }}">Cancel</a>
     </div>

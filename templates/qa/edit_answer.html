@@ -16,6 +16,14 @@
         {% endfor %}
     </div>
 
+    <div style="margin-bottom: 15px;">
+        {{ form.visibility.label }}<br>
+        {{ form.visibility(style="padding: 6px;") }}
+        {% for error in form.visibility.errors %}
+            <p style="color: red; font-size: 0.85em;">{{ error }}</p>
+        {% endfor %}
+    </div>
+
     <div>
         {{ form.submit(value="Update Answer") }}
         &nbsp;

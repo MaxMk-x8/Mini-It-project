@@ -94,6 +94,15 @@
                         </a>
                     </h4>
                     <div style="display: flex; gap: 6px; align-items: center;">
+                        {% if q.visibility == 'friends' %}
+                            <span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;" title="Visible to followers only">
+                                👥 Friends Only
+                            </span>
+                        {% else %}
+                            <span style="background: #f3f4f6; color: #4b5563; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;" title="Visible to everyone">
+                                🌐 Public
+                            </span>
+                        {% endif %}
                         {% if q.attachments|length > 0 %}
                             <span style="background: #e9ecef; color: #495057; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;" title="{{ q.attachments|length }} image attachment(s)">
                                 📷 {{ q.attachments|length }}

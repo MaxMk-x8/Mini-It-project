@@ -294,6 +294,51 @@ class User(UserMixin, db.Model):
     def has_saved_question(self, question_id):
         return SavedQuestion.query.filter_by(user_id=self.id, question_id=question_id).first() is not None
 
+    def has_saved_answer(self, answer_id):
+        return SavedAnswer.query.filter_by(user_id=self.id, answer_id=answer_id).first() is not None
+
+    def save_answer(self, answer_id):
+        if not self.has_saved_answer(answer_id):
+            sa = SavedAnswer(user_id=self.id, answer_id=answer_id)
+            db.session.add(sa)
+            return sa
+        return None
+
+    def unsave_answer(self, answer_id):
+        sa = SavedAnswer.query.filter_by(user_id=self.id, answer_id=answer_id).first()
+        if sa:
+            db.session.delete(sa)
+            return True
+        return False
+
+    @property
+    def unread_notifications_count(self):
+        return Notification.query.filter_by(user_id=self.id, is_read=False).count()
+
+    def has_blocked_chat(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return ChatBlock.query.filter_by(blocker_id=self.id, blocked_id=target_user.id).first() is not None
+
+    def is_chat_blocked_by(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return ChatBlock.query.filter_by(blocker_id=target_user.id, blocked_id=self.id).first() is not None
+
+    def is_chat_mutually_available(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return not (self.has_blocked_chat(target_user) or self.is_chat_blocked_by(target_user))
+
+    def unread_chat_count_from(self, peer_user):
+        if not peer_user or not getattr(peer_user, 'id', None):
+            return 0
+        return ChatMessage.query.filter_by(sender_id=peer_user.id, recipient_id=self.id, is_read=False).count()
+
+    @property
+    def total_unread_chats_count(self):
+        return ChatMessage.query.filter_by(recipient_id=self.id, is_read=False).count()
+
     @property
     def has_pending_username_request(self):
         return any(r.status == 'pending' for r in self.username_requests)
@@ -321,6 +366,8 @@ class Question(db.Model):
     category = db.Column(db.String(50), nullable=False, default='General')
     faculty = db.Column(db.String(10), nullable=False, default=FACULTY_CODES[0])
     views = db.Column(db.Integer, nullable=False, default=0)
+    visibility = db.Column(db.String(20), default='public', nullable=False)  # 'public', 'friends'
+    is_draft = db.Column(db.Boolean, default=False, nullable=False)
     
     author_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_questions_author_id'), nullable=False)
     best_answer_id = db.Column(
@@ -349,7 +396,21 @@ class Question(db.Model):
         lazy=True
     )
 
-    def __init__(self, title=None, content=None, category='General', faculty=FACULTY_CODES[0], author_id=None, best_answer_id=None, views=0, **kwargs):
+    def can_view(self, viewer):
+        if self.is_draft:
+            return bool(viewer and viewer.is_authenticated and viewer.id == self.author_id)
+        if self.visibility == 'public':
+            return True
+        if viewer and viewer.is_authenticated:
+            if viewer.id == self.author_id:
+                return True
+            if viewer.is_professor() or viewer.is_moderator() or viewer.is_admin():
+                return True
+            if viewer.is_following(self.author):
+                return True
+        return False
+
+    def __init__(self, title=None, content=None, category='General', faculty=FACULTY_CODES[0], author_id=None, best_answer_id=None, views=0, visibility='public', is_draft=False, **kwargs):
         super().__init__(**kwargs)
         if title:
             self.title = title
@@ -362,6 +423,8 @@ class Question(db.Model):
         if best_answer_id:
             self.best_answer_id = best_answer_id
         self.views = views
+        self.visibility = visibility
+        self.is_draft = is_draft
 
     def __repr__(self):
         return f'<Question {self.id}: {self.title[:30]}>'
@@ -373,6 +436,7 @@ class Answer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
     is_best_answer = db.Column(db.Boolean, default=False)
+    visibility = db.Column(db.String(20), default='public', nullable=False)  # 'public', 'friends'
     
     question_id = db.Column(db.Integer, db.ForeignKey('questions.id', name='fk_answers_question_id'), nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_answers_author_id'), nullable=False)
@@ -400,6 +464,18 @@ class Answer(db.Model):
         cascade='all, delete-orphan',
         lazy=True
     )
+
+    def can_view(self, viewer):
+        if self.visibility == 'public':
+            return True
+        if viewer and viewer.is_authenticated:
+            if viewer.id == self.author_id:
+                return True
+            if viewer.is_professor() or viewer.is_moderator() or viewer.is_admin():
+                return True
+            if viewer.is_following(self.author):
+                return True
+        return False
 
     @property
     def best_marks_count(self):
@@ -435,7 +511,7 @@ class Answer(db.Model):
             return False
         return any(m.user_id == user.id for m in self.best_marks)
 
-    def __init__(self, content=None, question_id=None, author_id=None, is_best_answer=False, parent_answer_id=None, **kwargs):
+    def __init__(self, content=None, question_id=None, author_id=None, is_best_answer=False, parent_answer_id=None, visibility='public', **kwargs):
         super().__init__(**kwargs)
         if content:
             self.content = content
@@ -446,6 +522,7 @@ class Answer(db.Model):
         self.is_best_answer = is_best_answer
         # --- Reply-to-answer feature (Habib) ---
         self.parent_answer_id = parent_answer_id
+        self.visibility = visibility
 
     def __repr__(self):
         return f'<Answer {self.id} for Question {self.question_id}>'
@@ -1005,6 +1082,122 @@ class UsernameChangeRequest(db.Model):
 
     def __repr__(self):
         return f'<UsernameChangeRequest User #{self.user_id} (@{self.current_username} -> @{self.new_username}) [{self.status}]>'
+
+
+# =====================================================================
+# WEEK 7: VISIBILITY, CHAT, DRAFTS, NOTIFICATIONS & FAVOURITES (HABIB)
+# =====================================================================
+
+class SavedAnswer(db.Model):
+    __tablename__ = 'saved_answers'
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'answer_id', name='uq_user_saved_answer'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_saved_answers_user_id', ondelete='CASCADE'), nullable=False)
+    answer_id = db.Column(db.Integer, db.ForeignKey('answers.id', name='fk_saved_answers_answer_id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship('User', backref=db.backref('saved_answers', lazy=True, cascade='all, delete-orphan'))
+    answer = db.relationship('Answer', backref=db.backref('saved_by_users', lazy=True, cascade='all, delete-orphan'))
+
+    def __init__(self, user_id=None, answer_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if user_id:
+            self.user_id = user_id
+        if answer_id:
+            self.answer_id = answer_id
+
+    def __repr__(self):
+        return f'<SavedAnswer User #{self.user_id} -> Answer #{self.answer_id}>'
+
+
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_notifications_user_id', ondelete='CASCADE'), nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_notifications_sender_id', ondelete='CASCADE'), nullable=True)
+    notification_type = db.Column(db.String(30), nullable=False, default='mention')  # 'mention', 'chat', 'system'
+    title = db.Column(db.String(150), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    link_url = db.Column(db.String(255), nullable=True)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('notifications', lazy=True, cascade='all, delete-orphan', order_by='Notification.created_at.desc()'))
+    sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_notifications', lazy=True))
+
+    def __init__(self, user_id=None, sender_id=None, notification_type='mention', title='New Notification', message=None, link_url=None, is_read=False, **kwargs):
+        super().__init__(**kwargs)
+        if user_id:
+            self.user_id = user_id
+        if sender_id:
+            self.sender_id = sender_id
+        self.notification_type = notification_type
+        self.title = title
+        if message:
+            self.message = message
+        if link_url:
+            self.link_url = link_url
+        self.is_read = is_read
+
+    def __repr__(self):
+        return f'<Notification #{self.id} to User #{self.user_id} ({self.notification_type})>'
+
+
+class ChatMessage(db.Model):
+    __tablename__ = 'chat_messages'
+
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_messages_sender_id', ondelete='CASCADE'), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_messages_recipient_id', ondelete='CASCADE'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_chats', lazy=True))
+    recipient = db.relationship('User', foreign_keys=[recipient_id], backref=db.backref('received_chats', lazy=True))
+
+    def __init__(self, sender_id=None, recipient_id=None, message=None, is_read=False, **kwargs):
+        super().__init__(**kwargs)
+        if sender_id:
+            self.sender_id = sender_id
+        if recipient_id:
+            self.recipient_id = recipient_id
+        if message:
+            self.message = message
+        self.is_read = is_read
+
+    def __repr__(self):
+        return f'<ChatMessage #{self.id}: {self.sender_id} -> {self.recipient_id}>'
+
+
+class ChatBlock(db.Model):
+    __tablename__ = 'chat_blocks'
+    __table_args__ = (
+        db.UniqueConstraint('blocker_id', 'blocked_id', name='uq_chat_blocker_blocked'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    blocker_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_blocks_blocker_id', ondelete='CASCADE'), nullable=False)
+    blocked_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_blocks_blocked_id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    blocker = db.relationship('User', foreign_keys=[blocker_id], backref=db.backref('chat_blocks_given', lazy=True, cascade='all, delete-orphan'))
+    blocked = db.relationship('User', foreign_keys=[blocked_id], backref=db.backref('chat_blocks_received', lazy=True, cascade='all, delete-orphan'))
+
+    def __init__(self, blocker_id=None, blocked_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if blocker_id:
+            self.blocker_id = blocker_id
+        if blocked_id:
+            self.blocked_id = blocked_id
+
+    def __repr__(self):
+        return f'<ChatBlock User #{self.blocker_id} blocked #{self.blocked_id}>'
+
 
 
 

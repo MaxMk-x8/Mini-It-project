@@ -1,48 +1,107 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>My Inbox</h2>
-<p>Official notices and moderation warnings regarding your CodeNest account.</p>
+<p>Official notices, moderation warnings, and in-app notifications regarding your CodeNest activity.</p>
 
-{% if not warnings %}
-    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 25px; text-align: center; max-width: 600px;">
-        <p style="color: #64748b; font-size: 1.05rem; margin: 0;">✔ You have no warnings or notices in your inbox.</p>
+<hr>
+
+{# Section 1: In-App Notifications (Mentions, Social, etc.) #}
+<div style="margin-bottom: 30px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0;">Notifications</h3>
+        {% if notifications and current_user.unread_notifications_count > 0 %}
+            <form method="POST" action="{{ url_for('mark_all_notifications_read') }}" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" style="font-size: 0.85rem; padding: 4px 10px;">Mark All Read</button>
+            </form>
+        {% endif %}
     </div>
-{% else %}
-    <div style="max-width: 800px;">
-        {% for w in warnings %}
-            <div style="background: {% if not w.is_read %}#fef2f2{% else %}#ffffff{% endif %}; border: 1px solid {% if not w.is_read %}#fca5a5{% else %}#e2e8f0{% endif %}; border-radius: 6px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <div>
-                        <strong style="color: #1e293b; font-size: 1.05rem;">{{ w.title }}</strong>
-                        <span style="color: #64748b; font-size: 0.85rem; margin-left: 8px;">from <strong>{{ w.sender_role }}</strong></span>
+
+    {% if not notifications %}
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 15px; text-align: center; max-width: 800px;">
+            <p style="color: #64748b; margin: 0;">You have no notifications at this time.</p>
+        </div>
+    {% else %}
+        <div style="max-width: 800px;">
+            {% for n in notifications %}
+                <div style="background: {% if not n.is_read %}#eff6ff{% else %}#ffffff{% endif %}; border: 1px solid {% if not n.is_read %}#bfdbfe{% else %}#e2e8f0{% endif %}; border-radius: 4px; padding: 12px 16px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>{{ n.title }}</strong>
+                            {% if not n.is_read %}
+                                <span style="background: #3b82f6; color: white; padding: 1px 6px; border-radius: 9999px; font-size: 0.7rem; font-weight: bold; margin-left: 6px;">NEW</span>
+                            {% endif %}
+                        </div>
+                        <small style="color: #64748b;">{{ n.created_at.strftime('%b %d, %H:%M') if n.created_at else '' }}</small>
                     </div>
+                    <p style="margin: 6px 0 8px 0; font-size: 0.95rem;">{{ n.message }}</p>
                     <div>
-                        {% if not w.is_read %}
-                            <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">UNREAD</span>
+                        {% if n.link_url %}
+                            <a href="{{ n.link_url }}">View Discussion &rarr;</a>
+                            &nbsp;|&nbsp;
+                        {% endif %}
+                        {% if not n.is_read %}
+                            <form method="POST" action="{{ url_for('mark_notification_read', notif_id=n.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" style="font-size: 0.8rem; padding: 2px 8px;">Mark as Read</button>
+                            </form>
                         {% else %}
-                            <span style="background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">ACKNOWLEDGED</span>
+                            <small style="color: #64748b;">Read</small>
                         {% endif %}
                     </div>
                 </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
 
-                <p style="color: #64748b; font-size: 0.82rem; margin: 0 0 10px 0;">
-                    Received: {{ w.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
-                </p>
+<hr>
 
-                <div style="background: #ffffff; border: 1px solid {% if not w.is_read %}#fecaca{% else %}#f1f5f9{% endif %}; border-radius: 4px; padding: 12px; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; margin-bottom: 12px;">
-                    {{ w.message }}
+{# Section 2: Official Account Warnings #}
+<div>
+    <h3>Official Account Warnings</h3>
+    {% if not warnings %}
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; text-align: center; max-width: 800px;">
+            <p style="color: #64748b; font-size: 1rem; margin: 0;">✔ You have no disciplinary warnings or official notices.</p>
+        </div>
+    {% else %}
+        <div style="max-width: 800px;">
+            {% for w in warnings %}
+                <div style="background: {% if not w.is_read %}#fef2f2{% else %}#ffffff{% endif %}; border: 1px solid {% if not w.is_read %}#fca5a5{% else %}#e2e8f0{% endif %}; border-radius: 6px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div>
+                            <strong style="color: #1e293b; font-size: 1.05rem;">{{ w.title }}</strong>
+                            <span style="color: #64748b; font-size: 0.85rem; margin-left: 8px;">from <strong>{{ w.sender_role }}</strong></span>
+                        </div>
+                        <div>
+                            {% if not w.is_read %}
+                                <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">UNREAD</span>
+                            {% else %}
+                                <span style="background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">ACKNOWLEDGED</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <p style="color: #64748b; font-size: 0.82rem; margin: 0 0 10px 0;">
+                        Received: {{ w.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+                    </p>
+
+                    <div style="background: #ffffff; border: 1px solid {% if not w.is_read %}#fecaca{% else %}#f1f5f9{% endif %}; border-radius: 4px; padding: 12px; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; margin-bottom: 12px;">
+                        {{ w.message }}
+                    </div>
+
+                    {% if not w.is_read %}
+                        <form method="POST" action="{{ url_for('mark_warning_read', warning_id=w.id) }}" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="background: #dc2626; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">
+                                ✔ Acknowledge &amp; Mark as Read
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
-
-                {% if not w.is_read %}
-                    <form method="POST" action="{{ url_for('mark_warning_read', warning_id=w.id) }}" style="display: inline;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" style="background: #dc2626; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">
-                            ✔ Acknowledge &amp; Mark as Read
-                        </button>
-                    </form>
-                {% endif %}
-            </div>
-        {% endfor %}
-    </div>
-{% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
 {% endblock %}
+

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+    <h2>Private Messages</h2>
+    <p>Direct 1-on-1 private messaging with fellow students, professors, and moderators.</p>
+</div>
+
+<hr>
+
+<!-- Instagram-style Quick Chat with People You Follow -->
+{% if followed_users %}
+    <div style="margin-bottom: 25px; padding: 14px; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #f8fafc;">
+        <h4 style="margin-top: 0; margin-bottom: 12px; color: #334155;">👥 People You Follow (Direct Message)</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start;">
+            {% for f_user in followed_users %}
+                <a href="{{ url_for('chat_conversation', username=f_user.username) }}" style="text-decoration: none; display: inline-flex; flex-direction: column; align-items: center; text-align: center; width: 75px;">
+                    {% if f_user.avatar_url %}
+                        <img src="{{ f_user.avatar_url }}" alt="{{ f_user.username }}" width="46" height="46" style="border-radius: 50%; object-fit: cover; border: 2px solid #3b82f6;">
+                    {% else %}
+                        <div style="width: 46px; height: 46px; border-radius: 50%; background: #e0e7ff; color: #3730a3; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9em; border: 2px solid #3b82f6;">
+                            {{ f_user.username[:2]|upper }}
+                        </div>
+                    {% endif %}
+                    <span style="font-size: 0.78em; color: #1e293b; margin-top: 5px; max-width: 75px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;">
+                        @{{ f_user.username }}
+                    </span>
+                    <small style="font-size: 0.7em; color: #64748b;">{{ f_user.role }}</small>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<div>
+    <h3 style="margin-top: 0;">Conversations</h3>
+    {% if conversations %}
+        <table class="table-bordered">
+            <thead>
+                <tr>
+                    <th>Avatar</th>
+                    <th>User</th>
+                    <th>Last Message</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in conversations %}
+                    {% set peer = c.peer %}
+                    {% set last = c.last_message %}
+                    <tr>
+                        <td style="width: 50px; text-align: center;">
+                            {% if peer.avatar_url %}
+                                <img src="{{ peer.avatar_url }}" alt="{{ peer.username }}" width="40" height="40" style="border-radius: 50%; object-fit: cover;">
+                            {% else %}
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; color: #475569;">
+                                    {{ peer.username[:2]|upper }}
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('chat_conversation', username=peer.username) }}">
+                                <strong>@{{ peer.username }}</strong>
+                            </a>
+                            <br>
+                            <small style="color: #64748b;">{{ peer.role }} &bull; {{ peer.faculty }}</small>
+                        </td>
+                        <td>
+                            {% if last %}
+                                <span>
+                                    {% if last.sender_id == current_user.id %}<strong>You:</strong> {% endif %}
+                                    {{ last.message[:60] }}{% if last.message|length > 60 %}...{% endif %}
+                                </span>
+                                <br>
+                                <small style="color: #64748b;">{{ last.created_at.strftime('%b %d, %H:%M') if last.created_at else '' }}</small>
+                            {% else %}
+                                <em>No messages yet.</em>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.unread_count > 0 %}
+                                <span style="background: #3b82f6; color: white; border-radius: 9999px; padding: 2px 8px; font-size: 0.8rem; font-weight: bold;">
+                                    {{ c.unread_count }} new
+                                </span>
+                            {% elif c.is_blocked %}
+                                <span style="color: #dc2626; font-size: 0.85rem;">🚫 Blocked by you</span>
+                            {% elif c.is_blocked_by %}
+                                <span style="color: #64748b; font-size: 0.85rem;">🔒 Chat unavailable</span>
+                            {% else %}
+                                <span style="color: #10b981; font-size: 0.85rem;">Active</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('chat_conversation', username=peer.username) }}">Open Chat</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>You have no active conversations yet.</p>
+        <p>To start a conversation, search for a user using the search bar above or visit any user's profile and click <strong>Message / Chat</strong>.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

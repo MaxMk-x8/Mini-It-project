@@ -20,8 +20,8 @@
             </p>
             <p style="margin: 0;">
                 <strong>Reputation:</strong> {{ user.reputation_points }} pts &nbsp;|&nbsp;
-                <strong>Followers:</strong> {{ user.follower_count }} &nbsp;|&nbsp;
-                <strong>Following:</strong> {{ user.following_count }}
+                <strong>Followers:</strong> <a href="{{ url_for('user_followers', username=user.username) }}"><strong>{{ user.follower_count }}</strong></a> &nbsp;|&nbsp;
+                <strong>Following:</strong> <a href="{{ url_for('user_following', username=user.username) }}"><strong>{{ user.following_count }}</strong></a>
             </p>
         </div>
     </div>
@@ -35,7 +35,8 @@
                     (<strong>{{ current_user.pending_follow_requests_count }}</strong> pending)
                 {% endif %}
             </a> |
-            <a href="{{ url_for('saved_questions') }}">Bookmarks</a>
+            <a href="{{ url_for('saved_questions') }}">Bookmarks</a> |
+            <a href="{{ url_for('qa_drafts') }}">My Drafts</a>
         {% else %}
             {% if is_following %}
                 <form method="POST" action="{{ url_for('unfollow_user', username=user.username) }}" style="display: inline;">
@@ -50,9 +51,11 @@
             {% else %}
                 <form method="POST" action="{{ url_for('follow_user', username=user.username) }}" style="display: inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button type="submit">Follow</button>
+                    <button type="submit">{% if user.is_following(current_user) %}Follow Back{% else %}Follow{% endif %}</button>
                 </form>
             {% endif %}
+            &nbsp;|&nbsp;
+            <a href="{{ url_for('chat_conversation', username=user.username) }}" style="font-weight: bold;">💬 Message / Chat</a>
         {% endif %}
     </div>
 </div>
@@ -125,6 +128,7 @@
                     <thead>
                         <tr>
                             <th>Title</th>
+                            <th>Visibility</th>
                             <th>Category</th>
                             <th>Faculty</th>
                             <th>Views</th>
@@ -135,6 +139,13 @@
                         {% for q in questions %}
                             <tr>
                                 <td><a href="{{ url_for('qa_detail', question_id=q.id) }}">{{ q.title }}</a></td>
+                                <td>
+                                    {% if q.visibility == 'friends' %}
+                                        👥 Friends Only
+                                    {% else %}
+                                        🌐 Public
+                                    {% endif %}
+                                </td>
                                 <td>{{ q.category }}</td>
                                 <td>{{ q.faculty }}</td>
                                 <td>{{ q.views }}</td>
@@ -154,6 +165,7 @@
                         <tr>
                             <th>Question</th>
                             <th>Answer Preview</th>
+                            <th>Visibility</th>
                             <th>Prof Marks</th>
                             <th>Status</th>
                             <th>Date</th>
@@ -164,12 +176,19 @@
                             <tr>
                                 <td>
                                     {% if a.question %}
-                                        <a href="{{ url_for('qa_detail', question_id=a.question.id) }}">{{ a.question.title }}</a>
+                                        <a href="{{ url_for('qa_detail', question_id=a.question.id) }}#answer-{{ a.id }}">{{ a.question.title }}</a>
                                     {% else %}
                                         <em>Question deleted</em>
                                     {% endif %}
                                 </td>
                                 <td>{{ a.content[:100] }}{% if a.content|length > 100 %}...{% endif %}</td>
+                                <td>
+                                    {% if a.visibility == 'friends' %}
+                                        👥 Friends Only
+                                    {% else %}
+                                        🌐 Public
+                                    {% endif %}
+                                </td>
                                 <td>{{ a.professor_marks_count }}</td>
                                 <td>
                                     {% if a.is_best_answer %}

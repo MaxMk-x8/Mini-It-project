@@ -31,6 +31,7 @@
     <p style="font-size: 0.9em; color: #555; margin: 4px 0 12px 0;">
         Faculty: <strong>{{ question.faculty }}</strong> | 
         Category: <strong>{{ question.category }}</strong> | 
+        Visibility: {% if question.visibility == 'friends' %}<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: bold;">👥 Friends Only</span>{% else %}<span style="background: #f3f4f6; color: #4b5563; padding: 2px 6px; border-radius: 4px; font-size: 0.85em;">🌐 Public</span>{% endif %} | 
         Asked by: <a href="{{ url_for('public_profile', username=question.author.username) }}"><strong>{{ question.author.username }}</strong></a> ({{ question.author.role }}) | 
         Posted: {{ question.created_at.strftime('%Y-%m-%d %H:%M') }} UTC |
         👁️ <strong>{{ question.views }}</strong> view{% if question.views != 1 %}s{% endif %}
@@ -38,7 +39,7 @@
 
     <hr style="border: 0; border-top: 1px solid #eee; margin: 12px 0;">
     
-    <div style="white-space: pre-wrap; font-size: 1.05em; line-height: 1.5; color: #222;">{{ question.content }}</div>
+    <div style="white-space: pre-wrap; font-size: 1.05em; line-height: 1.5; color: #222;">{{ question.content|render_mentions }}</div>
 
     <!-- Question Screenshot Attachments (Week 4) -->
     {% if question.attachments %}
@@ -142,7 +143,7 @@
 
 {% if answers %}
     {% for ans in answers %}
-        <div class="qa-answer-card {% if ans.has_professor_endorsement %}is-prof-endorsed{% elif loop.first and ans.total_points > 0 %}is-best{% endif %}">
+        <div id="answer-{{ ans.id }}" class="qa-answer-card {% if ans.has_professor_endorsement %}is-prof-endorsed{% elif loop.first and ans.total_points > 0 %}is-best{% endif %}">
             
             {% if ans.has_professor_endorsement %}
                 <div style="margin-bottom: 10px; padding: 4px 8px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; display: inline-block;">
@@ -168,6 +169,13 @@
                     &nbsp;
                 {% endif %}
 
+                {% if ans.visibility == 'friends' %}
+                    <span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; font-weight: bold;">
+                        👥 Friends Only
+                    </span>
+                    &nbsp;
+                {% endif %}
+
                 {% if ans.author and ans.author.is_professor() %}
                     <span style="background-color: #0056b3; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold; font-size: 0.85em;">
                         PROFESSOR
@@ -183,7 +191,7 @@
                 <span style="color: #666; font-size: 0.85em;">{{ ans.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
             </div>
 
-            <div style="white-space: pre-wrap; margin-bottom: 12px; line-height: 1.4;">{{ ans.content }}</div>
+            <div style="white-space: pre-wrap; margin-bottom: 12px; line-height: 1.4;">{{ ans.content|render_mentions }}</div>
 
             <!-- Answer Screenshot Attachments (Week 4) -->
             {% if ans.attachments %}
@@ -210,6 +218,22 @@
                 <span style="background: #f1f3f5; border: 1px solid #ced4da; padding: 3px 8px; border-radius: 4px; font-weight: bold; color: #495057; font-size: 0.88em;">
                     ⭐ {{ ans.total_points }} pts ({{ ans.best_marks_count }} mark{% if ans.best_marks_count != 1 %}s{% endif %})
                 </span>
+
+                <!-- Bookmark / Save Answer Toggle -->
+                {% if current_user.is_authenticated %}
+                    <form method="POST" action="{{ url_for('toggle_favourite_answer', answer_id=ans.id) }}" style="display: inline; margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        {% if current_user.has_saved_answer(ans.id) %}
+                            <button type="submit" title="Remove from saved answers" style="background: #fef3c7; border: 1px solid #d97706; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 0.82em; cursor: pointer;">
+                                ★ Saved Answer
+                            </button>
+                        {% else %}
+                            <button type="submit" title="Save this answer" style="background: none; border: 1px solid #64748b; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 0.82em; cursor: pointer;">
+                                ☆ Save Answer
+                            </button>
+                        {% endif %}
+                    </form>
+                {% endif %}
 
                 <!-- Mark / Endorse Button -->
                 {% if current_user.is_authenticated %}
@@ -301,7 +325,7 @@
             {% if ans.replies %}
                 <div style="margin-top: 12px;">
                     {% for reply in ans.replies %}
-                        <div class="qa-reply-card">
+                        <div id="answer-{{ reply.id }}" class="qa-reply-card">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; font-size: 0.88em;">
                                 <div>
                                     {% if reply.author and reply.author.is_professor() %}
@@ -315,14 +339,28 @@
                                     <span style="color: #666; font-size: 0.85em;">{{ reply.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
                                 </div>
 
-                                {% if current_user.is_authenticated %}
-                                    <button type="button" onclick="openReportModal('reply', {{ reply.id }}, 'Reply #{{ reply.id }} by {{ reply.author.username }}')" style="background: none; border: none; color: #999; font-size: 0.8em; cursor: pointer; text-decoration: underline; padding: 0;" title="Report this reply">
-                                        🚩 Report
-                                    </button>
-                                {% endif %}
+                                <div style="display: flex; gap: 6px; align-items: center;">
+                                    {% if current_user.is_authenticated %}
+                                        <form method="POST" action="{{ url_for('toggle_favourite_answer', answer_id=reply.id) }}" style="display: inline; margin: 0;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            {% if current_user.has_saved_answer(reply.id) %}
+                                                <button type="submit" title="Remove from saved answers" style="background: #fef3c7; border: 1px solid #d97706; color: #b45309; padding: 1px 6px; border-radius: 3px; font-size: 0.78em; cursor: pointer;">
+                                                    ★ Saved
+                                                </button>
+                                            {% else %}
+                                                <button type="submit" title="Save this reply" style="background: none; border: 1px solid #64748b; color: #475569; padding: 1px 6px; border-radius: 3px; font-size: 0.78em; cursor: pointer;">
+                                                    ☆ Save
+                                                </button>
+                                            {% endif %}
+                                        </form>
+                                        <button type="button" onclick="openReportModal('reply', {{ reply.id }}, 'Reply #{{ reply.id }} by {{ reply.author.username }}')" style="background: none; border: none; color: #999; font-size: 0.8em; cursor: pointer; text-decoration: underline; padding: 0;" title="Report this reply">
+                                            🚩 Report
+                                        </button>
+                                    {% endif %}
+                                </div>
                             </div>
 
-                            <div style="white-space: pre-wrap; font-size: 0.95em; line-height: 1.4; margin-bottom: 6px;">{{ reply.content }}</div>
+                            <div style="white-space: pre-wrap; font-size: 0.95em; line-height: 1.4; margin-bottom: 6px;">{{ reply.content|render_mentions }}</div>
 
                             <!-- Reply Screenshot Attachments (Week 4) -->
                             {% if reply.attachments %}
@@ -372,6 +410,14 @@
             <div style="margin-bottom: 12px;">
                 {{ form.content(rows=6, style="width: 100%; box-sizing: border-box; padding: 8px;", placeholder="Type your answer here...") }}
                 {% for error in form.content.errors %}
+                    <p style="color: red; font-size: 0.85em;">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div style="margin-bottom: 14px;">
+                {{ form.visibility.label }}<br>
+                {{ form.visibility(style="padding: 6px; margin-top: 4px;") }}
+                {% for error in form.visibility.errors %}
                     <p style="color: red; font-size: 0.85em;">{{ error }}</p>
                 {% endfor %}
             </div>
