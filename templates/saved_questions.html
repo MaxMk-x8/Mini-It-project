@@ -11,6 +11,9 @@
         </a> |
         <a href="{{ url_for('saved_questions', tab='answers') }}">
             {% if main_tab == 'answers' %}<strong>⭐ Favourite Answers ({{ total_favourited_answers_count }})</strong>{% else %}⭐ Favourite Answers ({{ total_favourited_answers_count }}){% endif %}
+        </a> |
+        <a href="{{ url_for('saved_questions', tab='resources') }}">
+            {% if main_tab == 'resources' %}<strong>📚 Bookmarked Resources ({{ total_bookmarked_resources_count }})</strong>{% else %}📚 Bookmarked Resources ({{ total_bookmarked_resources_count }}){% endif %}
         </a>
     </nav>
 </div>
@@ -220,6 +223,75 @@
             <p>You have no favourited answers yet.</p>
             <p style="color: #64748b;">
                 <em>Browse the <a href="{{ url_for('qa_list') }}">Q&A Forum</a> and click <strong>⭐ Favourite</strong> on any helpful answer to save it here.</em>
+            </p>
+        {% endif %}
+    </div>
+{% endif %}
+
+{% if main_tab == 'resources' %}
+    <div>
+        <h3 style="margin-top: 0;">Bookmarked Resources ({{ saved_resources|length }})</h3>
+        {% if saved_resources %}
+            <table class="table-bordered" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Resource Title</th>
+                        <th>File / Type</th>
+                        <th>Category</th>
+                        <th>Faculty</th>
+                        <th>Uploader</th>
+                        <th>Date Bookmarked</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in saved_resources %}
+                        {% set res = item.resource %}
+                        <tr>
+                            <td>
+                                <strong>{{ res.title }}</strong>
+                                {% if res.course_code %}
+                                    <span style="font-size: 0.8rem; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">{{ res.course_code }}</span>
+                                {% endif %}
+                                {% if res.description %}
+                                    <br><small style="color: #64748b;">{{ res.description[:90] }}{% if res.description|length > 90 %}...{% endif %}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ res.filename }}
+                                <br><small style="color: #64748b;">{{ res.file_type|upper }} &bull; {{ res.formatted_size }}</small>
+                            </td>
+                            <td>{{ res.category }}</td>
+                            <td>{{ res.faculty }}</td>
+                            <td>
+                                {% if res.uploader %}
+                                    <a href="{{ url_for('public_profile', username=res.uploader.username) }}">@{{ res.uploader.username }}</a>
+                                    <br><small style="color: #64748b;">{{ res.uploader.role }}</small>
+                                {% else %}
+                                    <em>Unknown</em>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.created_at.strftime('%Y-%m-%d') if item.created_at else 'N/A' }}</td>
+                            <td>
+                                {% if res.file_type in ['pdf', 'txt'] %}
+                                    <a href="{{ url_for('resource_preview', resource_id=res.id) }}" target="_blank" style="font-size: 0.85rem;">Preview</a> &bull;
+                                {% endif %}
+                                <a href="{{ url_for('resource_download', resource_id=res.id) }}" style="font-size: 0.85rem; font-weight: bold;">Download</a>
+                                &nbsp;|&nbsp;
+                                <form method="POST" action="{{ url_for('toggle_resource_bookmark', resource_id=res.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="next" value="{{ url_for('saved_questions', tab='resources') }}"/>
+                                    <button type="submit" style="color: #dc2626; background: none; border: none; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="return confirm('Remove resource from bookmarks?');">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>You have no bookmarked resources yet.</p>
+            <p style="color: #64748b;">
+                <em>Browse the <a href="{{ url_for('resources_list') }}">Resource Hub</a> and click <strong>☆ Bookmark</strong> on any useful note, past paper, or cheat sheet to save it here.</em>
             </p>
         {% endif %}
     </div>

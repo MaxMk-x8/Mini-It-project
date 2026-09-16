@@ -239,6 +239,15 @@
                             <a href="{{ url_for('resource_download', resource_id=item.id) }}" style="display: inline-block; padding: 6px 12px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
                                 📥 Download File
                             </a>
+                            {% if current_user.is_authenticated %}
+                                {% set is_saved = item.is_bookmarked_by(current_user) %}
+                                <form method="POST" action="{{ url_for('toggle_resource_bookmark', resource_id=item.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; background-color: {% if is_saved %}#fef3c7{% else %}#f8fafc{% endif %}; color: {% if is_saved %}#92400e{% else %}#475569{% endif %}; border: 1px solid {% if is_saved %}#f59e0b{% else %}#cbd5e1{% endif %}; border-radius: 4px; font-weight: 600; font-size: 0.88rem; cursor: pointer;">
+                                        {% if is_saved %}★ Bookmarked{% else %}☆ Bookmark{% endif %}
+                                    </button>
+                                </form>
+                            {% endif %}
                             {% if current_user.is_authenticated and (current_user.id == item.uploader_id or current_user.is_admin()) %}
                                 <a href="{{ url_for('resource_edit', resource_id=item.id) }}" style="color: #2563eb; font-size: 0.9rem;">Edit</a>
                                 <form method="POST" action="{{ url_for('resource_delete', resource_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this resource?');">

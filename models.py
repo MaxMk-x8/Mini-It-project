@@ -871,12 +871,43 @@ class Resource(db.Model):
                 return r.rating
         return None
 
+    def is_bookmarked_by(self, user):
+        """Returns True if the given user has bookmarked this resource."""
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        return any(b.user_id == user.id for b in self.user_bookmarks)
+
     @property
     def is_collection(self):
         return False
 
     def __repr__(self):
         return f'<Resource {self.id}: {self.title} ({self.filename})>'
+
+
+class ResourceBookmark(db.Model):
+    __tablename__ = 'resource_bookmarks'
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'resource_id', name='uq_user_resource_bookmark'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_resource_bookmarks_user_id', ondelete='CASCADE'), nullable=False)
+    resource_id = db.Column(db.Integer, db.ForeignKey('resources.id', name='fk_resource_bookmarks_resource_id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship('User', backref=db.backref('resource_bookmarks', lazy=True, cascade='all, delete-orphan'))
+    resource = db.relationship('Resource', backref=db.backref('user_bookmarks', lazy=True, cascade='all, delete-orphan'))
+
+    def __init__(self, user_id=None, resource_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if user_id:
+            self.user_id = user_id
+        if resource_id:
+            self.resource_id = resource_id
+
+    def __repr__(self):
+        return f'<ResourceBookmark User #{self.user_id} -> Resource #{self.resource_id}>'
 
 
 # -------------------------------
@@ -1372,6 +1403,19 @@ def migrate_database(db_path=None):
     ensure_column('resource_collections', 'course_name', 'VARCHAR(150)', None)
     ensure_column('resource_collections', 'academic_year', 'VARCHAR(20)', None)
     ensure_column('resource_collections', 'semester', 'VARCHAR(20)', None)
+
+    # 4c. RESOURCE_BOOKMARKS table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS resource_bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        resource_id INTEGER NOT NULL,
+        created_at DATETIME,
+        CONSTRAINT uq_user_resource_bookmark UNIQUE (user_id, resource_id),
+        CONSTRAINT fk_resource_bookmarks_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        CONSTRAINT fk_resource_bookmarks_resource_id FOREIGN KEY (resource_id) REFERENCES resources (id) ON DELETE CASCADE
+    )
+    """)
 
     conn.commit()
     conn.close()

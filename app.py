@@ -18,7 +18,7 @@ from models import (
     Report, ModeratorApplication, BannedEmail, UserWarning, ResourceRating,
     ResourceCollection, ResourceReview, UserFollow, SavedQuestionFolder, SavedQuestion,
     UsernameChangeRequest, SavedAnswer, Notification, ChatMessage, ChatBlock,
-    init_db, migrate_database
+    ResourceBookmark, init_db, migrate_database
 )
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
@@ -1191,7 +1191,7 @@ def toggle_favourite_answer(answer_id):
 @login_required
 def saved_questions():
     main_tab = request.args.get('tab', 'questions')
-    if main_tab not in ['questions', 'answers']:
+    if main_tab not in ['questions', 'answers', 'resources']:
         main_tab = 'questions'
 
     folder_filter = request.args.get('folder', 'all')
@@ -1227,6 +1227,10 @@ def saved_questions():
     saved_answers = SavedAnswer.query.filter_by(user_id=current_user.id).order_by(SavedAnswer.created_at.desc()).all()
     total_favourited_answers_count = len(saved_answers)
 
+    # Query bookmarked resources for current user
+    saved_resources = ResourceBookmark.query.filter_by(user_id=current_user.id).order_by(ResourceBookmark.created_at.desc()).all()
+    total_bookmarked_resources_count = len(saved_resources)
+
     create_folder_form = CreateFolderForm()
     move_form = MoveSavedQuestionForm()
     move_form.folder_id.choices = [(0, 'Uncategorized')] + [(f.id, f.name) for f in user_folders]
@@ -1236,12 +1240,14 @@ def saved_questions():
         main_tab=main_tab,
         saved_items=saved_items,
         saved_answers=saved_answers,
+        saved_resources=saved_resources,
         user_folders=user_folders,
         folder_filter=folder_filter,
         active_folder=active_folder,
         total_saved_count=total_saved_count,
         uncategorized_count=uncategorized_count,
         total_favourited_answers_count=total_favourited_answers_count,
+        total_bookmarked_resources_count=total_bookmarked_resources_count,
         create_folder_form=create_folder_form,
         move_form=move_form
     )
@@ -3680,6 +3686,128 @@ def resource_collection_edit(collection_id):
 
     form = CollectionEditForm(obj=collection)
     if form.validate_on_submit():
+        # Check if replacement files/folder were provided
+        replacement_files = request.files.getlist('replacement_folder')
+        if not replacement_files or all(f.filename == '' for f in replacement_files):
+            replacement_files = request.files.getlist('files')
+
+        has_new_files = replacement_files and any(f.filename != '' for f in replacement_files)
+        if has_new_files:
+            rel_paths = request.form.getlist('relative_paths')
+            valid_files = [f for f in replacement_files if f and f.filename != '']
+            if len(valid_files) > MAX_COLLECTION_FILES:
+                flash(f"Folder contains too many files ({len(valid_files)}). Maximum allowed is {MAX_COLLECTION_FILES} files.", 'danger')
+                return render_template('resources/collection_edit.html', form=form, collection=collection)
+
+            valid_files_to_save = []
+            rejected_files = []
+            total_size = 0
+            seen_relative_paths = set()
+
+            for idx, file in enumerate(valid_files):
+                raw_rel_path = rel_paths[idx] if idx < len(rel_paths) and rel_paths[idx] else file.filename
+                safe_rel_path = sanitize_relative_path(raw_rel_path)
+                if not safe_rel_path:
+                    rejected_files.append((file.filename, "Invalid or unsafe path/filename."))
+                    continue
+                if safe_rel_path.lower() in seen_relative_paths:
+                    rejected_files.append((safe_rel_path, "Duplicate file path in upload."))
+                    continue
+                seen_relative_paths.add(safe_rel_path.lower())
+
+                original_filename = safe_rel_path.split('/')[-1]
+                file_ext = ''
+                if '.' in original_filename:
+                    file_ext = original_filename.rsplit('.', 1)[1].lower()
+                if file_ext not in ALLOWED_EXTENSIONS:
+                    rejected_files.append((safe_rel_path, f"Unsupported file type '.{file_ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS).upper()}"))
+                    continue
+
+                file.seek(0, os.SEEK_END)
+                f_size = file.tell()
+                file.seek(0)
+
+                if f_size > MAX_RESOURCE_FILE_SIZE:
+                    rejected_files.append((safe_rel_path, f"Exceeds individual 10MB limit."))
+                    continue
+                if f_size == 0:
+                    rejected_files.append((safe_rel_path, "File is empty (0 bytes)."))
+                    continue
+
+                total_size += f_size
+                if total_size > MAX_COLLECTION_TOTAL_SIZE:
+                    rejected_files.append((safe_rel_path, "Exceeds total collection 50MB limit."))
+                    continue
+
+                valid_files_to_save.append({
+                    'file': file,
+                    'filename': original_filename,
+                    'relative_path': safe_rel_path,
+                    'file_size': f_size,
+                    'file_type': file_ext
+                })
+
+            if not valid_files_to_save:
+                reasons = '; '.join([f"{f}: {r}" for f, r in rejected_files]) if rejected_files else 'No valid files found.'
+                flash(f"Replacement folder could not be saved: {reasons}", 'danger')
+                return render_template('resources/collection_edit.html', form=form, collection=collection)
+
+            # Delete old member files from disk and database
+            old_disk_files = []
+            for old_res in list(collection.resources):
+                old_path = os.path.join(app.config['UPLOAD_FOLDER'], old_res.stored_filename)
+                old_disk_files.append(old_path)
+                db.session.delete(old_res)
+
+            saved_paths = []
+            try:
+                for item in valid_files_to_save:
+                    clean_sec_name = secure_filename(item['filename']) or "notes_file"
+                    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+                    unique_token = uuid.uuid4().hex[:8]
+                    stored_filename = f"{timestamp}_{unique_token}_{clean_sec_name}"
+                    disk_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_filename)
+
+                    item['file'].save(disk_path)
+                    saved_paths.append(disk_path)
+
+                    res = Resource(
+                        title=item['filename'],
+                        description='',
+                        filename=item['filename'],
+                        stored_filename=stored_filename,
+                        file_size=item['file_size'],
+                        file_type=item['file_type'],
+                        category=form.category.data,
+                        faculty=form.faculty.data,
+                        uploader_id=current_user.id,
+                        collection_id=collection.id,
+                        relative_path=item['relative_path'],
+                        course_code=form.course_code.data.strip().upper() if form.course_code.data and form.course_code.data.strip() else None,
+                        course_name=form.course_name.data.strip() if form.course_name.data and form.course_name.data.strip() else None,
+                        academic_year=form.academic_year.data.strip() if form.academic_year.data and form.academic_year.data.strip() else None,
+                        semester=form.semester.data.strip() if form.semester.data and form.semester.data.strip() else None,
+                        download_count=0
+                    )
+                    db.session.add(res)
+
+                for op in old_disk_files:
+                    if os.path.exists(op):
+                        try:
+                            os.remove(op)
+                        except Exception:
+                            pass
+            except Exception as e:
+                for sp in saved_paths:
+                    if os.path.exists(sp):
+                        try:
+                            os.remove(sp)
+                        except Exception:
+                            pass
+                db.session.rollback()
+                flash(f"Error saving replacement files: {e}", 'danger')
+                return render_template('resources/collection_edit.html', form=form, collection=collection)
+
         collection.title = form.title.data.strip()
         collection.description = form.description.data.strip() if form.description.data else ''
         collection.category = form.category.data
@@ -3992,6 +4120,46 @@ def resource_edit(resource_id):
 
     form = ResourceEditForm(obj=resource)
     if form.validate_on_submit():
+        # Handle optional replacement file upload (e.g. latest PDF version)
+        new_file = form.file.data
+        if new_file and getattr(new_file, 'filename', None) and new_file.filename.strip():
+            raw_orig_filename = secure_filename(new_file.filename) or "updated_file"
+            file_ext = ''
+            if '.' in raw_orig_filename:
+                file_ext = raw_orig_filename.rsplit('.', 1)[1].lower()
+
+            if file_ext not in ALLOWED_EXTENSIONS:
+                flash(f"Invalid file type '.{file_ext}'. Allowed types: {', '.join(ALLOWED_EXTENSIONS).upper()}", 'danger')
+                return render_template('resources/edit.html', form=form, resource=resource)
+
+            timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+            unique_token = uuid.uuid4().hex[:8]
+            new_stored_filename = f"{timestamp}_{unique_token}_{raw_orig_filename}"
+            new_file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_stored_filename)
+
+            new_file.save(new_file_path)
+            new_file_size = os.path.getsize(new_file_path)
+
+            if new_file_size > app.config['MAX_CONTENT_LENGTH']:
+                if os.path.exists(new_file_path):
+                    os.remove(new_file_path)
+                flash('Replacement file exceeds the 10MB size limit.', 'danger')
+                return render_template('resources/edit.html', form=form, resource=resource)
+
+            # Safely remove old physical file from disk
+            if resource.stored_filename:
+                old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], resource.stored_filename)
+                if os.path.exists(old_file_path) and resource.stored_filename != new_stored_filename:
+                    try:
+                        os.remove(old_file_path)
+                    except Exception as e:
+                        app.logger.warning(f"Failed to remove old resource file {old_file_path}: {e}")
+
+            resource.filename = raw_orig_filename
+            resource.stored_filename = new_stored_filename
+            resource.file_size = new_file_size
+            resource.file_type = file_ext
+
         resource.title = form.title.data.strip()
         resource.description = form.description.data.strip() if form.description.data else ''
         resource.category = form.category.data
@@ -4002,12 +4170,40 @@ def resource_edit(resource_id):
         resource.semester = form.semester.data.strip() if form.semester.data and form.semester.data.strip() else None
 
         db.session.commit()
-        flash('Resource details updated successfully!', 'success')
+        flash('Resource details and file updated successfully!', 'success')
         if resource.collection_id:
             return redirect(url_for('resource_collection_detail', collection_id=resource.collection_id))
         return redirect(url_for('resources_list'))
 
     return render_template('resources/edit.html', form=form, resource=resource)
+
+
+@app.route('/resources/<int:resource_id>/bookmark', methods=['POST'])
+@login_required
+def toggle_resource_bookmark(resource_id):
+    """Toggle bookmark state for a resource."""
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(request.referrer or url_for('resources_list'))
+
+    existing = ResourceBookmark.query.filter_by(
+        user_id=current_user.id,
+        resource_id=resource.id
+    ).first()
+
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        flash(f"Removed '{resource.title}' from your bookmarks.", 'info')
+    else:
+        new_bookmark = ResourceBookmark(user_id=current_user.id, resource_id=resource.id)
+        db.session.add(new_bookmark)
+        db.session.commit()
+        flash(f"Bookmarked '{resource.title}' successfully!", 'success')
+
+    next_url = request.form.get('next') or request.referrer or url_for('resources_list')
+    return redirect(next_url)
 
 
 @app.route('/resources/<int:resource_id>/delete', methods=['POST'])

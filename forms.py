@@ -103,13 +103,17 @@ RESOURCE_CATEGORIES = [
 ]
 
 SEMESTER_CHOICES = [
-    ('', '-- Select Trimester / Semester (Optional) --'),
-    ('Trimester 1', 'Trimester 1'),
-    ('Trimester 2', 'Trimester 2'),
-    ('Trimester 3', 'Trimester 3'),
-    ('Semester 1', 'Semester 1'),
-    ('Semester 2', 'Semester 2'),
-    ('Special Term / Summer', 'Special Term / Summer')
+    ('', '-- Select Semester (Optional) --'),
+    ('March/April', 'March/April'),
+    ('July/August', 'July/August'),
+    ('October/November', 'October/November'),
+    ('Octuber/November', 'October/November'),
+    ('Trimester 1', 'Trimester 1 (Legacy)'),
+    ('Trimester 2', 'Trimester 2 (Legacy)'),
+    ('Trimester 3', 'Trimester 3 (Legacy)'),
+    ('Semester 1', 'Semester 1 (Legacy)'),
+    ('Semester 2', 'Semester 2 (Legacy)'),
+    ('Special Term / Summer', 'Special Term / Summer (Legacy)')
 ]
 
 ALLOWED_EXTENSIONS = ['pdf', 'docx', 'pptx', 'txt', 'zip']
@@ -143,6 +147,9 @@ class ResourceEditForm(FlaskForm):
     course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
     academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
     semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
+    file = FileField('Replace File (Optional - choose new PDF/file to update this resource)', validators=[
+        FileAllowed(ALLOWED_EXTENSIONS, f'Allowed file types: {", ".join(ALLOWED_EXTENSIONS).upper()}')
+    ])
     submit = SubmitField('Update Resource')
 
 
@@ -189,6 +196,7 @@ class CollectionEditForm(FlaskForm):
     course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
     academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
     semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
+    replacement_folder = MultipleFileField('Replace All Files / Folder (Optional)')
     submit = SubmitField('Update Collection')
 
 

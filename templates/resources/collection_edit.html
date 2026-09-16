@@ -10,8 +10,21 @@
     <small style="color: #64748b;">Created on {{ collection.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</small>
 </div>
 
-<form method="POST" action="{{ url_for('resource_collection_edit', collection_id=collection.id) }}" style="max-width: 600px;">
+<form method="POST" action="{{ url_for('resource_collection_edit', collection_id=collection.id) }}" enctype="multipart/form-data" style="max-width: 600px;">
     {{ form.hidden_tag() }}
+
+    <div style="margin-bottom: 20px; padding: 14px; background-color: #fffbeb; border: 1px dashed #d97706; border-radius: 6px;">
+        <label style="font-weight: bold; color: #92400e;">Replace Files / Folder (Optional)</label>
+        <p style="margin: 4px 0 10px 0; font-size: 0.88rem; color: #78350f;">
+            Want to replace all files or upload a newer folder for this collection? Select a folder or files below. (Leave empty to keep all existing {{ collection.files_count }} files).
+        </p>
+        <label style="font-size: 0.85rem; font-weight: bold; color: #78350f;">Select Folder:</label><br>
+        <input type="file" id="folder_input" name="replacement_folder" webkitdirectory directory multiple onchange="handleFolderSelect(this)" style="margin-bottom: 8px;"><br>
+        <label style="font-size: 0.85rem; font-weight: bold; color: #78350f;">Or Select Multiple Files:</label><br>
+        <input type="file" name="files" multiple onchange="handleIndividualFilesSelect(this)">
+        <div id="relative_paths_container"></div>
+        <div id="folder_summary" style="margin-top: 8px; font-size: 0.85rem; color: #92400e; font-weight: bold;"></div>
+    </div>
 
     <div style="margin-bottom: 15px;">
         {{ form.title.label }}<br>
@@ -85,5 +98,50 @@
         <a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}" style="color: #64748b;">Cancel</a>
     </div>
 </form>
+
+<script>
+function handleFolderSelect(input) {
+    const container = document.getElementById('relative_paths_container');
+    const summary = document.getElementById('folder_summary');
+    container.innerHTML = '';
+
+    if (!input.files || input.files.length === 0) {
+        summary.textContent = '';
+        return;
+    }
+
+    let totalSize = 0;
+    const count = input.files.length;
+
+    for (let i = 0; i < input.files.length; i++) {
+        const file = input.files[i];
+        totalSize += file.size;
+        const relPath = file.webkitRelativePath || file.name;
+
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'relative_paths';
+        hidden.value = relPath;
+        container.appendChild(hidden);
+    }
+
+    const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
+    summary.textContent = 'Selected replacement folder: ' + count + ' file(s) (' + totalMB + ' MB total)';
+}
+
+function handleIndividualFilesSelect(input) {
+    const summary = document.getElementById('folder_summary');
+    if (!input.files || input.files.length === 0) {
+        summary.textContent = '';
+        return;
+    }
+    let totalSize = 0;
+    for (let i = 0; i < input.files.length; i++) {
+        totalSize += input.files[i].size;
+    }
+    const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
+    summary.textContent = 'Selected replacement files: ' + input.files.length + ' file(s) (' + totalMB + ' MB total)';
+}
+</script>
 
 {% endblock %}
