@@ -5,17 +5,6 @@
 
 <p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a> | <a href="{{ url_for('resource_upload') }}">Upload a Single Resource instead</a></p>
 
-<<<<<<< HEAD
-<!-- Informational Limits & Guidelines Box -->
-<div style="max-width: 650px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.9rem; color: #166534;">
-    <strong>📌 Notes Collection Upload Rules:</strong>
-    <ul style="margin: 6px 0 0 0; padding-left: 20px;">
-        <li>Allowed File Types: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong></li>
-        <li>Individual File Limit: <strong>10 MB</strong> per file</li>
-        <li>Total Collection Limit: <strong>50 MB</strong> max total</li>
-        <li>File Count Limit: <strong>30 files</strong> maximum per collection</li>
-        <li><em>Browser Note:</em> Folder selection is supported in all modern desktop browsers (Chrome, Edge, Firefox, Safari). Non-allowed file formats will be safely reported and skipped.</li>
-=======
 <div style="max-width: 680px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; margin-bottom: 20px;">
     <p style="margin: 0 0 6px 0; font-weight: bold; color: #1e40af;">ℹ️ Notes Collection & Folder Upload Rules</p>
     <ul style="margin: 0; padding-left: 20px; font-size: 0.88em; color: #1e3a8a;">
@@ -23,7 +12,6 @@
         <li>Allowed file formats: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong>.</li>
         <li>Limits: Max <strong>30 files</strong>, max <strong>10MB per file</strong>, and max <strong>50MB total</strong> collection size.</li>
         <li><strong>Browser Note:</strong> Folder upload uses standard HTML5 directory selection (<code>webkitdirectory</code>), supported on desktop Chrome, Edge, Firefox, and Safari. If using a mobile browser, please use the single file upload.</li>
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     </ul>
 </div>
 
@@ -62,7 +50,6 @@
         {% endfor %}
     </div>
 
-<<<<<<< HEAD
     <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 160px;">
             {{ form.course_code.label }}<br>
@@ -97,13 +84,6 @@
         </div>
     </div>
 
-    <div style="margin-bottom: 24px; padding: 16px; border: 2px dashed #94a3b8; border-radius: 6px; background-color: #f8fafc;">
-        <label for="files"><strong>📁 Select Notes Folder:</strong></label><br>
-        <input type="file" id="files" name="files" webkitdirectory directory multiple required style="margin-top: 8px;">
-        <p style="font-size: 0.85rem; color: #64748b; margin: 8px 0 0 0;">
-            Click above to select a folder from your computer. All allowed files inside subfolders will be uploaded into this collection.
-        </p>
-=======
     <div style="margin-bottom: 18px; padding: 15px; border: 1px dashed #94a3b8; background: #f8fafc; border-radius: 6px;">
         <label for="folder_input"><strong>Select Folder:</strong></label><br>
         <input type="file" id="folder_input" name="files" webkitdirectory directory multiple required style="margin-top: 8px;" onchange="handleFolderSelect(this)">
@@ -113,7 +93,6 @@
             <p id="folder_summary" style="margin: 0 0 8px 0; font-weight: bold; color: #334155; font-size: 0.9em;"></p>
             <ul id="file_list_preview" style="max-height: 180px; overflow-y: auto; padding-left: 20px; margin: 0; font-size: 0.85em; color: #475569; background: white; border: 1px solid #e2e8f0; border-radius: 4px; padding-top: 6px; padding-bottom: 6px;"></ul>
         </div>
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     </div>
 
     <div>

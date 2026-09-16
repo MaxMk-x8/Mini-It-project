@@ -1284,6 +1284,125 @@ class ChatBlock(db.Model):
         return f'<ChatBlock User #{self.blocker_id} blocked #{self.blocked_id}>'
 
 
+# -------------------------------
+# DATABASE INITIALIZATION & MIGRATION
+# -------------------------------
+
+def migrate_database(db_path=None):
+    """
+    Safely inspects the SQLite database and ensures all tables and columns
+    across all features and modules exist without data loss.
+    """
+    import os
+    import sqlite3
+
+    if db_path is None:
+        possible_paths = [
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'codenest.db'),
+            os.path.join(os.getcwd(), 'instance', 'codenest.db'),
+            'instance/codenest.db'
+        ]
+        for p in possible_paths:
+            if os.path.exists(p):
+                db_path = p
+                break
+        if db_path is None:
+            db_path = possible_paths[0]
+
+    if not os.path.exists(db_path):
+        os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+        return
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    def ensure_column(table, column, col_type, default_val=None):
+        try:
+            cursor.execute(f"PRAGMA table_info({table})")
+            cols = [r[1] for r in cursor.fetchall()]
+            if cols and column not in cols:
+                default_clause = f" DEFAULT {default_val}" if default_val is not None else ""
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}{default_clause}")
+                if default_val is not None:
+                    cursor.execute(f"UPDATE {table} SET {column} = {default_val} WHERE {column} IS NULL")
+        except sqlite3.OperationalError:
+            pass
+
+    # 1. USERS table columns
+    ensure_column('users', 'is_banned', 'BOOLEAN', 0)
+    ensure_column('users', 'suspended_until', 'DATETIME', None)
+    ensure_column('users', 'suspension_reason', 'VARCHAR(255)', None)
+    ensure_column('users', 'verification_code_created_at', 'DATETIME', None)
+    ensure_column('users', 'verification_attempts', 'INTEGER', 0)
+    ensure_column('users', 'verification_resend_available_at', 'DATETIME', None)
+    ensure_column('users', 'failed_login_attempts', 'INTEGER', 0)
+    ensure_column('users', 'locked_until', 'DATETIME', None)
+    ensure_column('users', 'reset_code', 'VARCHAR(6)', None)
+    ensure_column('users', 'reset_code_created_at', 'DATETIME', None)
+    ensure_column('users', 'reset_attempts', 'INTEGER', 0)
+    ensure_column('users', 'reset_resend_available_at', 'DATETIME', None)
+    # Week 6 additions
+    ensure_column('users', 'bio', 'VARCHAR(500)', None)
+    ensure_column('users', 'profile_pic', 'VARCHAR(255)', None)
+    ensure_column('users', 'contact_email', 'VARCHAR(120)', None)
+    ensure_column('users', 'github_url', 'VARCHAR(200)', None)
+    ensure_column('users', 'linkedin_url', 'VARCHAR(200)', None)
+    ensure_column('users', 'website_url', 'VARCHAR(200)', None)
+    ensure_column('users', 'require_follow_approval', 'BOOLEAN', 0)
+    ensure_column('users', 'contact_email_privacy', "VARCHAR(20)", "'private'")
+    ensure_column('users', 'social_links_privacy', "VARCHAR(20)", "'all'")
+
+    # 2. QUESTIONS table columns
+    ensure_column('questions', 'views', 'INTEGER', 0)
+
+    # 3. ANSWERS table columns
+    ensure_column('answers', 'parent_answer_id', 'INTEGER REFERENCES answers(id)', None)
+
+    # 4. RESOURCES table columns (Week 4 Resource Hub)
+    ensure_column('resources', 'download_count', 'INTEGER NOT NULL', 0)
+    ensure_column('resources', 'collection_id', 'INTEGER REFERENCES resource_collections(id) ON DELETE CASCADE', None)
+    ensure_column('resources', 'relative_path', 'VARCHAR(500)', None)
+    ensure_column('resources', 'course_code', 'VARCHAR(20)', None)
+    ensure_column('resources', 'course_name', 'VARCHAR(150)', None)
+    ensure_column('resources', 'academic_year', 'VARCHAR(20)', None)
+    ensure_column('resources', 'semester', 'VARCHAR(20)', None)
+
+    # 4b. RESOURCE_COLLECTIONS table columns
+    ensure_column('resource_collections', 'course_code', 'VARCHAR(20)', None)
+    ensure_column('resource_collections', 'course_name', 'VARCHAR(150)', None)
+    ensure_column('resource_collections', 'academic_year', 'VARCHAR(20)', None)
+    ensure_column('resource_collections', 'semester', 'VARCHAR(20)', None)
+
+    conn.commit()
+    conn.close()
+
+
+def init_db(app=None, db_path=None):
+    """Initializes all tables and runs schema migration checks."""
+    if app:
+        with app.app_context():
+            db.create_all()
+    else:
+        db.create_all()
+    migrate_database(db_path=db_path)
+
+
+if __name__ == '__main__':
+    import os
+    from flask import Flask
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///codenest.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    instance_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    os.makedirs(instance_dir, exist_ok=True)
+    db_path = os.path.join(instance_dir, 'codenest.db')
+    db.init_app(app)
+    with app.app_context():
+        init_db(app, db_path=db_path)
+    print(f"[Database] Schema initialized and migrated successfully at {db_path}.")
+
+
+
 
 
 

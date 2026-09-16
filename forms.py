@@ -154,7 +154,10 @@ class ResourceRatingForm(FlaskForm):
     submit = SubmitField('Rate')
 
 
-<<<<<<< HEAD
+# Alias for compatibility
+RatingForm = ResourceRatingForm
+
+
 class ProfessorReviewForm(FlaskForm):
     review_note = TextAreaField('Endorsement / Review Note (Optional)', validators=[Length(max=255), NoProfanity()])
     submit = SubmitField('Endorse & Review')
@@ -170,13 +173,6 @@ class CollectionForm(FlaskForm):
     academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
     semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
     files = MultipleFileField('Notes Folder / Files')
-=======
-class CollectionUploadForm(FlaskForm):
-    title = StringField('Title', validators=[DataRequired(), Length(min=3, max=150), NoProfanity()])
-    category = SelectField('Category', choices=RESOURCE_CATEGORIES, validators=[DataRequired()])
-    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
-    description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     submit = SubmitField('Upload Notes Collection')
 
 
@@ -196,15 +192,9 @@ class CollectionEditForm(FlaskForm):
     submit = SubmitField('Update Collection')
 
 
-<<<<<<< HEAD
 class AddFilesToCollectionForm(FlaskForm):
     files = MultipleFileField('Additional Files / Folder', validators=[DataRequired(message='Please select files to add.')])
     submit = SubmitField('Add Files to Collection')
-
-
-
-=======
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 # -------------------------------
 # SETTINGS & AUTH FORMS 
 # -------------------------------

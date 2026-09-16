@@ -1,12 +1,9 @@
 import os
 import random
 import uuid
-<<<<<<< HEAD
 import io
 import zipfile
-=======
 import re
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template, redirect, url_for, flash, request, abort, send_from_directory, send_file, session, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, AnonymousUserMixin
@@ -16,29 +13,23 @@ from markupsafe import Markup, escape
 from werkzeug.utils import secure_filename
 from PIL import Image
 
-<<<<<<< HEAD
-from models import db, User, Question, Answer, Resource, ResourceRating, ResourceCollection, ResourceReview, AnswerBestMark, QAAttachment, Report, ModeratorApplication, BannedEmail, UserWarning
-from forms import (
-    RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
-    QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
-    RatingForm, CollectionForm, CollectionEditForm, CollectionUploadForm, ProfessorReviewForm, AddFilesToCollectionForm, SEMESTER_CHOICES,
-=======
 from models import (
     db, User, Question, Answer, Resource, AnswerBestMark, QAAttachment,
     Report, ModeratorApplication, BannedEmail, UserWarning, ResourceRating,
-    ResourceCollection, UserFollow, SavedQuestionFolder, SavedQuestion,
-    UsernameChangeRequest, SavedAnswer, Notification, ChatMessage, ChatBlock
+    ResourceCollection, ResourceReview, UserFollow, SavedQuestionFolder, SavedQuestion,
+    UsernameChangeRequest, SavedAnswer, Notification, ChatMessage, ChatBlock,
+    init_db, migrate_database
 )
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
     QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
+    RatingForm, CollectionForm, CollectionEditForm, CollectionUploadForm, ProfessorReviewForm, AddFilesToCollectionForm, SEMESTER_CHOICES,
     ALLOWED_SCREENSHOT_EXTENSIONS, MAX_SCREENSHOT_SIZE, MAX_SCREENSHOTS_COUNT,
     ChangePasswordForm, LogoutForm, ReportActionForm,
     ModeratorApplicationForm, ModeratorApplicationReviewForm,
     ForgotPasswordForm, ResetPasswordForm, ResetPasswordOTPForm, SetNewPasswordForm,
     BanUserForm, SuspendUserForm, IssueWarningForm,
-    ResourceRatingForm, CollectionUploadForm, CollectionEditForm,
+    ResourceRatingForm,
     MAX_RESOURCE_FILE_SIZE, MAX_COLLECTION_FILES, MAX_COLLECTION_TOTAL_SIZE,
     EditProfileForm, CreateFolderForm, MoveSavedQuestionForm,
     UsernameChangeRequestForm, ReviewUsernameRequestForm,
@@ -2938,7 +2929,6 @@ def chat_unblock_user(username):
 # RESOURCE HUB MODULE ROUTES 
 #-------------------------------
 
-<<<<<<< HEAD
 # Configuration Limits for Collections & Uploads
 MAX_COLLECTION_FILES = 30
 MAX_COLLECTION_TOTAL_SIZE = 50 * 1024 * 1024  # 50 MB total per collection
@@ -2946,10 +2936,7 @@ MAX_INDIVIDUAL_FILE_SIZE = 10 * 1024 * 1024   # 10 MB per file
 RESOURCES_PER_PAGE = 10
 
 
-def sort_feed_items(items, sort_mode='newest'):
-=======
-def sanitize_relative_path(raw_path):
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
+def sanitize_relative_path(raw_path, base_filename=None):
     """
     Sanitizes a client-supplied relative path from a folder upload.
     - Normalizes slashes to '/'
@@ -2959,10 +2946,14 @@ def sanitize_relative_path(raw_path):
     - Returns a clean relative path (e.g. 'week1/notes.pdf') or None if invalid.
     """
     if not raw_path:
+        if base_filename:
+            return secure_filename(base_filename)
         return None
     normalized = raw_path.replace('\\', '/').strip().strip('/')
     parts = [p.strip() for p in normalized.split('/') if p.strip()]
     if not parts:
+        if base_filename:
+            return secure_filename(base_filename)
         return None
     # Strict directory traversal check
     for p in parts:
@@ -2979,13 +2970,10 @@ def resources_list():
     query_text = request.args.get('q', '').strip()
     selected_faculty = request.args.get('faculty', '').strip()
     selected_category = request.args.get('category', '').strip()
-<<<<<<< HEAD
     selected_course_code = request.args.get('course_code', '').strip().upper()
     selected_semester = request.args.get('semester', '').strip()
-    selected_sort = request.args.get('sort', 'newest').strip()
-=======
     sort_by = request.args.get('sort', 'newest').strip()
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
+    selected_sort = sort_by
 
     # Query standalone resources (top-level only, exclude collection member files)
     res_query = Resource.query.filter(Resource.collection_id.is_(None))
@@ -3005,6 +2993,8 @@ def resources_list():
         col_query = col_query.outerjoin(Resource, ResourceCollection.id == Resource.collection_id).filter(
             (ResourceCollection.title.ilike(search_filter)) |
             (ResourceCollection.description.ilike(search_filter)) |
+            (ResourceCollection.course_code.ilike(search_filter)) |
+            (ResourceCollection.course_name.ilike(search_filter)) |
             (Resource.filename.ilike(search_filter)) |
             (Resource.title.ilike(search_filter))
         ).distinct()
@@ -3015,33 +3005,14 @@ def resources_list():
 
     if selected_category:
         res_query = res_query.filter(Resource.category == selected_category)
-<<<<<<< HEAD
+        col_query = col_query.filter(ResourceCollection.category == selected_category)
+
     if selected_course_code:
         res_query = res_query.filter(Resource.course_code.ilike(f"%{selected_course_code}%"))
+        col_query = col_query.filter(ResourceCollection.course_code.ilike(f"%{selected_course_code}%"))
+
     if selected_semester:
         res_query = res_query.filter(Resource.semester == selected_semester)
-
-    standalone_resources = res_query.all()
-
-    # 2. Fetch collections (Notes collections)
-    col_query = ResourceCollection.query
-    if query_text:
-        search_filter = f"%{query_text}%"
-        col_query = col_query.filter(
-            (ResourceCollection.title.ilike(search_filter)) | 
-            (ResourceCollection.description.ilike(search_filter)) |
-            (ResourceCollection.course_code.ilike(search_filter)) |
-            (ResourceCollection.course_name.ilike(search_filter))
-        )
-    if selected_faculty:
-        col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
-    if selected_category:
-=======
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
-        col_query = col_query.filter(ResourceCollection.category == selected_category)
-    if selected_course_code:
-        col_query = col_query.filter(ResourceCollection.course_code.ilike(f"%{selected_course_code}%"))
-    if selected_semester:
         col_query = col_query.filter(ResourceCollection.semester == selected_semester)
 
     res_items = res_query.all()
@@ -3092,12 +3063,8 @@ def resources_list():
     end_idx = start_idx + PER_PAGE
     items_for_page = all_items[start_idx:end_idx]
 
-<<<<<<< HEAD
-    rating_form = RatingForm()
-    review_form = ProfessorReviewForm()
-=======
     rating_form = ResourceRatingForm()
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
+    review_form = ProfessorReviewForm()
 
     return render_template(
         'resources/index.html',
@@ -3105,24 +3072,18 @@ def resources_list():
         query_text=query_text,
         selected_faculty=selected_faculty,
         selected_category=selected_category,
-<<<<<<< HEAD
         selected_course_code=selected_course_code,
         selected_semester=selected_semester,
-        selected_sort=selected_sort,
-        faculties=FACULTIES,
-        categories=RESOURCE_CATEGORIES,
-        semesters=SEMESTER_CHOICES,
-        rating_form=rating_form,
-        review_form=review_form
-=======
+        selected_sort=sort_by,
         sort_by=sort_by,
         faculties=FACULTIES,
         categories=RESOURCE_CATEGORIES,
+        semesters=SEMESTER_CHOICES,
         page=page,
         total_pages=total_pages,
         total_items=total_items,
-        rating_form=rating_form
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
+        rating_form=rating_form,
+        review_form=review_form
     )
 
 
@@ -3133,13 +3094,10 @@ def my_uploads():
     query_text = request.args.get('q', '').strip()
     selected_faculty = request.args.get('faculty', '').strip()
     selected_category = request.args.get('category', '').strip()
-<<<<<<< HEAD
     selected_course_code = request.args.get('course_code', '').strip().upper()
     selected_semester = request.args.get('semester', '').strip()
-    selected_sort = request.args.get('sort', 'newest').strip()
-=======
     sort_by = request.args.get('sort', 'newest').strip()
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
+    selected_sort = sort_by
 
     # Query user's standalone resources
     res_query = Resource.query.filter(
@@ -3164,6 +3122,8 @@ def my_uploads():
         col_query = col_query.outerjoin(Resource, ResourceCollection.id == Resource.collection_id).filter(
             (ResourceCollection.title.ilike(search_filter)) |
             (ResourceCollection.description.ilike(search_filter)) |
+            (ResourceCollection.course_code.ilike(search_filter)) |
+            (ResourceCollection.course_name.ilike(search_filter)) |
             (Resource.filename.ilike(search_filter)) |
             (Resource.title.ilike(search_filter))
         ).distinct()
@@ -3174,33 +3134,14 @@ def my_uploads():
 
     if selected_category:
         res_query = res_query.filter(Resource.category == selected_category)
-<<<<<<< HEAD
+        col_query = col_query.filter(ResourceCollection.category == selected_category)
+
     if selected_course_code:
         res_query = res_query.filter(Resource.course_code.ilike(f"%{selected_course_code}%"))
+        col_query = col_query.filter(ResourceCollection.course_code.ilike(f"%{selected_course_code}%"))
+
     if selected_semester:
         res_query = res_query.filter(Resource.semester == selected_semester)
-
-    user_resources = res_query.all()
-
-    # Fetch user's collections
-    col_query = ResourceCollection.query.filter(ResourceCollection.uploader_id == current_user.id)
-    if query_text:
-        search_filter = f"%{query_text}%"
-        col_query = col_query.filter(
-            (ResourceCollection.title.ilike(search_filter)) | 
-            (ResourceCollection.description.ilike(search_filter)) |
-            (ResourceCollection.course_code.ilike(search_filter)) |
-            (ResourceCollection.course_name.ilike(search_filter))
-        )
-    if selected_faculty:
-        col_query = col_query.filter(ResourceCollection.faculty == selected_faculty)
-    if selected_category:
-=======
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
-        col_query = col_query.filter(ResourceCollection.category == selected_category)
-    if selected_course_code:
-        col_query = col_query.filter(ResourceCollection.course_code.ilike(f"%{selected_course_code}%"))
-    if selected_semester:
         col_query = col_query.filter(ResourceCollection.semester == selected_semester)
 
     res_items = res_query.all()
@@ -3247,12 +3188,8 @@ def my_uploads():
     end_idx = start_idx + PER_PAGE
     items_for_page = all_items[start_idx:end_idx]
 
-<<<<<<< HEAD
-    rating_form = RatingForm()
-    review_form = ProfessorReviewForm()
-=======
     rating_form = ResourceRatingForm()
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
+    review_form = ProfessorReviewForm()
 
     return render_template(
         'resources/my_uploads.html',
@@ -3260,13 +3197,16 @@ def my_uploads():
         query_text=query_text,
         selected_faculty=selected_faculty,
         selected_category=selected_category,
-<<<<<<< HEAD
         selected_course_code=selected_course_code,
         selected_semester=selected_semester,
-        selected_sort=selected_sort,
+        selected_sort=sort_by,
+        sort_by=sort_by,
         faculties=FACULTIES,
         categories=RESOURCE_CATEGORIES,
         semesters=SEMESTER_CHOICES,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
         rating_form=rating_form,
         review_form=review_form
     )
@@ -3445,18 +3385,7 @@ def resource_preview(resource_id):
         return redirect(request.referrer or url_for('resources_list'))
 
 
-=======
-        sort_by=sort_by,
-        faculties=FACULTIES,
-        categories=RESOURCE_CATEGORIES,
-        page=page,
-        total_pages=total_pages,
-        total_items=total_items,
-        rating_form=rating_form
-    )
 
-
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 @app.route('/resources/upload', methods=['GET', 'POST'])
 @login_required
 def resource_upload():
@@ -3518,16 +3447,12 @@ def resource_upload():
             file_type=file_ext,
             category=form.category.data,
             faculty=form.faculty.data,
-<<<<<<< HEAD
             uploader_id=current_user.id,
             course_code=raw_code,
             course_name=c_name,
             academic_year=acad_yr,
             semester=sem,
             download_count=0
-=======
-            uploader_id=current_user.id
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
         )
         db.session.add(resource)
         db.session.commit()
@@ -3538,7 +3463,8 @@ def resource_upload():
     return render_template('resources/upload.html', form=form)
 
 
-@app.route('/resources/upload-folder', methods=['GET', 'POST'])
+@app.route('/resources/upload-folder', methods=['GET', 'POST'], endpoint='resource_upload_folder')
+@app.route('/resources/upload-folder', methods=['GET', 'POST'], endpoint='resource_collection_upload')
 @login_required
 def resource_collection_upload():
     """Upload an entire folder containing multiple files as one notes collection."""
@@ -3639,39 +3565,24 @@ def resource_collection_upload():
             flash(err_msg, 'danger')
             return render_template('resources/upload_folder.html', form=form)
 
-<<<<<<< HEAD
         # Normalize academic metadata
         raw_code = form.course_code.data.strip().upper() if form.course_code.data and form.course_code.data.strip() else None
         c_name = form.course_name.data.strip() if form.course_name.data and form.course_name.data.strip() else None
         acad_yr = form.academic_year.data.strip() if form.academic_year.data and form.academic_year.data.strip() else None
         sem = form.semester.data.strip() if form.semester.data and form.semester.data.strip() else None
 
-        # Create collection parent container
-        collection = ResourceCollection(
-            title=form.title.data.strip(),
-            description=form.description.data.strip() if form.description.data else '',
-            category=form.category.data,
-            faculty=form.faculty.data,
-            uploader_id=current_user.id,
-            course_code=raw_code,
-            course_name=c_name,
-            academic_year=acad_yr,
-            semester=sem
-        )
-        db.session.add(collection)
-        db.session.flush()  # Obtain collection.id
-
-        saved_disk_files = []
-=======
         saved_disk_paths = []
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
         try:
             collection = ResourceCollection(
                 title=title,
                 description=description,
                 category=category,
                 faculty=faculty,
-                uploader_id=current_user.id
+                uploader_id=current_user.id,
+                course_code=raw_code,
+                course_name=c_name,
+                academic_year=acad_yr,
+                semester=sem
             )
             db.session.add(collection)
             db.session.flush()
@@ -3696,16 +3607,12 @@ def resource_collection_upload():
                     faculty=faculty,
                     uploader_id=current_user.id,
                     collection_id=collection.id,
-<<<<<<< HEAD
-                    relative_path=safe_rel_path,
+                    relative_path=item['relative_path'],
                     course_code=collection.course_code,
                     course_name=collection.course_name,
                     academic_year=collection.academic_year,
                     semester=collection.semester,
                     download_count=0
-=======
-                    relative_path=item['relative_path']
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
                 )
                 db.session.add(resource)
 
@@ -3736,7 +3643,9 @@ def resource_collection_upload():
     return render_template('resources/upload_folder.html', form=form)
 
 
-@app.route('/resources/collections/<int:collection_id>')
+@app.route('/resources/collections/<int:collection_id>', endpoint='resource_collection_detail')
+@app.route('/resources/collections/<int:collection_id>', endpoint='collection_detail')
+@app.route('/resources/collection/<int:collection_id>', endpoint='collection_detail_alias')
 def resource_collection_detail(collection_id):
     """View collection details, subfolders, member files, downloads, and ratings."""
     collection = db.session.get(ResourceCollection, collection_id)
@@ -3744,12 +3653,8 @@ def resource_collection_detail(collection_id):
         flash('Collection not found.', 'danger')
         return redirect(url_for('resources_list'))
 
-<<<<<<< HEAD
-    rating_form = RatingForm()
-    review_form = ProfessorReviewForm()
-=======
     rating_form = ResourceRatingForm()
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
+    review_form = ProfessorReviewForm()
     return render_template(
         'resources/collection_detail.html',
         collection=collection,
@@ -3758,7 +3663,9 @@ def resource_collection_detail(collection_id):
     )
 
 
-@app.route('/resources/collections/<int:collection_id>/edit', methods=['GET', 'POST'])
+@app.route('/resources/collections/<int:collection_id>/edit', methods=['GET', 'POST'], endpoint='resource_collection_edit')
+@app.route('/resources/collections/<int:collection_id>/edit', methods=['GET', 'POST'], endpoint='collection_edit')
+@app.route('/resources/collection/<int:collection_id>/edit', methods=['GET', 'POST'], endpoint='collection_edit_singular')
 @login_required
 def resource_collection_edit(collection_id):
     """Edit collection metadata with profanity checks. Enforce uploader or admin permission."""
@@ -3782,7 +3689,6 @@ def resource_collection_edit(collection_id):
         collection.academic_year = form.academic_year.data.strip() if form.academic_year.data and form.academic_year.data.strip() else None
         collection.semester = form.semester.data.strip() if form.semester.data and form.semester.data.strip() else None
 
-<<<<<<< HEAD
         # Synchronize faculty, category, and academic metadata across member resources
         for member in collection.resources:
             member.category = collection.category
@@ -3791,12 +3697,6 @@ def resource_collection_edit(collection_id):
             member.course_name = collection.course_name
             member.academic_year = collection.academic_year
             member.semester = collection.semester
-=======
-        # Update faculty and category on member resources to stay consistent
-        for r in collection.resources:
-            r.category = collection.category
-            r.faculty = collection.faculty
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
 
         db.session.commit()
         flash('Collection details updated successfully!', 'success')
@@ -3805,7 +3705,9 @@ def resource_collection_edit(collection_id):
     return render_template('resources/collection_edit.html', form=form, collection=collection)
 
 
-@app.route('/resources/collections/<int:collection_id>/delete', methods=['POST'])
+@app.route('/resources/collections/<int:collection_id>/delete', methods=['POST'], endpoint='resource_collection_delete')
+@app.route('/resources/collections/<int:collection_id>/delete', methods=['POST'], endpoint='collection_delete')
+@app.route('/resources/collection/<int:collection_id>/delete', methods=['POST'], endpoint='collection_delete_singular')
 @login_required
 def resource_collection_delete(collection_id):
     """Delete a collection, all its member physical files, ratings, and records."""
@@ -4073,42 +3975,6 @@ def resource_download(resource_id):
     )
 
 
-@app.route('/resources/<int:resource_id>/rate', methods=['POST'])
-@login_required
-def resource_rate(resource_id):
-    """Submit or update a 1-5 star rating for a resource. Protected by CSRF and ownership checks."""
-    resource = db.session.get(Resource, resource_id)
-    if not resource:
-        flash('Resource not found.', 'danger')
-        return redirect(request.referrer or url_for('resources_list'))
-
-    # Prevent users from rating their own uploads
-    if resource.uploader_id == current_user.id:
-        flash('You cannot rate your own upload.', 'warning')
-        return redirect(request.referrer or url_for('resources_list'))
-
-    form = ResourceRatingForm()
-    if form.validate_on_submit():
-        rating_val = form.rating.data
-        if not (1 <= rating_val <= 5):
-            flash('Rating must be between 1 and 5 stars.', 'danger')
-            return redirect(request.referrer or url_for('resources_list'))
-
-        existing = ResourceRating.query.filter_by(resource_id=resource.id, user_id=current_user.id).first()
-        if existing:
-            existing.rating = rating_val
-            existing.updated_at = datetime.now(timezone.utc)
-            flash(f"Your rating for '{resource.title}' was updated to {rating_val} stars!", 'success')
-        else:
-            new_rating = ResourceRating(resource_id=resource.id, user_id=current_user.id, rating=rating_val)
-            db.session.add(new_rating)
-            flash(f"Thank you for rating '{resource.title}' ({rating_val} stars)!", 'success')
-        db.session.commit()
-    else:
-        errors = [err for errs in form.errors.values() for err in errs]
-        flash(f"Failed to submit rating: {', '.join(errors)}", 'danger')
-
-    return redirect(request.referrer or url_for('resources_list'))
 
 
 @app.route('/resources/<int:resource_id>/edit', methods=['GET', 'POST'])
@@ -4167,11 +4033,7 @@ def resource_delete(resource_id):
         except Exception as e:
             app.logger.warning(f"Failed to remove physical file {file_path}: {e}")
 
-<<<<<<< HEAD
     # Remove database record (cascades to ratings and reviews)
-=======
-    # Remove database record (ratings are deleted via cascade)
->>>>>>> 2026c812ebce9964a050106618e92c28fe513efd
     db.session.delete(resource)
     db.session.commit()
 
