@@ -3,12 +3,12 @@
 {% include "_chat_styles.html" %}
 
 <div class="chat-page-container">
-    <a href="{{ url_for('chat_list') }}" class="btn-mmu-back">
+    <a href="{{ url_for('chat_list') }}" class="btn-chat-back">
         &larr; Back to All Conversations
     </a>
 
     <div class="chat-card">
-        <!-- Chat Peer Header with MMU Theme -->
+        <!-- Chat Peer Header -->
         <div class="chat-card-header">
             <div class="chat-peer-profile">
                 <div class="chat-peer-avatar-wrapper">
@@ -39,14 +39,14 @@
                 {% if is_blocked_by_me %}
                     <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="display: inline; margin: 0;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn-mmu-outline" onclick="return confirm('Unblock @{{ peer.username }}?');">
+                        <button type="submit" class="btn-chat-outline" onclick="return confirm('Unblock @{{ peer.username }}?');">
                             ✓ Unblock User
                         </button>
                     </form>
                 {% else %}
                     <form method="POST" action="{{ url_for('chat_block_user', username=peer.username) }}" style="display: inline; margin: 0;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn-mmu-danger-outline" onclick="return confirm('Block private messages from @{{ peer.username }}?');">
+                        <button type="submit" class="btn-chat-danger" onclick="return confirm('Block private messages from @{{ peer.username }}?');">
                             🚫 Block User
                         </button>
                     </form>
@@ -73,7 +73,7 @@
                 {% else %}
                     <div id="no-messages-prompt" class="chat-empty-notice">
                         <span class="chat-empty-icon">💬</span>
-                        <p style="margin: 0; font-weight: 600; font-size: 1.05rem; color: var(--mmu-blue-dark);">No messages exchanged yet.</p>
+                        <p style="margin: 0; font-weight: 600; font-size: 1.05rem; color: var(--primary-blue-dark);">No messages exchanged yet.</p>
                         <p style="margin: 4px 0 0 0; font-size: 0.88rem;">Say hello to <strong>@{{ peer.username }}</strong> to begin academic collaboration!</p>
                     </div>
                 {% endif %}
@@ -104,7 +104,7 @@
                             <span>🛡️</span>
                             <span>Academic discourse only. Profanity is strictly prohibited.</span>
                         </div>
-                        <button type="submit" id="chat-submit-btn" class="btn-mmu-send">
+                        <button type="submit" id="chat-submit-btn" class="btn-chat-send">
                             <span>Send Message</span>
                             <span>➤</span>
                         </button>
