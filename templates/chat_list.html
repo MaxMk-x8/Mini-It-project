@@ -1,107 +1,142 @@
 {% extends "base.html" %}
 {% block content %}
+{% include "_chat_styles.html" %}
 
-<div>
-    <h2>Private Messages</h2>
-    <p>Direct 1-on-1 private messaging with fellow students, professors, and moderators.</p>
-</div>
-
-<hr>
-
-<!-- Instagram-style Quick Chat with People You Follow -->
-{% if followed_users %}
-    <div style="margin-bottom: 25px; padding: 14px; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #f8fafc;">
-        <h4 style="margin-top: 0; margin-bottom: 12px; color: #334155;">👥 People You Follow (Direct Message)</h4>
-        <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start;">
-            {% for f_user in followed_users %}
-                <a href="{{ url_for('chat_conversation', username=f_user.username) }}" style="text-decoration: none; display: inline-flex; flex-direction: column; align-items: center; text-align: center; width: 75px;">
-                    {% if f_user.avatar_url %}
-                        <img src="{{ f_user.avatar_url }}" alt="{{ f_user.username }}" width="46" height="46" style="border-radius: 50%; object-fit: cover; border: 2px solid #3b82f6;">
-                    {% else %}
-                        <div style="width: 46px; height: 46px; border-radius: 50%; background: #e0e7ff; color: #3730a3; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9em; border: 2px solid #3b82f6;">
-                            {{ f_user.username[:2]|upper }}
-                        </div>
-                    {% endif %}
-                    <span style="font-size: 0.78em; color: #1e293b; margin-top: 5px; max-width: 75px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;">
-                        @{{ f_user.username }}
-                    </span>
-                    <small style="font-size: 0.7em; color: #64748b;">{{ f_user.role }}</small>
-                </a>
-            {% endfor %}
+<div class="chat-page-container">
+    <!-- MMU Branded Hero Header Banner -->
+    <div class="chat-header-banner">
+        <div>
+            <h2 class="chat-header-title">
+                <span>💬 Private Messages</span>
+                <span class="mmu-badge-red">CODENEST</span>
+            </h2>
+            <p class="chat-header-subtitle">
+                Direct 1-on-1 private messaging with fellow students, professors, and moderators across Multimedia University.
+            </p>
         </div>
     </div>
-{% endif %}
 
-<div>
-    <h3 style="margin-top: 0;">Conversations</h3>
-    {% if conversations %}
-        <table class="table-bordered">
-            <thead>
-                <tr>
-                    <th>Avatar</th>
-                    <th>User</th>
-                    <th>Last Message</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for c in conversations %}
-                    {% set peer = c.peer %}
-                    {% set last = c.last_message %}
-                    <tr>
-                        <td style="width: 50px; text-align: center;">
-                            {% if peer.avatar_url %}
-                                <img src="{{ peer.avatar_url }}" alt="{{ peer.username }}" width="40" height="40" style="border-radius: 50%; object-fit: cover;">
+    <!-- Instagram-style Quick Chat with People You Follow -->
+    {% if followed_users %}
+        <div class="chat-stories-container">
+            <h4 class="chat-stories-heading">
+                <span class="dot-red"></span>
+                <span>People You Follow (Direct Message)</span>
+            </h4>
+            <div class="chat-stories-rail">
+                {% for f_user in followed_users %}
+                    <a href="{{ url_for('chat_conversation', username=f_user.username) }}" class="chat-story-item">
+                        <div class="chat-story-ring">
+                            {% if f_user.avatar_url %}
+                                <img src="{{ f_user.avatar_url }}" alt="{{ f_user.username }}" class="chat-story-avatar">
                             {% else %}
-                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; color: #475569;">
-                                    {{ peer.username[:2]|upper }}
+                                <div class="chat-story-avatar-default">
+                                    {{ f_user.username[:2]|upper }}
                                 </div>
                             {% endif %}
-                        </td>
-                        <td>
-                            <a href="{{ url_for('chat_conversation', username=peer.username) }}">
-                                <strong>@{{ peer.username }}</strong>
-                            </a>
-                            <br>
-                            <small style="color: #64748b;">{{ peer.role }} &bull; {{ peer.faculty }}</small>
-                        </td>
-                        <td>
-                            {% if last %}
-                                <span>
-                                    {% if last.sender_id == current_user.id %}<strong>You:</strong> {% endif %}
-                                    {{ last.message[:60] }}{% if last.message|length > 60 %}...{% endif %}
-                                </span>
-                                <br>
-                                <small style="color: #64748b;">{{ last.created_at.strftime('%b %d, %H:%M') if last.created_at else '' }}</small>
-                            {% else %}
-                                <em>No messages yet.</em>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if c.unread_count > 0 %}
-                                <span style="background: #3b82f6; color: white; border-radius: 9999px; padding: 2px 8px; font-size: 0.8rem; font-weight: bold;">
-                                    {{ c.unread_count }} new
-                                </span>
-                            {% elif c.is_blocked %}
-                                <span style="color: #dc2626; font-size: 0.85rem;">🚫 Blocked by you</span>
-                            {% elif c.is_blocked_by %}
-                                <span style="color: #64748b; font-size: 0.85rem;">🔒 Chat unavailable</span>
-                            {% else %}
-                                <span style="color: #10b981; font-size: 0.85rem;">Active</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{{ url_for('chat_conversation', username=peer.username) }}">Open Chat</a>
-                        </td>
-                    </tr>
+                        </div>
+                        <span class="chat-story-name">@{{ f_user.username }}</span>
+                        <span class="chat-story-role">{{ f_user.role }}</span>
+                    </a>
                 {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>You have no active conversations yet.</p>
-        <p>To start a conversation, search for a user using the search bar above or visit any user's profile and click <strong>Message / Chat</strong>.</p>
+            </div>
+        </div>
     {% endif %}
+
+    <!-- Conversations Section -->
+    <div class="chat-card" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0; color: var(--mmu-blue-dark); font-size: 1.25rem; font-weight: 700;">
+                All Conversations
+            </h3>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">
+                {{ conversations|length }} conversation{% if conversations|length != 1 %}s{% endif %}
+            </span>
+        </div>
+
+        {% if conversations %}
+            <div class="chat-table-wrapper">
+                <table class="chat-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 55px; text-align: center;">Avatar</th>
+                            <th>User & Faculty</th>
+                            <th>Last Message</th>
+                            <th style="text-align: center;">Status</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in conversations %}
+                            {% set peer = c.peer %}
+                            {% set last = c.last_message %}
+                            <tr>
+                                <td style="text-align: center;">
+                                    {% if peer.avatar_url %}
+                                        <img src="{{ peer.avatar_url }}" alt="{{ peer.username }}" width="42" height="42" style="border-radius: 50%; object-fit: cover; border: 2px solid var(--mmu-blue); box-shadow: 0 2px 5px rgba(0,75,152,0.15);">
+                                    {% else %}
+                                        <div style="width: 42px; height: 42px; border-radius: 50%; background: #EBF4FC; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem; color: var(--mmu-blue); border: 2px solid var(--mmu-blue);">
+                                            {{ peer.username[:2]|upper }}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('chat_conversation', username=peer.username) }}" style="color: var(--mmu-blue-dark); text-decoration: none; font-weight: 700; font-size: 0.98rem;">
+                                        @{{ peer.username }}
+                                    </a>
+                                    <div style="display: flex; gap: 5px; margin-top: 2px; flex-wrap: wrap;">
+                                        <span class="chat-badge chat-badge-role">{{ peer.role }}</span>
+                                        <span class="chat-badge chat-badge-faculty">{{ peer.faculty }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if last %}
+                                        <div style="color: var(--text-dark); font-size: 0.9rem; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            {% if last.sender_id == current_user.id %}
+                                                <strong style="color: var(--mmu-blue);">You:</strong> 
+                                            {% endif %}
+                                            {{ last.message }}
+                                        </div>
+                                        <small style="color: var(--text-muted); font-size: 0.78rem;">
+                                            {{ last.created_at.strftime('%b %d, %H:%M') if last.created_at else '' }}
+                                        </small>
+                                    {% else %}
+                                        <em style="color: var(--text-muted); font-size: 0.88rem;">No messages yet.</em>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: center;">
+                                    {% if c.unread_count > 0 %}
+                                        <span class="chat-unread-pill">
+                                            {{ c.unread_count }} NEW
+                                        </span>
+                                    {% elif c.is_blocked %}
+                                        <span style="color: var(--mmu-red); font-size: 0.82rem; font-weight: 600;">🚫 Blocked</span>
+                                    {% elif c.is_blocked_by %}
+                                        <span style="color: var(--text-muted); font-size: 0.82rem;">🔒 Unavailable</span>
+                                    {% else %}
+                                        <span style="color: #059669; font-size: 0.82rem; font-weight: 600;">● Active</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">
+                                    <a href="{{ url_for('chat_conversation', username=peer.username) }}" class="btn-mmu-outline">
+                                        Open Chat &rarr;
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="chat-empty-notice" style="background: var(--mmu-ice-bg); border-radius: 8px; border: 1px dashed var(--border-subtle);">
+                <span class="chat-empty-icon">📬</span>
+                <p style="margin: 0; font-weight: 600; font-size: 1.05rem; color: var(--mmu-blue-dark);">You have no active conversations yet.</p>
+                <p style="margin: 6px 0 0 0; font-size: 0.88rem; color: var(--text-muted);">
+                    To start a conversation, search for a student or professor in the search bar or visit any user's profile and click <strong>💬 Message / Chat</strong>.
+                </p>
+            </div>
+        {% endif %}
+    </div>
 </div>
 
 {% endblock %}
