@@ -42,6 +42,13 @@
                                 <a href="{{ url_for('public_profile', username=u.username) }}">
                                     <strong>@{{ u.username }}</strong>
                                 </a>
+                                <br>
+                                <small style="color: #64748b;">
+                                    ⭐ {{ u.reputation_points }} pts
+                                    {% if u.professor_endorsements_count > 0 %}
+                                        &bull; 🎓 {{ u.professor_endorsements_count }} Super Endorsements
+                                    {% endif %}
+                                </small>
                                 {% if u.bio %}
                                     <br>
                                     <small style="color: #64748b;">{{ u.bio[:80] }}{% if u.bio|length > 80 %}...{% endif %}</small>

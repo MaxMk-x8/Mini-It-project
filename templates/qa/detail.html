@@ -226,8 +226,8 @@
                             <span class="badge badge-visibility">👥 Friends Only</span>
                         {% endif %}
                     </div>
-                    <div style="color: var(--text-muted); font-size: 0.82rem; display: flex; align-items: center; gap: 6px;">
-                        <span>{{ ans.author.role }} • ⭐ {{ ans.author.reputation_points }} pts</span>
+                    <div style="color: var(--text-muted); font-size: 0.82rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <span>{{ ans.author.role }} • ⭐ {{ ans.author.reputation_points }} pts{% if ans.author.professor_endorsements_count > 0 %} • 🎓 {{ ans.author.professor_endorsements_count }} Super Endorsements{% endif %}</span>
                         <span>•</span>
                         <span>{{ ans.created_at.strftime('%b %d, %Y %H:%M') }} UTC</span>
                     </div>

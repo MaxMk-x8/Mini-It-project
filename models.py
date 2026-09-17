@@ -95,16 +95,16 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
     def is_student(self):
-        return self.role == 'Student'
+        return bool(self.role and self.role.strip().lower() == 'student')
 
     def is_professor(self):
-        return self.role == 'Professor'
+        return bool(self.role and self.role.strip().lower() == 'professor')
 
     def is_moderator(self):
-        return self.role == 'Community Moderator'
+        return bool(self.role and self.role.strip().lower() in ('community moderator', 'moderator'))
 
     def is_admin(self):
-        return self.role == 'Admin'
+        return bool(self.role and self.role.strip().lower() == 'admin')
 
     @property
     def reputation_points(self):
