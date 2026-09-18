@@ -35,7 +35,7 @@
                 </div>
             </div>
 
-            <!-- Messenger-Style 3-Dots Action Menu -->
+            <!-- 3-Dots Action Menu -->
             <div class="chat-header-actions">
                 {% if is_blocked_by_me %}
                     <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="margin: 0; display: inline;">
@@ -177,7 +177,7 @@
     </div>
 </div>
 
-<!-- Messenger-Style Block User Modal Dialog -->
+<!-- Block User Modal Dialog -->
 <div class="chat-modal-overlay" id="block-user-modal" aria-hidden="true">
     <div class="chat-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="block-modal-title">
         <div class="chat-modal-header">
@@ -414,7 +414,7 @@
         });
     }
 
-    // --- Messenger-Style Block Modal Handling ---
+    // --- Block Modal Dialog Handling ---
     var openBlockBtn = document.getElementById('btn-open-block-modal');
     var blockModal = document.getElementById('block-user-modal');
     var closeBlockBtn = document.getElementById('block-modal-close-btn');
