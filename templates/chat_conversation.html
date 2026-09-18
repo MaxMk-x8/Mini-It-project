@@ -98,6 +98,11 @@
                                     <span class="chat-time-wrap">
                                         <span class="chat-timestamp">{{ m.created_at.strftime('%b %d, %H:%M') if m.created_at else '' }}</span>
                                         <span class="chat-edited-tag" id="edited-tag-{{ m.id }}" style="{% if not m.is_edited %}display: none;{% endif %}">(edited)</span>
+                                        {% if is_mine %}
+                                            <span class="chat-tick-status {% if m.is_read %}read{% else %}sent{% endif %}" id="tick-status-{{ m.id }}" title="{% if m.is_read %}Seen{% else %}Sent{% endif %}">
+                                                {% if m.is_read %}✓✓{% else %}✓{% endif %}
+                                            </span>
+                                        {% endif %}
                                     </span>
                                 </div>
                                 <div class="chat-content" id="msg-content-{{ m.id }}">{{ m.message }}</div>
@@ -524,12 +529,14 @@
         var bubble = document.createElement('div');
         bubble.className = isMine ? 'chat-bubble-mine' : 'chat-bubble-peer';
 
+        var tickHtml = isMine ? ('<span class="chat-tick-status ' + (msg.is_read ? 'read' : 'sent') + '" id="tick-status-' + msg.id + '" title="' + (msg.is_read ? 'Seen' : 'Sent') + '">' + (msg.is_read ? '✓✓' : '✓') + '</span>') : '';
         var meta = document.createElement('div');
         meta.className = 'chat-meta';
         meta.innerHTML = '<span><strong>' + (isMine ? 'You' : '@' + msg.sender_username) + '</strong></span>' +
             '<span class="chat-time-wrap">' +
             '<span class="chat-timestamp">' + (msg.created_at || '') + '</span>' +
             '<span class="chat-edited-tag" id="edited-tag-' + msg.id + '" style="' + (msg.is_edited ? '' : 'display: none;') + '">(edited)</span>' +
+            tickHtml +
             '</span>';
 
         var body = document.createElement('div');
@@ -632,6 +639,16 @@
                 for (var i = 0; i < data.messages.length; i++) {
                     appendMessage(data.messages[i]);
                 }
+            }
+            if (data && data.last_read_id) {
+                document.querySelectorAll('.chat-tick-status.sent').forEach(function(el) {
+                    var id = parseInt(el.id.replace('tick-status-', ''), 10);
+                    if (id <= data.last_read_id) {
+                        el.className = 'chat-tick-status read';
+                        el.textContent = '✓✓';
+                        el.title = 'Seen';
+                    }
+                });
             }
         })
         .catch(function(err) {

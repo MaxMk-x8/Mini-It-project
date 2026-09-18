@@ -2919,6 +2919,10 @@ def chat_poll(username):
     if new_messages:
         db.session.commit()
 
+    last_read_id = db.session.query(db.func.max(ChatMessage.id)).filter_by(
+        sender_id=current_user.id, recipient_id=peer.id, is_read=True
+    ).scalar() or 0
+
     return jsonify({
         'messages': [
             {
@@ -2928,9 +2932,11 @@ def chat_poll(username):
                 'message': m.message,
                 'created_at': m.created_at.strftime('%b %d, %H:%M') if m.created_at else '',
                 'is_edited': getattr(m, 'is_edited', False),
+                'is_read': m.is_read,
                 'is_mine': (m.sender_id == current_user.id)
             } for m in new_messages
         ],
+        'last_read_id': last_read_id,
         'is_blocked': current_user.has_blocked_chat(peer) or peer.has_blocked_chat(current_user)
     })
 

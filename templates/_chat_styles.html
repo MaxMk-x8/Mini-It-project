@@ -396,6 +396,26 @@
         color: #64748B;
     }
 
+    /* Message Sent (✓) and Seen (✓✓) Indicators */
+    .chat-tick-status {
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: -1.5px;
+        margin-left: 3px;
+        user-select: none;
+        display: inline-block;
+        transition: color 0.2s ease;
+    }
+
+    .chat-tick-status.sent {
+        color: rgba(255, 255, 255, 0.65);
+    }
+
+    .chat-tick-status.read {
+        color: #38BDF8;
+        text-shadow: 0 0 4px rgba(56, 189, 248, 0.45);
+    }
+
     .chat-bubble-actions {
         display: flex;
         justify-content: flex-end;
