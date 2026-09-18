@@ -987,6 +987,8 @@ class Report(db.Model):
             return db.session.get(Resource, self.content_id)
         elif self.content_type == 'resource_collection':
             return db.session.get(ResourceCollection, self.content_id)
+        elif self.content_type in ('user', 'account'):
+            return db.session.get(User, self.content_id)
         return None
 
     def __repr__(self):

@@ -77,10 +77,10 @@
                         </button>
                     {% endif %}
 
-                    <a href="{{ url_for('public_profile', username=peer.username) }}" class="chat-dropdown-item danger" style="opacity: 0.85;">
+                    <button type="button" class="chat-dropdown-item danger" id="btn-open-report-modal">
                         <span>🚩</span>
                         <span>Report Account</span>
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
@@ -248,6 +248,40 @@
                 <button type="submit" class="btn-modal-confirm-block" id="btn-submit-block">
                     <span>✓</span> Done - Block @{{ peer.username }}
                 </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Report User Modal Dialog -->
+<div class="chat-modal-overlay" id="report-user-modal" aria-hidden="true">
+    <div class="chat-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+        <div class="chat-modal-header">
+            <h3 id="report-modal-title"><span>🚩</span> Report @{{ peer.username }}</h3>
+            <button type="button" class="chat-modal-close-btn" id="report-modal-close-btn" aria-label="Close modal">✕</button>
+        </div>
+        <form method="POST" action="{{ url_for('submit_report') }}" id="report-user-form" class="chat-modal-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="content_type" value="user"/>
+            <input type="hidden" name="content_id" value="{{ peer.id }}"/>
+            <input type="hidden" name="reason" id="selected-report-reason" value="Harassment or Bullying"/>
+            <div class="chat-modal-body">
+                <div class="chat-modal-section-title">1. Reason for Reporting</div>
+                <div class="chat-reason-grid" id="report-reason-chips">
+                    <button type="button" class="chat-reason-chip selected" data-reason="Harassment or Bullying">🚫 Harassment / Bullying</button>
+                    <button type="button" class="chat-reason-chip" data-reason="Spam or Unwanted Ads">📢 Spam / Scams</button>
+                    <button type="button" class="chat-reason-chip" data-reason="Inappropriate Content">⚠️ Inappropriate Content</button>
+                    <button type="button" class="chat-reason-chip" data-reason="Fake Account / Impersonation">🎭 Impersonation</button>
+                </div>
+                <div class="chat-modal-section-title">2. Additional Details (Optional)</div>
+                <textarea name="details" class="chat-modal-textarea" placeholder="Explain why you are reporting this account..." rows="2"></textarea>
+                <div class="chat-modal-info-box">
+                    <strong>🛡️ Moderation:</strong> Reports are sent directly to {{ peer.faculty }} faculty moderators and administrators for review.
+                </div>
+            </div>
+            <div class="chat-modal-footer">
+                <button type="button" class="btn-modal-cancel" id="btn-cancel-report">Cancel</button>
+                <button type="submit" class="btn-modal-confirm-block"><span>🚩</span> Submit Report</button>
             </div>
         </form>
     </div>
@@ -485,17 +519,43 @@
         });
     });
 
-    // Reason Chips Selection
-    var reasonChips = document.querySelectorAll('.chat-reason-chip');
+    // Reason Chips Selection (Block Modal)
+    var reasonChips = document.querySelectorAll('#reason-chips-container .chat-reason-chip');
     var reasonInput = document.getElementById('selected-block-reason');
     reasonChips.forEach(function(chip) {
         chip.addEventListener('click', function() {
             reasonChips.forEach(function(c) { c.classList.remove('selected'); });
             chip.classList.add('selected');
-            var reasonVal = chip.getAttribute('data-reason');
-            if (reasonInput) {
-                reasonInput.value = reasonVal;
-            }
+            if (reasonInput) reasonInput.value = chip.getAttribute('data-reason');
+        });
+    });
+
+    // --- Report Modal Dialog Handling ---
+    var openReportBtn = document.getElementById('btn-open-report-modal');
+    var reportModal = document.getElementById('report-user-modal');
+    var closeReportBtn = document.getElementById('report-modal-close-btn');
+    var cancelReportBtn = document.getElementById('btn-cancel-report');
+
+    function openRepModal() {
+        if (dropdownMenu) { dropdownMenu.classList.remove('show'); if (menuBtn) menuBtn.classList.remove('active'); }
+        if (reportModal) { reportModal.classList.add('show'); reportModal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; }
+    }
+    function closeRepModal() {
+        if (reportModal) { reportModal.classList.remove('show'); reportModal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
+    }
+
+    if (openReportBtn) openReportBtn.addEventListener('click', function(e) { e.preventDefault(); openRepModal(); });
+    if (closeReportBtn) closeReportBtn.addEventListener('click', closeRepModal);
+    if (cancelReportBtn) cancelReportBtn.addEventListener('click', closeRepModal);
+    if (reportModal) reportModal.addEventListener('click', function(e) { if (e.target === reportModal) closeRepModal(); });
+
+    var reportChips = document.querySelectorAll('#report-reason-chips .chat-reason-chip');
+    var reportReasonInput = document.getElementById('selected-report-reason');
+    reportChips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+            reportChips.forEach(function(c) { c.classList.remove('selected'); });
+            chip.classList.add('selected');
+            if (reportReasonInput) reportReasonInput.value = chip.getAttribute('data-reason');
         });
     });
 

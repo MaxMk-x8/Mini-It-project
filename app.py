@@ -1685,6 +1685,17 @@ def submit_report():
         target_faculty = resource.faculty
         content_snippet = f"Resource: {resource.title}"
 
+    elif content_type in ('user', 'account'):
+        target_user = db.session.get(User, content_id)
+        if not target_user:
+            msg = 'The user being reported does not exist.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': msg}), 404
+            flash(msg, 'danger')
+            return redirect(request.referrer or url_for('home'))
+        target_faculty = target_user.faculty
+        content_snippet = f"User Account: @{target_user.username} ({target_user.role})"
+
     else:
         msg = 'Unsupported content type for reporting.'
         if is_ajax:
