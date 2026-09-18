@@ -81,9 +81,7 @@
             <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: var(--text-muted);">
                 Upload up to 3 screenshots (.png, .jpg, .jpeg, .webp) up to 5 MB each.
             </p>
-            <input type="file" id="screenshots" name="screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewImages(this, 'ask-preview-container', 'ask-preview-msg')" style="font-size: 0.9rem; color: var(--text-color);">
-            
-            <p id="ask-preview-msg" style="display: none; color: var(--primary-red); font-size: 0.85rem; margin: 8px 0 0 0; font-weight: 600;"></p>
+            <input type="file" id="screenshots" name="screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewWithRemove(this, 'ask-preview-container')" style="font-size: 0.9rem; color: var(--text-color);">
             <div id="ask-preview-container" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px;"></div>
         </div>
 
@@ -102,61 +100,23 @@
 </div>
 
 <script>
-    function previewImages(input, containerId, msgId) {
-        var container = document.getElementById(containerId);
-        var msg = document.getElementById(msgId);
-        container.innerHTML = '';
-        msg.style.display = 'none';
-        msg.innerText = '';
-
-        if (!input.files || input.files.length === 0) return;
-
-        if (input.files.length > 3) {
-            msg.innerText = 'You can select a maximum of 3 images. Only the first 3 will be processed.';
-            msg.style.display = 'block';
-        }
-
-        var count = Math.min(input.files.length, 3);
-        for (var i = 0; i < count; i++) {
-            var file = input.files[i];
-            if (file.size > 5 * 1024 * 1024) {
-                msg.innerText = 'Warning: "' + file.name + '" exceeds the 5 MB limit.';
-                msg.style.display = 'block';
-            }
-
-            var reader = new FileReader();
-            reader.onload = (function(f) {
-                return function(e) {
-                    var card = document.createElement('div');
-                    card.style.border = '1px solid var(--border-color)';
-                    card.style.borderRadius = '6px';
-                    card.style.padding = '6px';
-                    card.style.background = 'var(--surface-card)';
-                    card.style.width = '110px';
-                    card.style.textAlign = 'center';
-                    card.style.boxShadow = 'var(--shadow-sm)';
-
-                    var img = document.createElement('img');
-                    img.src = e.target.result;
-                    img.style.width = '100%';
-                    img.style.height = '75px';
-                    img.style.objectFit = 'cover';
-                    img.style.borderRadius = '4px';
-
-                    var name = document.createElement('div');
-                    name.innerText = f.name.length > 12 ? f.name.substring(0, 10) + '...' : f.name;
-                    name.style.fontSize = '0.75rem';
-                    name.style.marginTop = '4px';
-                    name.style.color = 'var(--text-color)';
-                    name.style.wordBreak = 'break-all';
-
-                    card.appendChild(img);
-                    card.appendChild(name);
-                    container.appendChild(card);
-                };
-            })(file);
-            reader.readAsDataURL(file);
-        }
+    function previewWithRemove(input, containerId) {
+        var c = document.getElementById(containerId), dt = new DataTransfer();
+        Array.from(input.files).slice(0, 3).forEach(function(f) { dt.items.add(f); });
+        input.files = dt.files;
+        c.innerHTML = '';
+        Array.from(input.files).forEach(function(f, i) {
+            var el = document.createElement('div');
+            el.className = 'qa-preview-item';
+            el.innerHTML = '<img src="' + URL.createObjectURL(f) + '"><button type="button" class="qa-preview-del" title="Remove">&times;</button>';
+            el.querySelector('button').onclick = function() {
+                var ndt = new DataTransfer();
+                Array.from(input.files).forEach(function(x, idx) { if (idx !== i) ndt.items.add(x); });
+                input.files = ndt.files;
+                previewWithRemove(input, containerId);
+            };
+            c.appendChild(el);
+        });
     }
 </script>
 </div>

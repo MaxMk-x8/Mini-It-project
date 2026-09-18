@@ -2308,6 +2308,26 @@ def serve_screenshot(filename):
     return send_from_directory(app.config['SCREENSHOTS_FOLDER'], filename)
 
 
+@app.route('/qa/attachment/<int:attachment_id>/delete', methods=['POST'])
+@login_required
+def delete_qa_attachment(attachment_id):
+    """Deletes a specific attached screenshot from disk and database."""
+    att = db.session.get(QAAttachment, attachment_id)
+    if not att:
+        flash('Attachment not found.', 'danger')
+        return redirect(request.referrer or url_for('qa_list'))
+
+    if att.uploader_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to delete this attachment.', 'danger')
+        return redirect(request.referrer or url_for('qa_list'))
+
+    delete_attachment_files([att])
+    db.session.delete(att)
+    db.session.commit()
+    flash('Attached photo removed successfully.', 'info')
+    return redirect(request.referrer or url_for('qa_list'))
+
+
 @app.route('/uploads/avatars/<filename>')
 def serve_avatar(filename):
     """Serves uploaded user avatar profile photos."""
