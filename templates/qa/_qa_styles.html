@@ -55,15 +55,52 @@
         --code-border: #1e293b;
     }
 
+    /* --- Page & Body Theme Support --- */
+    html, body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    [data-theme="dark"] nav {
+        color: var(--text-muted);
+    }
+    [data-theme="dark"] nav a {
+        color: var(--primary-blue);
+    }
+    [data-theme="dark"] nav a:hover {
+        color: var(--primary-red);
+    }
+    [data-theme="dark"] nav input[type="text"],
+    [data-theme="dark"] nav button {
+        background-color: var(--surface-card);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+    }
+    [data-theme="dark"] hr {
+        border-color: var(--border-color);
+        opacity: 0.4;
+    }
+    [data-theme="dark"] .table-bordered th,
+    [data-theme="dark"] .table-bordered td {
+        border-color: var(--border-color);
+        color: var(--text-color);
+    }
+    [data-theme="dark"] .table-bordered th {
+        background-color: var(--surface-card);
+    }
+
     /* --- Container & Smooth Radial Glows --- */
     .qa-container {
         color: var(--text-color);
         transition: background-color 0.3s ease, color 0.3s ease;
         padding: 4px 0 24px 0;
+        min-height: 80vh;
     }
     [data-theme="dark"] .qa-container {
-        background: radial-gradient(circle at 5% 15%, rgba(2, 132, 199, 0.09) 0%, transparent 45%),
-                    radial-gradient(circle at 95% 85%, rgba(225, 29, 72, 0.08) 0%, transparent 45%);
+        background: radial-gradient(circle at 5% 15%, rgba(2, 132, 199, 0.12) 0%, transparent 45%),
+                    radial-gradient(circle at 95% 85%, rgba(225, 29, 72, 0.1) 0%, transparent 45%);
     }
 
     /* --- Brand Header Accent Line --- */
