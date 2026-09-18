@@ -2904,14 +2904,31 @@ def chat_block_user(username):
         flash('You cannot block yourself.', 'warning')
         return redirect(url_for('chat_list'))
 
+    block_scope = request.form.get('block_scope', 'chat').strip()
+    if block_scope not in ['chat', 'platform']:
+        block_scope = 'chat'
+    reason = request.form.get('reason', '').strip() or None
+    details = request.form.get('details', '').strip() or None
+
     existing = ChatBlock.query.filter_by(blocker_id=current_user.id, blocked_id=peer.id).first()
     if not existing:
-        block = ChatBlock(blocker_id=current_user.id, blocked_id=peer.id)
+        block = ChatBlock(
+            blocker_id=current_user.id,
+            blocked_id=peer.id,
+            block_scope=block_scope,
+            reason=reason,
+            details=details
+        )
         db.session.add(block)
         db.session.commit()
-        flash(f'You have blocked @{peer.username} from private chat.', 'info')
+        scope_text = "across CodeNest" if block_scope == "platform" else "from private chat"
+        flash(f'You have blocked @{peer.username} {scope_text}.', 'info')
     else:
-        flash(f'@{peer.username} is already blocked in chat.', 'info')
+        existing.block_scope = block_scope
+        existing.reason = reason
+        existing.details = details
+        db.session.commit()
+        flash(f'Block settings for @{peer.username} have been updated.', 'info')
 
     return redirect(url_for('chat_conversation', username=peer.username))
 

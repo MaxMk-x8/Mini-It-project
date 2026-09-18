@@ -35,22 +35,53 @@
                 </div>
             </div>
 
-            <div>
+            <!-- Messenger-Style 3-Dots Action Menu -->
+            <div class="chat-header-actions">
                 {% if is_blocked_by_me %}
-                    <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="display: inline; margin: 0;">
+                    <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="margin: 0; display: inline;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn-chat-outline" onclick="return confirm('Unblock @{{ peer.username }}?');">
-                            ✓ Unblock User
-                        </button>
-                    </form>
-                {% else %}
-                    <form method="POST" action="{{ url_for('chat_block_user', username=peer.username) }}" style="display: inline; margin: 0;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn-chat-danger" onclick="return confirm('Block private messages from @{{ peer.username }}?');">
-                            🚫 Block User
+                        <button type="submit" class="btn-header-unblock" title="Unblock @{{ peer.username }}">
+                            <span>✓</span>
+                            <span>Unblock User</span>
                         </button>
                     </form>
                 {% endif %}
+
+                <button type="button" class="btn-chat-menu-dots" id="chat-header-menu-btn" title="Conversation options" aria-label="Conversation options">
+                    ⋮
+                </button>
+                <div class="chat-dropdown-menu" id="chat-dropdown-menu">
+                    <a href="{{ url_for('public_profile', username=peer.username) }}" class="chat-dropdown-item">
+                        <span>👤</span>
+                        <span>View Profile</span>
+                    </a>
+                    
+                    <div class="chat-dropdown-divider"></div>
+
+                    {% if is_blocked_by_me %}
+                        <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="chat-dropdown-item success">
+                                <span>✓</span>
+                                <span>Unblock @{{ peer.username }}</span>
+                            </button>
+                        </form>
+                        <button type="button" class="chat-dropdown-item" id="btn-open-block-modal" style="color: #475569;">
+                            <span>⚙️</span>
+                            <span>Edit Block Settings</span>
+                        </button>
+                    {% else %}
+                        <button type="button" class="chat-dropdown-item danger" id="btn-open-block-modal">
+                            <span>🚫</span>
+                            <span>Block User</span>
+                        </button>
+                    {% endif %}
+
+                    <a href="{{ url_for('public_profile', username=peer.username) }}" class="chat-dropdown-item danger" style="opacity: 0.85;">
+                        <span>🚩</span>
+                        <span>Report Account</span>
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -87,7 +118,13 @@
                     <h4>🚫 Messaging is unavailable with this user.</h4>
                     <p>
                         {% if is_blocked_by_me %}
-                            You have blocked @{{ peer.username }}. Unblock this user above to send messages.
+                            You have blocked @{{ peer.username }}.
+                            <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="display: inline-block; margin-top: 8px;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn-chat-outline" style="background: #FFFFFF; padding: 5px 16px; font-size: 0.88rem; font-weight: bold; color: #059669; border-color: #10B981;">
+                                    ✓ Unblock @{{ peer.username }}
+                                </button>
+                            </form>
                         {% else %}
                             This user has restricted private messages.
                         {% endif %}
@@ -115,6 +152,77 @@
     </div>
 </div>
 
+<!-- Messenger-Style Block User Modal Dialog -->
+<div class="chat-modal-overlay" id="block-user-modal" aria-hidden="true">
+    <div class="chat-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="block-modal-title">
+        <div class="chat-modal-header">
+            <h3 id="block-modal-title">
+                <span>🚫</span> {% if is_blocked_by_me %}Block Settings: @{{ peer.username }}{% else %}Block @{{ peer.username }}{% endif %}
+            </h3>
+            <button type="button" class="chat-modal-close-btn" id="block-modal-close-btn" aria-label="Close modal">✕</button>
+        </div>
+
+        <form method="POST" action="{{ url_for('chat_block_user', username=peer.username) }}" id="block-user-form" class="chat-modal-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="reason" id="selected-block-reason" value="Harassment or Bullying"/>
+
+            <div class="chat-modal-body">
+                <div class="chat-modal-section-title">1. Choose Block Scope</div>
+                <div class="chat-scope-group">
+                    <label class="chat-scope-card selected" id="scope-card-chat">
+                        <input type="radio" name="block_scope" value="chat" checked />
+                        <div class="chat-scope-card-content">
+                            <h5>💬 Block on Chat only</h5>
+                            <p>@{{ peer.username }} won't be able to send you private messages. You won't receive chat notifications from them.</p>
+                        </div>
+                    </label>
+
+                    <label class="chat-scope-card" id="scope-card-platform">
+                        <input type="radio" name="block_scope" value="platform" />
+                        <div class="chat-scope-card-content">
+                            <h5>🌐 Block everywhere on CodeNest</h5>
+                            <p>Block private messages, hide profile interactions, and avoid direct Q&A engagements across CodeNest.</p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="chat-modal-section-title">2. Reason for blocking (optional)</div>
+                <div class="chat-reason-grid" id="reason-chips-container">
+                    <button type="button" class="chat-reason-chip selected" data-reason="Harassment or Bullying">
+                        🚫 Harassment / Bullying
+                    </button>
+                    <button type="button" class="chat-reason-chip" data-reason="Spam or Unwanted Ads">
+                        📢 Spam / Scams
+                    </button>
+                    <button type="button" class="chat-reason-chip" data-reason="Inappropriate Content">
+                        ⚠️ Inappropriate Content
+                    </button>
+                    <button type="button" class="chat-reason-chip" data-reason="Fake Account / Impersonation">
+                        🎭 Impersonation
+                    </button>
+                    <button type="button" class="chat-reason-chip" data-reason="Other">
+                        📝 Other
+                    </button>
+                </div>
+
+                <div class="chat-modal-section-title">3. Additional Details (Optional)</div>
+                <textarea name="details" class="chat-modal-textarea" placeholder="Briefly describe what happened or any context (optional)..." rows="2"></textarea>
+
+                <div class="chat-modal-info-box">
+                    <strong>ℹ️ Remember:</strong> @{{ peer.username }} will not be notified that you blocked them. You can unblock them at any time from this chat header or options menu.
+                </div>
+            </div>
+
+            <div class="chat-modal-footer">
+                <button type="button" class="btn-modal-cancel" id="btn-cancel-block">Cancel</button>
+                <button type="submit" class="btn-modal-confirm-block" id="btn-submit-block">
+                    <span>✓</span> Done - Block @{{ peer.username }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 (function() {
     var container = document.getElementById('chat-messages-container');
@@ -126,6 +234,112 @@
     var currentUserId = {{ current_user.id }};
     var pollUrl = "{{ url_for('chat_poll', username=peer.username) }}";
 
+    // --- 3-Dots Dropdown Menu Handling ---
+    var menuBtn = document.getElementById('chat-header-menu-btn');
+    var dropdownMenu = document.getElementById('chat-dropdown-menu');
+
+    if (menuBtn && dropdownMenu) {
+        menuBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var isOpen = dropdownMenu.classList.contains('show');
+            if (isOpen) {
+                dropdownMenu.classList.remove('show');
+                menuBtn.classList.remove('active');
+            } else {
+                dropdownMenu.classList.add('show');
+                menuBtn.classList.add('active');
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!dropdownMenu.contains(e.target) && e.target !== menuBtn) {
+                dropdownMenu.classList.remove('show');
+                menuBtn.classList.remove('active');
+            }
+        });
+    }
+
+    // --- Messenger-Style Block Modal Handling ---
+    var openBlockBtn = document.getElementById('btn-open-block-modal');
+    var blockModal = document.getElementById('block-user-modal');
+    var closeBlockBtn = document.getElementById('block-modal-close-btn');
+    var cancelBlockBtn = document.getElementById('btn-cancel-block');
+
+    function openModal() {
+        if (dropdownMenu) {
+            dropdownMenu.classList.remove('show');
+            if (menuBtn) menuBtn.classList.remove('active');
+        }
+        if (blockModal) {
+            blockModal.classList.add('show');
+            blockModal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeModal() {
+        if (blockModal) {
+            blockModal.classList.remove('show');
+            blockModal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+    }
+
+    if (openBlockBtn) {
+        openBlockBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            openModal();
+        });
+    }
+
+    if (closeBlockBtn) {
+        closeBlockBtn.addEventListener('click', closeModal);
+    }
+
+    if (cancelBlockBtn) {
+        cancelBlockBtn.addEventListener('click', closeModal);
+    }
+
+    if (blockModal) {
+        blockModal.addEventListener('click', function(e) {
+            if (e.target === blockModal) {
+                closeModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && blockModal && blockModal.classList.contains('show')) {
+            closeModal();
+        }
+    });
+
+    // Scope Radio Card Selection
+    var scopeCards = document.querySelectorAll('.chat-scope-card');
+    scopeCards.forEach(function(card) {
+        card.addEventListener('click', function() {
+            scopeCards.forEach(function(c) { c.classList.remove('selected'); });
+            card.classList.add('selected');
+            var radio = card.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+        });
+    });
+
+    // Reason Chips Selection
+    var reasonChips = document.querySelectorAll('.chat-reason-chip');
+    var reasonInput = document.getElementById('selected-block-reason');
+    reasonChips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+            reasonChips.forEach(function(c) { c.classList.remove('selected'); });
+            chip.classList.add('selected');
+            var reasonVal = chip.getAttribute('data-reason');
+            if (reasonInput) {
+                reasonInput.value = reasonVal;
+            }
+        });
+    });
+
+    // --- Real-Time Polling ---
     function getLastMessageId() {
         var msgItems = document.querySelectorAll('.chat-message-item');
         if (msgItems.length > 0) {

@@ -1299,20 +1299,26 @@ class ChatBlock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     blocker_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_blocks_blocker_id', ondelete='CASCADE'), nullable=False)
     blocked_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_blocks_blocked_id', ondelete='CASCADE'), nullable=False)
+    block_scope = db.Column(db.String(20), default='chat', nullable=False)
+    reason = db.Column(db.String(100), nullable=True)
+    details = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     blocker = db.relationship('User', foreign_keys=[blocker_id], backref=db.backref('chat_blocks_given', lazy=True, cascade='all, delete-orphan'))
     blocked = db.relationship('User', foreign_keys=[blocked_id], backref=db.backref('chat_blocks_received', lazy=True, cascade='all, delete-orphan'))
 
-    def __init__(self, blocker_id=None, blocked_id=None, **kwargs):
+    def __init__(self, blocker_id=None, blocked_id=None, block_scope='chat', reason=None, details=None, **kwargs):
         super().__init__(**kwargs)
         if blocker_id:
             self.blocker_id = blocker_id
         if blocked_id:
             self.blocked_id = blocked_id
+        self.block_scope = block_scope or 'chat'
+        self.reason = reason
+        self.details = details
 
     def __repr__(self):
-        return f'<ChatBlock User #{self.blocker_id} blocked #{self.blocked_id}>'
+        return f'<ChatBlock User #{self.blocker_id} blocked #{self.blocked_id} scope={self.block_scope}>'
 
 
 # -------------------------------
@@ -1416,6 +1422,11 @@ def migrate_database(db_path=None):
         CONSTRAINT fk_resource_bookmarks_resource_id FOREIGN KEY (resource_id) REFERENCES resources (id) ON DELETE CASCADE
     )
     """)
+
+    # 5. CHAT_BLOCKS table columns
+    ensure_column('chat_blocks', 'block_scope', "VARCHAR(20)", "'chat'")
+    ensure_column('chat_blocks', 'reason', "VARCHAR(100)", None)
+    ensure_column('chat_blocks', 'details', "VARCHAR(500)", None)
 
     conn.commit()
     conn.close()
