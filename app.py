@@ -2868,6 +2868,7 @@ def chat_conversation(username):
                     'sender_username': current_user.username,
                     'message': new_msg.message,
                     'created_at': new_msg.created_at.strftime('%b %d, %H:%M'),
+                    'is_edited': False,
                     'is_mine': True
                 }
             })
@@ -2926,11 +2927,71 @@ def chat_poll(username):
                 'sender_username': m.sender.username,
                 'message': m.message,
                 'created_at': m.created_at.strftime('%b %d, %H:%M') if m.created_at else '',
+                'is_edited': getattr(m, 'is_edited', False),
                 'is_mine': (m.sender_id == current_user.id)
             } for m in new_messages
         ],
         'is_blocked': current_user.has_blocked_chat(peer) or peer.has_blocked_chat(current_user)
     })
+
+
+@app.route('/chat/message/<int:message_id>/edit', methods=['POST'])
+@login_required
+def chat_edit_message(message_id):
+    msg = ChatMessage.query.get_or_404(message_id)
+
+    # Security: only the sender can edit their own message
+    if msg.sender_id != current_user.id:
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': 'You are not authorized to edit this message.'}), 403
+        flash('You cannot edit someone else’s message.', 'danger')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    # Extract text from json or form body
+    if request.is_json:
+        data = request.get_json() or {}
+        new_text = (data.get('message') or '').strip()
+    else:
+        new_text = (request.form.get('message') or '').strip()
+
+    if not new_text:
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': 'Message content cannot be empty.'}), 400
+        flash('Message content cannot be empty.', 'warning')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    if len(new_text) > 1000:
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': 'Message exceeds maximum length of 1000 characters.'}), 400
+        flash('Message is too long (max 1000 characters).', 'warning')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    has_prof, term = contains_profanity(new_text)
+    if has_prof:
+        err_msg = f"Your message contains prohibited or inappropriate language ('{term}')."
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': err_msg}), 400
+        flash(err_msg, 'danger')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    msg.message = new_text
+    msg.is_edited = True
+    msg.edited_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    if request.headers.get('Accept') == 'application/json' or request.is_json:
+        return jsonify({
+            'success': True,
+            'message': {
+                'id': msg.id,
+                'message': msg.message,
+                'is_edited': True,
+                'edited_at': msg.edited_at.strftime('%b %d, %H:%M') if msg.edited_at else ''
+            }
+        })
+
+    flash('Message updated successfully.', 'success')
+    return redirect(request.referrer or url_for('chat_list'))
 
 
 @app.route('/chat/<username>/block', methods=['POST'])

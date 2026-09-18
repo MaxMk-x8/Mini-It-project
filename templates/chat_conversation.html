@@ -95,9 +95,34 @@
                             <div class="{% if is_mine %}chat-bubble-mine{% else %}chat-bubble-peer{% endif %}">
                                 <div class="chat-meta">
                                     <span>{% if is_mine %}<strong>You</strong>{% else %}<strong>@{{ m.sender.username }}</strong>{% endif %}</span>
-                                    <span>{{ m.created_at.strftime('%b %d, %H:%M') if m.created_at else '' }}</span>
+                                    <span class="chat-time-wrap">
+                                        <span class="chat-timestamp">{{ m.created_at.strftime('%b %d, %H:%M') if m.created_at else '' }}</span>
+                                        <span class="chat-edited-tag" id="edited-tag-{{ m.id }}" style="{% if not m.is_edited %}display: none;{% endif %}">(edited)</span>
+                                    </span>
                                 </div>
-                                <div class="chat-content">{{ m.message }}</div>
+                                <div class="chat-content" id="msg-content-{{ m.id }}">{{ m.message }}</div>
+                                {% if is_mine %}
+                                    <div class="chat-inline-editor" id="inline-editor-{{ m.id }}" style="display: none;">
+                                        <textarea class="chat-edit-textarea" id="edit-text-{{ m.id }}" rows="2" maxlength="1000">{{ m.message }}</textarea>
+                                        <div class="chat-edit-actions">
+                                            <button type="button" class="btn-chat-edit-cancel" onclick="cancelInlineEdit({{ m.id }})">Cancel</button>
+                                            <button type="button" class="btn-chat-edit-save" onclick="saveInlineEdit({{ m.id }})">Save</button>
+                                        </div>
+                                    </div>
+                                    <div class="chat-bubble-actions" id="bubble-actions-{{ m.id }}">
+                                        <div class="chat-msg-menu-wrap" id="msg-menu-wrap-{{ m.id }}">
+                                            <button type="button" class="btn-msg-dots" id="msg-dots-btn-{{ m.id }}" onclick="toggleMsgMenu(event, {{ m.id }})" title="Message options" aria-label="Message options">
+                                                ⋮
+                                            </button>
+                                            <div class="chat-msg-dropdown" id="msg-dropdown-{{ m.id }}">
+                                                <button type="button" class="chat-msg-dropdown-item" onclick="openInlineEdit({{ m.id }})">
+                                                    <span>✏️</span>
+                                                    <span>Edit</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                     {% endfor %}
@@ -233,6 +258,136 @@
     var peerUsername = {{ peer.username|tojson }};
     var currentUserId = {{ current_user.id }};
     var pollUrl = "{{ url_for('chat_poll', username=peer.username) }}";
+    var csrfToken = "{{ csrf_token() }}";
+
+    // --- 3-Dot Message Menu & Inline Editing ---
+    window.toggleMsgMenu = function(e, msgId) {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        var dropdown = document.getElementById('msg-dropdown-' + msgId);
+        var dotsBtn = document.getElementById('msg-dots-btn-' + msgId);
+        if (!dropdown) return;
+
+        var wasOpen = dropdown.classList.contains('show');
+        document.querySelectorAll('.chat-msg-dropdown.show').forEach(function(d) {
+            d.classList.remove('show');
+        });
+        document.querySelectorAll('.btn-msg-dots.active').forEach(function(b) {
+            b.classList.remove('active');
+        });
+
+        if (!wasOpen) {
+            dropdown.classList.add('show');
+            if (dotsBtn) dotsBtn.classList.add('active');
+        }
+    };
+
+    window.openInlineEdit = function(msgId) {
+        var dropdown = document.getElementById('msg-dropdown-' + msgId);
+        if (dropdown) dropdown.classList.remove('show');
+        var dotsBtn = document.getElementById('msg-dots-btn-' + msgId);
+        if (dotsBtn) dotsBtn.classList.remove('active');
+
+        var contentDiv = document.getElementById('msg-content-' + msgId);
+        var editorDiv = document.getElementById('inline-editor-' + msgId);
+        var actionsDiv = document.getElementById('bubble-actions-' + msgId);
+        var textarea = document.getElementById('edit-text-' + msgId);
+
+        if (contentDiv && editorDiv) {
+            contentDiv.style.display = 'none';
+            if (actionsDiv) actionsDiv.style.display = 'none';
+            editorDiv.style.display = 'block';
+            if (textarea) {
+                textarea.focus();
+                textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+            }
+        }
+    };
+
+    window.cancelInlineEdit = function(msgId) {
+        var contentDiv = document.getElementById('msg-content-' + msgId);
+        var editorDiv = document.getElementById('inline-editor-' + msgId);
+        var actionsDiv = document.getElementById('bubble-actions-' + msgId);
+        var textarea = document.getElementById('edit-text-' + msgId);
+
+        if (contentDiv && editorDiv) {
+            if (textarea) {
+                textarea.value = contentDiv.textContent.trim();
+            }
+            editorDiv.style.display = 'none';
+            contentDiv.style.display = 'block';
+            if (actionsDiv) actionsDiv.style.display = '';
+        }
+    };
+
+    window.saveInlineEdit = function(msgId) {
+        var textarea = document.getElementById('edit-text-' + msgId);
+        if (!textarea) return;
+
+        var newText = textarea.value.trim();
+        if (!newText) {
+            alert('Message cannot be empty.');
+            return;
+        }
+
+        var saveBtn = document.querySelector('#inline-editor-' + msgId + ' .btn-chat-edit-save');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+        }
+
+        fetch('/chat/message/' + msgId + '/edit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ message: newText })
+        })
+        .then(function(res) {
+            return res.json().then(function(data) {
+                return { status: res.status, data: data };
+            });
+        })
+        .then(function(result) {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save';
+            }
+            if (result.data && result.data.success) {
+                var contentDiv = document.getElementById('msg-content-' + msgId);
+                var editorDiv = document.getElementById('inline-editor-' + msgId);
+                var actionsDiv = document.getElementById('bubble-actions-' + msgId);
+                var editedTag = document.getElementById('edited-tag-' + msgId);
+
+                if (contentDiv) {
+                    contentDiv.textContent = result.data.message.message;
+                    contentDiv.style.display = 'block';
+                }
+                if (editedTag) {
+                    editedTag.style.display = 'inline';
+                }
+                if (editorDiv) {
+                    editorDiv.style.display = 'none';
+                }
+                if (actionsDiv) {
+                    actionsDiv.style.display = '';
+                }
+            } else {
+                alert((result.data && result.data.error) || 'Failed to update message. Please try again.');
+            }
+        })
+        .catch(function(err) {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save';
+            }
+            alert('Network error while saving message.');
+        });
+    };
 
     // --- 3-Dots Dropdown Menu Handling ---
     var menuBtn = document.getElementById('chat-header-menu-btn');
@@ -371,14 +526,87 @@
 
         var meta = document.createElement('div');
         meta.className = 'chat-meta';
-        meta.innerHTML = '<span><strong>' + (isMine ? 'You' : '@' + msg.sender_username) + '</strong></span><span>' + (msg.created_at || '') + '</span>';
+        meta.innerHTML = '<span><strong>' + (isMine ? 'You' : '@' + msg.sender_username) + '</strong></span>' +
+            '<span class="chat-time-wrap">' +
+            '<span class="chat-timestamp">' + (msg.created_at || '') + '</span>' +
+            '<span class="chat-edited-tag" id="edited-tag-' + msg.id + '" style="' + (msg.is_edited ? '' : 'display: none;') + '">(edited)</span>' +
+            '</span>';
 
         var body = document.createElement('div');
         body.className = 'chat-content';
+        body.id = 'msg-content-' + msg.id;
         body.textContent = msg.message;
 
         bubble.appendChild(meta);
         bubble.appendChild(body);
+
+        if (isMine) {
+            var inlineEditor = document.createElement('div');
+            inlineEditor.className = 'chat-inline-editor';
+            inlineEditor.id = 'inline-editor-' + msg.id;
+            inlineEditor.style.display = 'none';
+
+            var editTextarea = document.createElement('textarea');
+            editTextarea.className = 'chat-edit-textarea';
+            editTextarea.id = 'edit-text-' + msg.id;
+            editTextarea.rows = 2;
+            editTextarea.maxLength = 1000;
+            editTextarea.value = msg.message;
+
+            var editActions = document.createElement('div');
+            editActions.className = 'chat-edit-actions';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'btn-chat-edit-cancel';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = function() { window.cancelInlineEdit(msg.id); };
+
+            var saveBtn = document.createElement('button');
+            saveBtn.type = 'button';
+            saveBtn.className = 'btn-chat-edit-save';
+            saveBtn.textContent = 'Save';
+            saveBtn.onclick = function() { window.saveInlineEdit(msg.id); };
+
+            editActions.appendChild(cancelBtn);
+            editActions.appendChild(saveBtn);
+            inlineEditor.appendChild(editTextarea);
+            inlineEditor.appendChild(editActions);
+            bubble.appendChild(inlineEditor);
+
+            var bubbleActions = document.createElement('div');
+            bubbleActions.className = 'chat-bubble-actions';
+            bubbleActions.id = 'bubble-actions-' + msg.id;
+
+            var menuWrap = document.createElement('div');
+            menuWrap.className = 'chat-msg-menu-wrap';
+            menuWrap.id = 'msg-menu-wrap-' + msg.id;
+
+            var dotsBtn = document.createElement('button');
+            dotsBtn.type = 'button';
+            dotsBtn.className = 'btn-msg-dots';
+            dotsBtn.id = 'msg-dots-btn-' + msg.id;
+            dotsBtn.innerHTML = '⋮';
+            dotsBtn.title = 'Message options';
+            dotsBtn.onclick = function(e) { window.toggleMsgMenu(e, msg.id); };
+
+            var dropdown = document.createElement('div');
+            dropdown.className = 'chat-msg-dropdown';
+            dropdown.id = 'msg-dropdown-' + msg.id;
+
+            var editItem = document.createElement('button');
+            editItem.type = 'button';
+            editItem.className = 'chat-msg-dropdown-item';
+            editItem.innerHTML = '<span>✏️</span><span>Edit</span>';
+            editItem.onclick = function() { window.openInlineEdit(msg.id); };
+
+            dropdown.appendChild(editItem);
+            menuWrap.appendChild(dotsBtn);
+            menuWrap.appendChild(dropdown);
+            bubbleActions.appendChild(menuWrap);
+            bubble.appendChild(bubbleActions);
+        }
+
         msgDiv.appendChild(bubble);
         list.appendChild(msgDiv);
 

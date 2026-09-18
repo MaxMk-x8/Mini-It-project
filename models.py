@@ -1292,12 +1292,14 @@ class ChatMessage(db.Model):
     recipient_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_messages_recipient_id', ondelete='CASCADE'), nullable=False)
     message = db.Column(db.Text, nullable=False)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
+    is_edited = db.Column(db.Boolean, default=False, nullable=False)
+    edited_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_chats', lazy=True))
     recipient = db.relationship('User', foreign_keys=[recipient_id], backref=db.backref('received_chats', lazy=True))
 
-    def __init__(self, sender_id=None, recipient_id=None, message=None, is_read=False, **kwargs):
+    def __init__(self, sender_id=None, recipient_id=None, message=None, is_read=False, is_edited=False, edited_at=None, **kwargs):
         super().__init__(**kwargs)
         if sender_id:
             self.sender_id = sender_id
@@ -1306,6 +1308,8 @@ class ChatMessage(db.Model):
         if message:
             self.message = message
         self.is_read = is_read
+        self.is_edited = is_edited
+        self.edited_at = edited_at
 
     def __repr__(self):
         return f'<ChatMessage #{self.id}: {self.sender_id} -> {self.recipient_id}>'
@@ -1448,6 +1452,10 @@ def migrate_database(db_path=None):
     ensure_column('chat_blocks', 'block_scope', "VARCHAR(20)", "'chat'")
     ensure_column('chat_blocks', 'reason', "VARCHAR(100)", None)
     ensure_column('chat_blocks', 'details', "VARCHAR(500)", None)
+
+    # 6. CHAT_MESSAGES table columns
+    ensure_column('chat_messages', 'is_edited', 'BOOLEAN', 0)
+    ensure_column('chat_messages', 'edited_at', 'DATETIME', None)
 
     conn.commit()
     conn.close()
