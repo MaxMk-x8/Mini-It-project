@@ -922,6 +922,15 @@ def public_profile(username):
     user = User.query.filter_by(username=username).first_or_404()
 
     is_own_profile = (current_user.id == user.id)
+
+    # If the user has blocked current_user platform-wide, profile is completely unavailable
+    if not is_own_profile and current_user.is_platform_blocked_by(user):
+        return render_template('profile_unavailable.html'), 403
+
+    is_platform_blocked_by_me = False
+    if not is_own_profile:
+        is_platform_blocked_by_me = current_user.has_blocked_platform(user)
+
     is_following = current_user.is_following(user)
     has_pending_follow = current_user.has_pending_follow(user)
 
@@ -930,14 +939,19 @@ def public_profile(username):
     contact_restricted = bool(user.contact_email and not can_see_contact and user.contact_email_privacy == 'followers')
     social_restricted = bool((user.github_url or user.linkedin_url or user.website_url) and not can_see_social and user.social_links_privacy == 'followers')
 
-    # Contributions with visibility and draft enforcement
-    all_user_questions = Question.query.filter_by(author_id=user.id, is_draft=False).order_by(Question.created_at.desc()).all()
-    questions = [q for q in all_user_questions if q.can_view(current_user)]
+    # Contributions with visibility and draft enforcement (hidden if current_user blocked them platform-wide)
+    if is_platform_blocked_by_me:
+        questions = []
+        answers = []
+        resources = []
+    else:
+        all_user_questions = Question.query.filter_by(author_id=user.id, is_draft=False).order_by(Question.created_at.desc()).all()
+        questions = [q for q in all_user_questions if q.can_view(current_user)]
 
-    all_user_answers = Answer.query.filter_by(author_id=user.id).order_by(Answer.created_at.desc()).all()
-    answers = [a for a in all_user_answers if a.can_view(current_user)]
+        all_user_answers = Answer.query.filter_by(author_id=user.id).order_by(Answer.created_at.desc()).all()
+        answers = [a for a in all_user_answers if a.can_view(current_user)]
 
-    resources = Resource.query.filter_by(uploader_id=user.id).order_by(Resource.created_at.desc()).all()
+        resources = Resource.query.filter_by(uploader_id=user.id).order_by(Resource.created_at.desc()).all()
 
     active_tab = request.args.get('tab', 'questions')
     if active_tab not in ['questions', 'answers', 'resources']:
@@ -947,6 +961,7 @@ def public_profile(username):
         'profile.html',
         user=user,
         is_own_profile=is_own_profile,
+        is_platform_blocked_by_me=is_platform_blocked_by_me,
         is_following=is_following,
         has_pending_follow=has_pending_follow,
         can_see_contact=can_see_contact,
@@ -964,6 +979,9 @@ def public_profile(username):
 @login_required
 def user_followers(username):
     user = User.query.filter_by(username=username).first_or_404()
+    if current_user.id != user.id and current_user.is_platform_blocked_by(user):
+        return render_template('profile_unavailable.html'), 403
+
     page = request.args.get('page', 1, type=int)
     if page < 1:
         page = 1
@@ -979,6 +997,9 @@ def user_followers(username):
 @login_required
 def user_following(username):
     user = User.query.filter_by(username=username).first_or_404()
+    if current_user.id != user.id and current_user.is_platform_blocked_by(user):
+        return render_template('profile_unavailable.html'), 403
+
     page = request.args.get('page', 1, type=int)
     if page < 1:
         page = 1
@@ -1006,6 +1027,9 @@ def search_users():
                 User.is_verified == True
             ).order_by(User.username.asc()).limit(50).all()
 
+            if current_user.is_authenticated:
+                users = [u for u in users if not current_user.has_any_platform_block_with(u)]
+
     if is_json:
         return jsonify({
             'query': query_text,
@@ -1032,6 +1056,10 @@ def follow_user(username):
     if target_user.id == current_user.id:
         flash('You cannot follow yourself.', 'warning')
         return redirect(url_for('public_profile', username=username))
+
+    if current_user.has_any_platform_block_with(target_user):
+        flash('Unable to follow this user due to block restrictions.', 'danger')
+        return redirect(url_for('student_dashboard'))
 
     existing = UserFollow.query.filter_by(
         follower_id=current_user.id,
@@ -2291,6 +2319,15 @@ def qa_list():
 
     # Privacy and Visibility Enforcement (Habib)
     if current_user.is_authenticated:
+        # Exclude questions by users with platform-wide block restrictions in either direction
+        blocked_user_ids = [
+            b.blocked_id for b in ChatBlock.query.filter_by(blocker_id=current_user.id, block_scope='platform').all()
+        ] + [
+            b.blocker_id for b in ChatBlock.query.filter_by(blocked_id=current_user.id, block_scope='platform').all()
+        ]
+        if blocked_user_ids:
+            query = query.filter(~Question.author_id.in_(blocked_user_ids))
+
         if current_user.is_admin() or current_user.is_moderator() or current_user.is_professor():
             # Special roles override: can view all non-draft questions across faculties
             query = query.filter(Question.is_draft == False)
@@ -2930,7 +2967,16 @@ def chat_block_user(username):
         db.session.commit()
         flash(f'Block settings for @{peer.username} have been updated.', 'info')
 
-    return redirect(url_for('chat_conversation', username=peer.username))
+    # If blocked across platform, cleanly cancel any mutual follows
+    if block_scope == 'platform':
+        UserFollow.query.filter(
+            ((UserFollow.follower_id == current_user.id) & (UserFollow.followed_id == peer.id)) |
+            ((UserFollow.follower_id == peer.id) & (UserFollow.followed_id == current_user.id))
+        ).delete(synchronize_session=False)
+        db.session.commit()
+
+    redirect_target = request.referrer or url_for('chat_conversation', username=peer.username)
+    return redirect(redirect_target)
 
 
 @app.route('/chat/<username>/unblock', methods=['POST'])
@@ -2945,7 +2991,8 @@ def chat_unblock_user(username):
     else:
         flash(f'@{peer.username} is not blocked.', 'info')
 
-    return redirect(url_for('chat_conversation', username=peer.username))
+    redirect_target = request.referrer or url_for('chat_conversation', username=peer.username)
+    return redirect(redirect_target)
 
 
 #-------------------------------

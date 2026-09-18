@@ -326,6 +326,21 @@ class User(UserMixin, db.Model):
             return False
         return ChatBlock.query.filter_by(blocker_id=target_user.id, blocked_id=self.id).first() is not None
 
+    def has_blocked_platform(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return ChatBlock.query.filter_by(blocker_id=self.id, blocked_id=target_user.id, block_scope='platform').first() is not None
+
+    def is_platform_blocked_by(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return ChatBlock.query.filter_by(blocker_id=target_user.id, blocked_id=self.id, block_scope='platform').first() is not None
+
+    def has_any_platform_block_with(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return self.has_blocked_platform(target_user) or self.is_platform_blocked_by(target_user)
+
     def is_chat_mutually_available(self, target_user):
         if not target_user or not getattr(target_user, 'id', None):
             return False
@@ -398,6 +413,9 @@ class Question(db.Model):
     )
 
     def can_view(self, viewer):
+        if viewer and viewer.is_authenticated:
+            if self.author and (self.author.has_blocked_platform(viewer) or viewer.has_blocked_platform(self.author)):
+                return False
         if self.is_draft:
             return bool(viewer and viewer.is_authenticated and viewer.id == self.author_id)
         if self.visibility == 'public':
@@ -467,6 +485,9 @@ class Answer(db.Model):
     )
 
     def can_view(self, viewer):
+        if viewer and viewer.is_authenticated:
+            if self.author and (self.author.has_blocked_platform(viewer) or viewer.has_blocked_platform(self.author)):
+                return False
         if self.visibility == 'public':
             return True
         if viewer and viewer.is_authenticated:

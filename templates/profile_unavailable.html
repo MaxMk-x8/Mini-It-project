@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="max-width: 620px; margin: 40px auto; text-align: center; padding: 40px 24px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+    <div style="font-size: 3.5rem; margin-bottom: 16px;">🔒</div>
+    <h2 style="margin: 0 0 10px 0; color: #1E293B; font-size: 1.6rem;">This Profile is Unavailable</h2>
+    <p style="margin: 0 0 24px 0; color: #64748B; font-size: 0.98rem; line-height: 1.5;">
+        The profile you are trying to view is restricted or no longer accessible due to user privacy settings.
+    </p>
+    <div style="display: flex; justify-content: center; gap: 12px;">
+        <a href="{{ url_for('qa_list') }}" style="display: inline-block; padding: 9px 18px; background: #004B98; color: #FFFFFF; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 0.92rem;">
+            Go to Q&A Hub
+        </a>
+        <a href="{{ url_for('home') }}" style="display: inline-block; padding: 9px 18px; background: #F1F5F9; color: #1E293B; text-decoration: none; border: 1px solid #CBD5E1; border-radius: 6px; font-weight: 600; font-size: 0.92rem;">
+            Back to Home
+        </a>
+    </div>
+</div>
+
+{% endblock %}

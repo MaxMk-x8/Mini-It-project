@@ -368,7 +368,7 @@
             <!-- Display Nested Replies -->
             {% if ans.replies %}
                 <div style="margin-top: 14px;">
-                    {% for reply in ans.replies %}
+                    {% for reply in ans.replies if reply.can_view(current_user) %}
                         <div id="answer-{{ reply.id }}" class="qa-reply-card">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; font-size: 0.88rem; flex-wrap: wrap; gap: 6px;">
                                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
