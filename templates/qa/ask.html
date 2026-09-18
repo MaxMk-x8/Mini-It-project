@@ -4,17 +4,18 @@
 {% include "qa/_qa_styles.html" %}
 
 <div class="qa-container">
-<div style="margin-bottom: 16px;">
-    <a href="{{ url_for('qa_list') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{{ url_for('qa_list') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
         &larr; Back to Q&A Discussions
     </a>
+    <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
 </div>
 
 <div class="qa-card" style="max-width: 750px; margin: 0 auto; padding: 28px 32px;">
-    <div style="border-bottom: 2px solid var(--primary-blue-subtle); padding-bottom: 14px; margin-bottom: 22px;">
+    <div class="qa-brand-header">
         <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.5rem;">✍️ Ask a Question</h2>
         <p style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
-            Provide clear details, select your faculty, and optionally attach screenshots to help peers and professors answer effectively.
+            Provide clear details, select your faculty, and optionally attach screenshots to help <span class="qa-glass-mmu">MMU</span> peers and professors answer effectively.
         </p>
     </div>
 

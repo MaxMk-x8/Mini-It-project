@@ -236,13 +236,24 @@ def process_mentions(content_text, author, content_type, content_id, question_id
 @app.template_filter('render_mentions')
 def render_mentions_filter(text):
     """
-    Converts valid @username mentions into safe, clickable profile links.
+    Converts valid @username mentions into rich clickable hover cards and 
+    formats markdown code blocks into styled IDE blocks with copy buttons.
     Escapes general HTML content first to prevent XSS.
     """
     if not text:
         return ''
 
-    escaped_text = str(escape(text))
+    # Extract code blocks before escaping
+    code_blocks = []
+    def save_code(match):
+        lang = (match.group(1) or 'code').strip().lower()
+        code = match.group(2)
+        idx = len(code_blocks)
+        code_blocks.append((lang, code))
+        return f"__CODE_BLOCK_{idx}__"
+
+    text_processed = re.sub(r'```([a-zA-Z0-9_+-]*)\n?(.*?)```', save_code, text, flags=re.DOTALL)
+    escaped_text = str(escape(text_processed))
 
     def replace_mention(match):
         uname = match.group(1)
@@ -253,11 +264,47 @@ def render_mentions_filter(text):
                 profile_link = url_for('public_profile', username=user.username) if has_request_context() else f"/user/{user.username}"
             except Exception:
                 profile_link = f"/user/{user.username}"
-            return f'<a href="{profile_link}" style="font-weight: 600; text-decoration: underline;">@{user.username}</a>'
+
+            avatar_html = f'<img src="{escape(user.avatar_url)}" class="qa-avatar qa-avatar-sm">' if user.avatar_url else f'<div class="qa-avatar-default qa-avatar-sm">{escape(user.username[:2])}</div>'
+            prof_badge = '<span class="badge badge-professor" style="font-size:0.68rem;padding:1px 5px;">🎓 Prof</span>' if user.is_professor() else ''
+
+            return (
+                f'<span class="qa-mention-wrapper">'
+                f'<a href="{profile_link}" class="qa-mention-tag">@{escape(user.username)}</a>'
+                f'<span class="qa-hover-card">'
+                f'<span class="qa-hover-header">'
+                f'{avatar_html}'
+                f'<span style="display:flex;flex-direction:column;gap:1px;text-align:left;">'
+                f'<strong style="color:var(--text-color);font-size:0.88rem;display:flex;align-items:center;gap:4px;">@{escape(user.username)} {prof_badge}</strong>'
+                f'<span style="color:var(--text-muted);font-size:0.75rem;">{escape(user.role or "Student")}</span>'
+                f'</span>'
+                f'</span>'
+                f'<span class="qa-hover-footer">'
+                f'<span>⭐ {user.reputation_points} pts</span>'
+                f'<span>{escape(user.faculty or "")}</span>'
+                f'</span>'
+                f'</span>'
+                f'</span>'
+            )
         return match.group(0)
 
     mention_pattern = r'(?<![\w@])@([a-zA-Z0-9_]{3,50})\b'
     linked_text = re.sub(mention_pattern, replace_mention, escaped_text)
+
+    # Restore code blocks safely escaped
+    for idx, (lang, raw_code) in enumerate(code_blocks):
+        escaped_code = str(escape(raw_code.strip()))
+        block_html = (
+            f'<div class="qa-code-wrapper">'
+            f'<div class="qa-code-header">'
+            f'<span><span class="qa-code-dot red"></span><span class="qa-code-dot yellow"></span><span class="qa-code-dot green"></span> {escape(lang.upper() if lang else "CODE")}</span>'
+            f'<button type="button" class="qa-code-copy-btn" onclick="copyCodeBlock(this)">&#128203; Copy</button>'
+            f'</div>'
+            f'<pre class="language-{escape(lang)}"><code>{escaped_code}</code></pre>'
+            f'</div>'
+        )
+        linked_text = linked_text.replace(f"__CODE_BLOCK_{idx}__", block_html)
+
     return Markup(linked_text)
 
 

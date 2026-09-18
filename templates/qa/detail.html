@@ -4,10 +4,11 @@
 {% include "qa/_qa_styles.html" %}
 
 <div class="qa-container">
-<div style="margin-bottom: 16px;">
-    <a href="{{ url_for('qa_list') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{{ url_for('qa_list') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
         &larr; Back to Q&A Discussions
     </a>
+    <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
 </div>
 
 <!-- Main Question Card -->
