@@ -4,10 +4,11 @@
 {% include "qa/_qa_styles.html" %}
 
 <div class="qa-container">
-<div style="margin-bottom: 16px;">
-    <a href="{{ url_for('qa_list') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{{ url_for('qa_list') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
         &larr; Back to Q&A Discussions
     </a>
+    <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
 </div>
 
 <!-- Main Question Card -->
@@ -30,9 +31,16 @@
                         </button>
                     {% endif %}
                 </form>
-                <button type="button" onclick="openReportModal('question', {{ question.id }}, '{{ question.title|replace('\'', '\\\'') }}')" class="btn btn-danger btn-sm" title="Report this question">
-                    🚩 Report
-                </button>
+
+                <!-- 3 Dot Options -->
+                <details style="position: relative; display: inline-block;">
+                    <summary class="qa-dots-btn" title="More options" style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-weight: bold; background: var(--surface-card); color: var(--text-color);">⋮</summary>
+                    <div style="position: absolute; right: 0; top: calc(100% + 4px); background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px; box-shadow: var(--shadow-md); z-index: 100; min-width: 110px;">
+                        <button type="button" onclick="openReportModal('question', {{ question.id }}, '{{ question.title|replace('\'', '\\\'') }}')" class="btn btn-danger btn-sm" style="width: 100%; white-space: nowrap;" title="Report this question">
+                            🚩 Report
+                        </button>
+                    </div>
+                </details>
             </div>
         {% endif %}
     </div>
@@ -79,11 +87,21 @@
             </strong>
             <div style="display: flex; flex-wrap: wrap; gap: 12px;">
                 {% for att in question.attachments %}
-                    <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 4px; background: var(--bg-color); text-align: center; cursor: pointer; box-shadow: var(--shadow-sm); transition: transform 0.15s ease;" onclick="openImageModal('{{ url_for('serve_screenshot', filename=att.stored_filename) }}', '{{ att.filename }}')">
-                        <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 120px; height: 80px; object-fit: cover; border-radius: 4px; display: block;">
-                        <span style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px; display: block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            {{ att.filename }}
-                        </span>
+                    <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 4px; background: var(--bg-color); text-align: center; box-shadow: var(--shadow-sm); max-width: 128px;">
+                        <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank" style="text-decoration: none; display: block;" title="Click to view full image">
+                            <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 120px; height: 80px; object-fit: cover; border-radius: 4px; display: block;">
+                            <span style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px; display: block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ att.filename }}
+                            </span>
+                        </a>
+                        {% if current_user.is_authenticated and (current_user.id == att.uploader_id or current_user.is_admin()) %}
+                            <form method="POST" action="{{ url_for('delete_qa_attachment', attachment_id=att.id) }}" style="margin: 4px 0 0 0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm" style="padding: 1px 6px; font-size: 0.7rem; background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; border-radius: 3px; cursor: pointer; width: 100%;">
+                                    🗑 Delete
+                                </button>
+                            </form>
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>
@@ -197,41 +215,55 @@
                 </div>
             {% endif %}
 
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
-                <a href="{{ url_for('public_profile', username=ans.author.username) }}" style="text-decoration: none;" title="@{{ ans.author.username }}">
-                    {% if ans.author.avatar_url %}
-                        <img src="{{ ans.author.avatar_url }}" alt="{{ ans.author.username }}" class="qa-avatar qa-avatar-md">
-                    {% else %}
-                        <div class="qa-avatar-default qa-avatar-md">{{ ans.author.username[:2] }}</div>
-                    {% endif %}
-                </a>
-                <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                        <a href="{{ url_for('public_profile', username=ans.author.username) }}" style="font-weight: 700; color: var(--primary-blue); text-decoration: none;">
-                            @{{ ans.author.username }}
-                        </a> 
-                        {% if ans.author and ans.author.is_professor() %}
-                            <span class="badge badge-faculty">PROFESSOR</span>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <a href="{{ url_for('public_profile', username=ans.author.username) }}" style="text-decoration: none;" title="@{{ ans.author.username }}">
+                        {% if ans.author.avatar_url %}
+                            <img src="{{ ans.author.avatar_url }}" alt="{{ ans.author.username }}" class="qa-avatar qa-avatar-md">
+                        {% else %}
+                            <div class="qa-avatar-default qa-avatar-md">{{ ans.author.username[:2] }}</div>
                         {% endif %}
-                        {% if loop.first and ans.total_points > 0 %}
-                            <span class="badge badge-best-answer">
-                                ✓ TOP ANSWER ({{ ans.total_points }} pts)
-                            </span>
-                        {% elif ans.total_points > 0 and not ans.has_professor_endorsement %}
-                            <span class="badge badge-category">
-                                ⭐ {{ ans.total_points }} pts ({{ ans.best_marks_count }} mark{% if ans.best_marks_count > 1 %}s{% endif %})
-                            </span>
-                        {% endif %}
-                        {% if ans.visibility == 'friends' %}
-                            <span class="badge badge-visibility">👥 Friends Only</span>
-                        {% endif %}
-                    </div>
-                    <div style="color: var(--text-muted); font-size: 0.82rem; display: flex; align-items: center; gap: 6px;">
-                        <span>{{ ans.author.role }} • ⭐ {{ ans.author.reputation_points }} pts</span>
-                        <span>•</span>
-                        <span>{{ ans.created_at.strftime('%b %d, %Y %H:%M') }} UTC</span>
+                    </a>
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <a href="{{ url_for('public_profile', username=ans.author.username) }}" style="font-weight: 700; color: var(--primary-blue); text-decoration: none;">
+                                @{{ ans.author.username }}
+                            </a> 
+                            {% if ans.author and ans.author.is_professor() %}
+                                <span class="badge badge-faculty">PROFESSOR</span>
+                            {% endif %}
+                            {% if loop.first and ans.total_points > 0 %}
+                                <span class="badge badge-best-answer">
+                                    ✓ TOP ANSWER ({{ ans.total_points }} pts)
+                                </span>
+                            {% elif ans.total_points > 0 and not ans.has_professor_endorsement %}
+                                <span class="badge badge-category">
+                                    ⭐ {{ ans.total_points }} pts ({{ ans.best_marks_count }} mark{% if ans.best_marks_count > 1 %}s{% endif %})
+                                </span>
+                            {% endif %}
+                            {% if ans.visibility == 'friends' %}
+                                <span class="badge badge-visibility">👥 Friends Only</span>
+                            {% endif %}
+                        </div>
+                        <div style="color: var(--text-muted); font-size: 0.82rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span>{{ ans.author.role }} • ⭐ {{ ans.author.reputation_points }} pts{% if ans.author.professor_endorsements_count > 0 %} • 🎓 {{ ans.author.professor_endorsements_count }} Super Endorsements{% endif %}</span>
+                            <span>•</span>
+                            <span>{{ ans.created_at.strftime('%b %d, %Y %H:%M') }} UTC</span>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Answer 3-Dot Options Menu -->
+                {% if current_user.is_authenticated %}
+                    <details style="position: relative; display: inline-block; margin-left: auto;">
+                        <summary class="qa-dots-btn" title="More options" style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-weight: bold; background: var(--surface-card); color: var(--text-color);">⋮</summary>
+                        <div style="position: absolute; right: 0; top: calc(100% + 4px); background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px; box-shadow: var(--shadow-md); z-index: 100; min-width: 110px;">
+                            <button type="button" onclick="openReportModal('answer', {{ ans.id }}, 'Answer #{{ ans.id }} by {{ ans.author.username }}')" class="btn btn-danger btn-sm" style="width: 100%; white-space: nowrap;" title="Report this answer">
+                                🚩 Report
+                            </button>
+                        </div>
+                    </details>
+                {% endif %}
             </div>
 
             <div style="white-space: pre-wrap; margin-bottom: 14px; line-height: 1.5; color: var(--text-color);">{{ ans.content|render_mentions }}</div>
@@ -244,11 +276,21 @@
                     </span>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                         {% for att in ans.attachments %}
-                            <div style="border: 1px solid var(--border-color); border-radius: 4px; padding: 3px; background: var(--surface-card); text-align: center; cursor: pointer;" onclick="openImageModal('{{ url_for('serve_screenshot', filename=att.stored_filename) }}', '{{ att.filename }}')">
-                                <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 100px; height: 65px; object-fit: cover; border-radius: 3px; display: block;">
-                                <span style="font-size: 0.72rem; color: var(--primary-blue); margin-top: 2px; display: block; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    {{ att.filename }}
-                                </span>
+                            <div style="border: 1px solid var(--border-color); border-radius: 4px; padding: 3px; background: var(--surface-card); text-align: center; max-width: 108px;">
+                                <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank" style="text-decoration: none; display: block;" title="Click to view full image">
+                                    <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 100px; height: 65px; object-fit: cover; border-radius: 3px; display: block;">
+                                    <span style="font-size: 0.72rem; color: var(--primary-blue); margin-top: 3px; display: block; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        {{ att.filename }}
+                                    </span>
+                                </a>
+                                {% if current_user.is_authenticated and (current_user.id == att.uploader_id or current_user.is_admin()) %}
+                                    <form method="POST" action="{{ url_for('delete_qa_attachment', attachment_id=att.id) }}" style="margin: 3px 0 0 0;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <button type="submit" class="btn btn-sm" style="padding: 1px 4px; font-size: 0.65rem; background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; border-radius: 3px; cursor: pointer; width: 100%;">
+                                            🗑 Delete
+                                        </button>
+                                    </form>
+                                {% endif %}
                             </div>
                         {% endfor %}
                     </div>
@@ -327,13 +369,6 @@
                         &#x21A9; Reply
                     </a>
                 {% endif %}
-
-                <!-- Report Answer Button -->
-                {% if current_user.is_authenticated %}
-                    <button type="button" onclick="openReportModal('answer', {{ ans.id }}, 'Answer #{{ ans.id }} by {{ ans.author.username }}')" class="btn btn-danger btn-sm" style="margin-left: auto; background: none; border: none; padding: 0; font-size: 0.85rem;" title="Report this answer">
-                        🚩 Report
-                    </button>
-                {% endif %}
             </div>
 
             <!-- Reply Input Form -->
@@ -352,8 +387,7 @@
                         <!-- Reply Screenshot Upload -->
                         <div style="margin-bottom: 12px; font-size: 0.85rem;">
                             <label style="font-weight: 600; color: var(--text-color);">📷 Attach screenshots (optional, max 3):</label>
-                            <input type="file" name="reply_screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewImages(this, 'reply-preview-{{ ans.id }}', 'reply-msg-{{ ans.id }}')" style="margin-top: 4px; display: block; color: var(--text-color);">
-                            <p id="reply-msg-{{ ans.id }}" style="display: none; color: var(--primary-red); margin: 4px 0 0 0; font-weight: 600;"></p>
+                            <input type="file" name="reply_screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewWithRemove(this, 'reply-preview-{{ ans.id }}')" style="margin-top: 4px; display: block; color: var(--text-color);">
                             <div id="reply-preview-{{ ans.id }}" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;"></div>
                         </div>
 
@@ -368,7 +402,7 @@
             <!-- Display Nested Replies -->
             {% if ans.replies %}
                 <div style="margin-top: 14px;">
-                    {% for reply in ans.replies %}
+                    {% for reply in ans.replies if reply.can_view(current_user) %}
                         <div id="answer-{{ reply.id }}" class="qa-reply-card">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; font-size: 0.88rem; flex-wrap: wrap; gap: 6px;">
                                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -404,9 +438,16 @@
                                                 </button>
                                             {% endif %}
                                         </form>
-                                        <button type="button" onclick="openReportModal('reply', {{ reply.id }}, 'Reply #{{ reply.id }} by {{ reply.author.username }}')" class="btn btn-danger btn-sm" style="background: none; border: none; padding: 0; font-size: 0.8rem;" title="Report this reply">
-                                            🚩 Report
-                                        </button>
+
+                                        <!-- Reply 3-Dot Options Menu -->
+                                        <details style="position: relative; display: inline-block;">
+                                            <summary class="qa-dots-btn" title="More options" style="width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-weight: bold; background: var(--surface-card); color: var(--text-color); font-size: 0.9rem;">⋮</summary>
+                                            <div style="position: absolute; right: 0; top: calc(100% + 4px); background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px; box-shadow: var(--shadow-md); z-index: 100; min-width: 110px;">
+                                                <button type="button" onclick="openReportModal('reply', {{ reply.id }}, 'Reply #{{ reply.id }} by {{ reply.author.username }}')" class="btn btn-danger btn-sm" style="width: 100%; white-space: nowrap;" title="Report this reply">
+                                                    🚩 Report
+                                                </button>
+                                            </div>
+                                        </details>
                                     {% endif %}
                                 </div>
                             </div>
@@ -418,8 +459,18 @@
                                 <div style="margin-bottom: 8px; padding: 6px 8px; background: var(--surface-card); border-radius: 4px; border: 1px solid var(--border-color);">
                                     <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                                         {% for r_att in reply.attachments %}
-                                            <div style="border: 1px solid var(--border-color); border-radius: 3px; padding: 2px; background: var(--bg-color); text-align: center; cursor: pointer;" onclick="openImageModal('{{ url_for('serve_screenshot', filename=r_att.stored_filename) }}', '{{ r_att.filename }}')">
-                                                <img src="{{ url_for('serve_screenshot', filename=r_att.stored_filename) }}" alt="{{ r_att.filename }}" style="width: 80px; height: 50px; object-fit: cover; border-radius: 2px; display: block;">
+                                            <div style="border: 1px solid var(--border-color); border-radius: 3px; padding: 2px; background: var(--bg-color); text-align: center; max-width: 86px;">
+                                                <a href="{{ url_for('serve_screenshot', filename=r_att.stored_filename) }}" target="_blank" style="text-decoration: none; display: block;" title="Click to view full image">
+                                                    <img src="{{ url_for('serve_screenshot', filename=r_att.stored_filename) }}" alt="{{ r_att.filename }}" style="width: 80px; height: 50px; object-fit: cover; border-radius: 2px; display: block;">
+                                                </a>
+                                                {% if current_user.is_authenticated and (current_user.id == r_att.uploader_id or current_user.is_admin()) %}
+                                                    <form method="POST" action="{{ url_for('delete_qa_attachment', attachment_id=r_att.id) }}" style="margin: 2px 0 0 0;">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                        <button type="submit" class="btn btn-sm" style="padding: 0 3px; font-size: 0.62rem; background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; border-radius: 2px; cursor: pointer; width: 100%;">
+                                                            🗑 Del
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
                                             </div>
                                         {% endfor %}
                                     </div>
@@ -486,8 +537,7 @@
                 <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: var(--text-muted);">
                     Upload up to 3 images (PNG, JPG, JPEG, WebP). Maximum 5 MB per image.
                 </p>
-                <input type="file" id="screenshots" name="screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewImages(this, 'ans-preview-container', 'ans-preview-msg')" style="font-size: 0.9rem; color: var(--text-color);">
-                <p id="ans-preview-msg" style="display: none; color: var(--primary-red); font-size: 0.85rem; margin: 6px 0 0 0; font-weight: 600;"></p>
+                <input type="file" id="screenshots" name="screenshots" multiple accept="image/png, image/jpeg, image/webp" onchange="previewWithRemove(this, 'ans-preview-container')" style="font-size: 0.9rem; color: var(--text-color);">
                 <div id="ans-preview-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;"></div>
             </div>
 
@@ -500,17 +550,6 @@
             <a href="{{ url_for('login') }}" class="btn btn-primary">Log in</a> to post an answer to this question.
         </p>
     {% endif %}
-</div>
-
-<!-- Image Lightbox Modal -->
-<div id="image-modal" class="qa-modal-overlay" onclick="closeImageModal(event)">
-    <div class="qa-modal-content" onclick="event.stopPropagation();">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <span id="modal-caption" style="font-weight: 600; color: var(--text-color); font-size: 0.95rem; max-width: 80%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
-            <button type="button" onclick="closeImageModal()" class="btn btn-secondary btn-sm">&times;</button>
-        </div>
-        <img id="modal-image" class="qa-modal-img" src="" alt="Enlarged preview">
-    </div>
 </div>
 
 <!-- Report Dialog Modal -->
@@ -563,85 +602,31 @@
 
 <!-- Interactive Scripts -->
 <script>
+    // --- Image Preview with Individual Cancel ✕ button ---
+    function previewWithRemove(input, containerId) {
+        var c = document.getElementById(containerId), dt = new DataTransfer();
+        Array.from(input.files).slice(0, 3).forEach(function(f) { dt.items.add(f); });
+        input.files = dt.files;
+        c.innerHTML = '';
+        Array.from(input.files).forEach(function(f, i) {
+            var el = document.createElement('div');
+            el.className = 'qa-preview-item';
+            el.innerHTML = '<img src="' + URL.createObjectURL(f) + '"><button type="button" class="qa-preview-del" title="Remove">&times;</button>';
+            el.querySelector('button').onclick = function() {
+                var ndt = new DataTransfer();
+                Array.from(input.files).forEach(function(x, idx) { if (idx !== i) ndt.items.add(x); });
+                input.files = ndt.files;
+                previewWithRemove(input, containerId);
+            };
+            c.appendChild(el);
+        });
+    }
+
     // --- Toggle Reply Box ---
     function toggleReplyBox(id) {
         var box = document.getElementById(id);
         if (box) {
             box.style.display = (box.style.display === 'block') ? 'none' : 'block';
-        }
-    }
-
-    // --- Image Preview Handler ---
-    function previewImages(input, containerId, msgId) {
-        var container = document.getElementById(containerId);
-        var msg = document.getElementById(msgId);
-        container.innerHTML = '';
-        msg.style.display = 'none';
-        msg.innerText = '';
-
-        if (!input.files || input.files.length === 0) return;
-
-        if (input.files.length > 3) {
-            msg.innerText = 'You can select a maximum of 3 images. Only the first 3 will be processed.';
-            msg.style.display = 'block';
-        }
-
-        var count = Math.min(input.files.length, 3);
-        for (var i = 0; i < count; i++) {
-            var file = input.files[i];
-            if (file.size > 5 * 1024 * 1024) {
-                msg.innerText = 'Warning: "' + file.name + '" exceeds the 5 MB limit.';
-                msg.style.display = 'block';
-            }
-
-            var reader = new FileReader();
-            reader.onload = (function(f) {
-                return function(e) {
-                    var card = document.createElement('div');
-                    card.style.border = '1px solid var(--border-color)';
-                    card.style.borderRadius = '6px';
-                    card.style.padding = '4px';
-                    card.style.background = 'var(--surface-card)';
-                    card.style.width = '100px';
-                    card.style.textAlign = 'center';
-                    card.style.boxShadow = 'var(--shadow-sm)';
-
-                    var img = document.createElement('img');
-                    img.src = e.target.result;
-                    img.style.width = '100%';
-                    img.style.height = '65px';
-                    img.style.objectFit = 'cover';
-                    img.style.borderRadius = '3px';
-
-                    var name = document.createElement('div');
-                    name.innerText = f.name.length > 12 ? f.name.substring(0, 10) + '...' : f.name;
-                    name.style.fontSize = '0.75rem';
-                    name.style.marginTop = '4px';
-                    name.style.color = 'var(--text-color)';
-                    name.style.wordBreak = 'break-all';
-
-                    card.appendChild(img);
-                    card.appendChild(name);
-                    container.appendChild(card);
-                };
-            })(file);
-            reader.readAsDataURL(file);
-        }
-    }
-
-    // --- Image Lightbox Modal ---
-    function openImageModal(imgSrc, caption) {
-        document.getElementById('modal-image').src = imgSrc;
-        document.getElementById('modal-caption').innerText = caption || 'Image Preview';
-        var modal = document.getElementById('image-modal');
-        modal.style.display = 'flex';
-    }
-
-    function closeImageModal(event) {
-        if (!event || event.target.id === 'image-modal' || event.target.tagName === 'BUTTON') {
-            var modal = document.getElementById('image-modal');
-            modal.style.display = 'none';
-            document.getElementById('modal-image').src = '';
         }
     }
 
@@ -720,7 +705,6 @@
     // Close modals on Esc key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            closeImageModal();
             closeReportModal();
         }
     });

@@ -1,92 +1,290 @@
 {% extends "base.html" %}
 {% block content %}
+{% include "_chat_styles.html" %}
 
-<div>
-    <p><a href="{{ url_for('chat_list') }}">&larr; Back to All Conversations</a></p>
-    
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div>
-            {% if peer.avatar_url %}
-                <img src="{{ peer.avatar_url }}" alt="{{ peer.username }}" width="50" height="50" style="border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 10px;">
-            {% else %}
-                <div style="width: 50px; height: 50px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; color: #475569; vertical-align: middle; margin-right: 10px;">
-                    {{ peer.username[:2]|upper }}
+<div class="chat-page-container">
+    <a href="{{ url_for('chat_list') }}" class="btn-chat-back">
+        &larr; Back to All Conversations
+    </a>
+
+    <div class="chat-card">
+        <!-- Chat Peer Header -->
+        <div class="chat-card-header">
+            <div class="chat-peer-profile">
+                <div class="chat-peer-avatar-wrapper">
+                    {% if peer.avatar_url %}
+                        <img src="{{ peer.avatar_url }}" alt="{{ peer.username }}" class="chat-peer-avatar">
+                    {% else %}
+                        <div class="chat-peer-avatar-default">
+                            {{ peer.username[:2]|upper }}
+                        </div>
+                    {% endif %}
                 </div>
-            {% endif %}
-            
-            <div style="display: inline-block; vertical-align: middle;">
-                <h3 style="margin: 0;">
-                    <a href="{{ url_for('public_profile', username=peer.username) }}">@{{ peer.username }}</a>
-                </h3>
-                <small style="color: #64748b;">{{ peer.role }} &bull; {{ peer.faculty }}</small>
+
+                <div class="chat-peer-info">
+                    <h3>
+                        <a href="{{ url_for('public_profile', username=peer.username) }}">@{{ peer.username }}</a>
+                    </h3>
+                    <div class="chat-peer-badges">
+                        <span class="chat-badge chat-badge-role">{{ peer.role }}</span>
+                        <span class="chat-badge chat-badge-faculty">{{ peer.faculty }}</span>
+                        {% if is_blocked_by_me %}
+                            <span class="chat-unread-pill" style="background: #64748b; font-size: 0.7rem;">Blocked</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3-Dots Action Menu -->
+            <div class="chat-header-actions">
+                {% if is_blocked_by_me %}
+                    <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="margin: 0; display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn-header-unblock" title="Unblock @{{ peer.username }}">
+                            <span>✓</span>
+                            <span>Unblock User</span>
+                        </button>
+                    </form>
+                {% endif %}
+
+                <button type="button" class="btn-chat-menu-dots" id="chat-header-menu-btn" title="Conversation options" aria-label="Conversation options">
+                    ⋮
+                </button>
+                <div class="chat-dropdown-menu" id="chat-dropdown-menu">
+                    <a href="{{ url_for('public_profile', username=peer.username) }}" class="chat-dropdown-item">
+                        <span>👤</span>
+                        <span>View Profile</span>
+                    </a>
+                    
+                    <div class="chat-dropdown-divider"></div>
+
+                    {% if is_blocked_by_me %}
+                        <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="chat-dropdown-item success">
+                                <span>✓</span>
+                                <span>Unblock @{{ peer.username }}</span>
+                            </button>
+                        </form>
+                        <button type="button" class="chat-dropdown-item" id="btn-open-block-modal" style="color: #475569;">
+                            <span>⚙️</span>
+                            <span>Edit Block Settings</span>
+                        </button>
+                    {% else %}
+                        <button type="button" class="chat-dropdown-item danger" id="btn-open-block-modal">
+                            <span>🚫</span>
+                            <span>Block User</span>
+                        </button>
+                    {% endif %}
+
+                    <button type="button" class="chat-dropdown-item danger" id="btn-open-report-modal">
+                        <span>🚩</span>
+                        <span>Report Account</span>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div>
-            {% if is_blocked_by_me %}
-                <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="display: inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button type="submit" onclick="return confirm('Unblock @{{ peer.username }}?');">Unblock User</button>
-                </form>
+        <!-- Chat Messages Thread -->
+        <div id="chat-messages-container" class="chat-thread-container">
+            <div id="messages-list">
+                {% if messages %}
+                    {% for m in messages %}
+                        {% set is_mine = (m.sender_id == current_user.id) %}
+                        <div class="chat-message-item {% if is_mine %}mine{% else %}peer{% endif %}" data-message-id="{{ m.id }}">
+                            <div class="{% if is_mine %}chat-bubble-mine{% else %}chat-bubble-peer{% endif %}">
+                                <div class="chat-meta">
+                                    <span>{% if is_mine %}<strong>You</strong>{% else %}<strong>@{{ m.sender.username }}</strong>{% endif %}</span>
+                                    <span class="chat-time-wrap">
+                                        <span class="chat-timestamp">{{ m.created_at.strftime('%b %d, %H:%M') if m.created_at else '' }}</span>
+                                        <span class="chat-edited-tag" id="edited-tag-{{ m.id }}" style="{% if not m.is_edited %}display: none;{% endif %}">(edited)</span>
+                                        {% if is_mine %}
+                                            <span class="chat-tick-status {% if m.is_read %}read{% else %}sent{% endif %}" id="tick-status-{{ m.id }}" title="{% if m.is_read %}Seen{% else %}Sent{% endif %}">
+                                                {% if m.is_read %}✓✓{% else %}✓{% endif %}
+                                            </span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="chat-content" id="msg-content-{{ m.id }}">{{ m.message }}</div>
+                                {% if is_mine %}
+                                    <div class="chat-inline-editor" id="inline-editor-{{ m.id }}" style="display: none;">
+                                        <textarea class="chat-edit-textarea" id="edit-text-{{ m.id }}" rows="2" maxlength="1000">{{ m.message }}</textarea>
+                                        <div class="chat-edit-actions">
+                                            <button type="button" class="btn-chat-edit-cancel" onclick="cancelInlineEdit({{ m.id }})">Cancel</button>
+                                            <button type="button" class="btn-chat-edit-save" onclick="saveInlineEdit({{ m.id }})">Save</button>
+                                        </div>
+                                    </div>
+                                    <div class="chat-bubble-actions" id="bubble-actions-{{ m.id }}">
+                                        <div class="chat-msg-menu-wrap" id="msg-menu-wrap-{{ m.id }}">
+                                            <button type="button" class="btn-msg-dots" id="msg-dots-btn-{{ m.id }}" onclick="toggleMsgMenu(event, {{ m.id }})" title="Message options" aria-label="Message options">
+                                                ⋮
+                                            </button>
+                                            <div class="chat-msg-dropdown" id="msg-dropdown-{{ m.id }}">
+                                                <button type="button" class="chat-msg-dropdown-item" onclick="openInlineEdit({{ m.id }})">
+                                                    <span>✏️</span>
+                                                    <span>Edit</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div id="no-messages-prompt" class="chat-empty-notice">
+                        <span class="chat-empty-icon">💬</span>
+                        <p style="margin: 0; font-weight: 600; font-size: 1.05rem; color: var(--primary-blue-dark);">No messages exchanged yet.</p>
+                        <p style="margin: 4px 0 0 0; font-size: 0.88rem;">Say hello to <strong>@{{ peer.username }}</strong> to begin academic collaboration!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Chat Message Composer or Blocked Banner -->
+        <div class="chat-composer-card">
+            {% if is_messaging_disabled %}
+                <div class="chat-blocked-banner">
+                    <h4>🚫 Messaging is unavailable with this user.</h4>
+                    <p>
+                        {% if is_blocked_by_me %}
+                            You have blocked @{{ peer.username }}.
+                            <form method="POST" action="{{ url_for('chat_unblock_user', username=peer.username) }}" style="display: inline-block; margin-top: 8px;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn-chat-outline" style="background: #FFFFFF; padding: 5px 16px; font-size: 0.88rem; font-weight: bold; color: #059669; border-color: #10B981;">
+                                    ✓ Unblock @{{ peer.username }}
+                                </button>
+                            </form>
+                        {% else %}
+                            This user has restricted private messages.
+                        {% endif %}
+                    </p>
+                </div>
             {% else %}
-                <form method="POST" action="{{ url_for('chat_block_user', username=peer.username) }}" style="display: inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button type="submit" style="color: #dc2626;" onclick="return confirm('Block private messages from @{{ peer.username }}?');">Block User</button>
+                <form id="chat-form" method="POST" action="{{ url_for('chat_conversation', username=peer.username) }}">
+                    {{ form.hidden_tag() }}
+                    <div>
+                        {{ form.message(id="chat-input", class="chat-textarea", rows="3", placeholder="Write a private message to @" ~ peer.username ~ " (max 1000 characters)...") }}
+                    </div>
+                    <div class="chat-composer-footer">
+                        <div class="chat-guidelines-hint">
+                            <span>🛡️</span>
+                            <span>Academic discourse only. Profanity is strictly prohibited.</span>
+                        </div>
+                        <button type="submit" id="chat-submit-btn" class="btn-chat-send">
+                            <span>Send Message</span>
+                            <span>➤</span>
+                        </button>
+                    </div>
                 </form>
             {% endif %}
         </div>
     </div>
 </div>
 
-<hr>
+<!-- Block User Modal Dialog -->
+<div class="chat-modal-overlay" id="block-user-modal" aria-hidden="true">
+    <div class="chat-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="block-modal-title">
+        <div class="chat-modal-header">
+            <h3 id="block-modal-title">
+                <span>🚫</span> {% if is_blocked_by_me %}Block Settings: @{{ peer.username }}{% else %}Block @{{ peer.username }}{% endif %}
+            </h3>
+            <button type="button" class="chat-modal-close-btn" id="block-modal-close-btn" aria-label="Close modal">✕</button>
+        </div>
 
-{# Chat Messages Thread #}
-<div id="chat-messages-container" style="min-height: 300px; max-height: 500px; overflow-y: auto; border: 1px solid #cbd5e1; padding: 15px; border-radius: 4px; background: #f8fafc; margin-bottom: 20px;">
-    {% if messages %}
-        <div id="messages-list">
-            {% for m in messages %}
-                <div class="chat-message-item" data-message-id="{{ m.id }}" style="margin-bottom: 12px; text-align: {% if m.sender_id == current_user.id %}right{% else %}left{% endif %};">
-                    <div style="display: inline-block; max-width: 70%; padding: 8px 12px; border-radius: 6px; text-align: left; background: {% if m.sender_id == current_user.id %}#dbeafe; border: 1px solid #bfdbfe;{% else %}#ffffff; border: 1px solid #e2e8f0;{% endif %}">
-                        <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 2px;">
-                            <strong>{% if m.sender_id == current_user.id %}You{% else %}@{{ m.sender.username }}{% endif %}</strong> &bull; {{ m.created_at.strftime('%b %d, %H:%M') if m.created_at else '' }}
+        <form method="POST" action="{{ url_for('chat_block_user', username=peer.username) }}" id="block-user-form" class="chat-modal-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="reason" id="selected-block-reason" value="Harassment or Bullying"/>
+
+            <div class="chat-modal-body">
+                <div class="chat-modal-section-title">1. Choose Block Scope</div>
+                <div class="chat-scope-group">
+                    <label class="chat-scope-card selected" id="scope-card-chat">
+                        <input type="radio" name="block_scope" value="chat" checked />
+                        <div class="chat-scope-card-content">
+                            <h5>💬 Block on Chat only</h5>
+                            <p>@{{ peer.username }} won't be able to send you private messages. You won't receive chat notifications from them.</p>
                         </div>
-                        <div style="word-break: break-word; white-space: pre-wrap;">{{ m.message }}</div>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div id="messages-list">
-            <p id="no-messages-prompt" style="color: #64748b; text-align: center;">No messages exchanged yet. Say hello to @{{ peer.username }}!</p>
-        </div>
-    {% endif %}
-</div>
+                    </label>
 
-{# Chat Message Composer / Blocked Banner #}
-<div>
-    {% if is_messaging_disabled %}
-        <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 4px; padding: 12px; color: #991b1b; text-align: center;">
-            <p style="margin: 0; font-weight: bold;">🚫 Messaging is unavailable with this user.</p>
-            <p style="margin: 5px 0 0 0; font-size: 0.9rem;">
-                {% if is_blocked_by_me %}
-                    You have blocked @{{ peer.username }}. Unblock this user above to send messages.
-                {% else %}
-                    This user has restricted private messages.
-                {% endif %}
-            </p>
-        </div>
-    {% else %}
-        <form id="chat-form" method="POST" action="{{ url_for('chat_conversation', username=peer.username) }}">
-            {{ form.hidden_tag() }}
-            <div>
-                {{ form.message(id="chat-input", rows="3", style="width: 100%; box-sizing: border-box; padding: 8px;", placeholder="Write a private message to @" ~ peer.username ~ " (max 1000 characters)...") }}
+                    <label class="chat-scope-card" id="scope-card-platform">
+                        <input type="radio" name="block_scope" value="platform" />
+                        <div class="chat-scope-card-content">
+                            <h5>🌐 Block everywhere on CodeNest</h5>
+                            <p>Block private messages, hide profile interactions, and avoid direct Q&A engagements across CodeNest.</p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="chat-modal-section-title">2. Reason for blocking (optional)</div>
+                <div class="chat-reason-grid" id="reason-chips-container">
+                    <button type="button" class="chat-reason-chip selected" data-reason="Harassment or Bullying">
+                        🚫 Harassment / Bullying
+                    </button>
+                    <button type="button" class="chat-reason-chip" data-reason="Spam or Unwanted Ads">
+                        📢 Spam / Scams
+                    </button>
+                    <button type="button" class="chat-reason-chip" data-reason="Inappropriate Content">
+                        ⚠️ Inappropriate Content
+                    </button>
+                    <button type="button" class="chat-reason-chip" data-reason="Fake Account / Impersonation">
+                        🎭 Impersonation
+                    </button>
+                    <button type="button" class="chat-reason-chip" data-reason="Other">
+                        📝 Other
+                    </button>
+                </div>
+
+                <div class="chat-modal-section-title">3. Additional Details (Optional)</div>
+                <textarea name="details" class="chat-modal-textarea" placeholder="Briefly describe what happened or any context (optional)..." rows="2"></textarea>
+
+                <div class="chat-modal-info-box">
+                    <strong>ℹ️ Remember:</strong> @{{ peer.username }} will not be notified that you blocked them. You can unblock them at any time from this chat header or options menu.
+                </div>
             </div>
-            <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
-                <small style="color: #64748b;">Academic discourse only. Profanity is strictly prohibited.</small>
-                {{ form.submit(id="chat-submit-btn") }}
+
+            <div class="chat-modal-footer">
+                <button type="button" class="btn-modal-cancel" id="btn-cancel-block">Cancel</button>
+                <button type="submit" class="btn-modal-confirm-block" id="btn-submit-block">
+                    <span>✓</span> Done - Block @{{ peer.username }}
+                </button>
             </div>
         </form>
-    {% endif %}
+    </div>
+</div>
+
+<!-- Report User Modal Dialog -->
+<div class="chat-modal-overlay" id="report-user-modal" aria-hidden="true">
+    <div class="chat-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+        <div class="chat-modal-header">
+            <h3 id="report-modal-title"><span>🚩</span> Report @{{ peer.username }}</h3>
+            <button type="button" class="chat-modal-close-btn" id="report-modal-close-btn" aria-label="Close modal">✕</button>
+        </div>
+        <form method="POST" action="{{ url_for('submit_report') }}" id="report-user-form" class="chat-modal-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="content_type" value="user"/>
+            <input type="hidden" name="content_id" value="{{ peer.id }}"/>
+            <input type="hidden" name="reason" id="selected-report-reason" value="Harassment or Bullying"/>
+            <div class="chat-modal-body">
+                <div class="chat-modal-section-title">1. Reason for Reporting</div>
+                <div class="chat-reason-grid" id="report-reason-chips">
+                    <button type="button" class="chat-reason-chip selected" data-reason="Harassment or Bullying">🚫 Harassment / Bullying</button>
+                    <button type="button" class="chat-reason-chip" data-reason="Spam or Unwanted Ads">📢 Spam / Scams</button>
+                    <button type="button" class="chat-reason-chip" data-reason="Inappropriate Content">⚠️ Inappropriate Content</button>
+                    <button type="button" class="chat-reason-chip" data-reason="Fake Account / Impersonation">🎭 Impersonation</button>
+                </div>
+                <div class="chat-modal-section-title">2. Additional Details (Optional)</div>
+                <textarea name="details" class="chat-modal-textarea" placeholder="Explain why you are reporting this account..." rows="2"></textarea>
+                <div class="chat-modal-info-box">
+                    <strong>🛡️ Moderation:</strong> Reports are sent directly to {{ peer.faculty }} faculty moderators and administrators for review.
+                </div>
+            </div>
+            <div class="chat-modal-footer">
+                <button type="button" class="btn-modal-cancel" id="btn-cancel-report">Cancel</button>
+                <button type="submit" class="btn-modal-confirm-block"><span>🚩</span> Submit Report</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -99,7 +297,269 @@
     var peerUsername = {{ peer.username|tojson }};
     var currentUserId = {{ current_user.id }};
     var pollUrl = "{{ url_for('chat_poll', username=peer.username) }}";
+    var csrfToken = "{{ csrf_token() }}";
 
+    // --- 3-Dot Message Menu & Inline Editing ---
+    window.toggleMsgMenu = function(e, msgId) {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        var dropdown = document.getElementById('msg-dropdown-' + msgId);
+        var dotsBtn = document.getElementById('msg-dots-btn-' + msgId);
+        if (!dropdown) return;
+
+        var wasOpen = dropdown.classList.contains('show');
+        document.querySelectorAll('.chat-msg-dropdown.show').forEach(function(d) {
+            d.classList.remove('show');
+        });
+        document.querySelectorAll('.btn-msg-dots.active').forEach(function(b) {
+            b.classList.remove('active');
+        });
+
+        if (!wasOpen) {
+            dropdown.classList.add('show');
+            if (dotsBtn) dotsBtn.classList.add('active');
+        }
+    };
+
+    window.openInlineEdit = function(msgId) {
+        var dropdown = document.getElementById('msg-dropdown-' + msgId);
+        if (dropdown) dropdown.classList.remove('show');
+        var dotsBtn = document.getElementById('msg-dots-btn-' + msgId);
+        if (dotsBtn) dotsBtn.classList.remove('active');
+
+        var contentDiv = document.getElementById('msg-content-' + msgId);
+        var editorDiv = document.getElementById('inline-editor-' + msgId);
+        var actionsDiv = document.getElementById('bubble-actions-' + msgId);
+        var textarea = document.getElementById('edit-text-' + msgId);
+
+        if (contentDiv && editorDiv) {
+            contentDiv.style.display = 'none';
+            if (actionsDiv) actionsDiv.style.display = 'none';
+            editorDiv.style.display = 'block';
+            if (textarea) {
+                textarea.focus();
+                textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+            }
+        }
+    };
+
+    window.cancelInlineEdit = function(msgId) {
+        var contentDiv = document.getElementById('msg-content-' + msgId);
+        var editorDiv = document.getElementById('inline-editor-' + msgId);
+        var actionsDiv = document.getElementById('bubble-actions-' + msgId);
+        var textarea = document.getElementById('edit-text-' + msgId);
+
+        if (contentDiv && editorDiv) {
+            if (textarea) {
+                textarea.value = contentDiv.textContent.trim();
+            }
+            editorDiv.style.display = 'none';
+            contentDiv.style.display = 'block';
+            if (actionsDiv) actionsDiv.style.display = '';
+        }
+    };
+
+    window.saveInlineEdit = function(msgId) {
+        var textarea = document.getElementById('edit-text-' + msgId);
+        if (!textarea) return;
+
+        var newText = textarea.value.trim();
+        if (!newText) {
+            alert('Message cannot be empty.');
+            return;
+        }
+
+        var saveBtn = document.querySelector('#inline-editor-' + msgId + ' .btn-chat-edit-save');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+        }
+
+        fetch('/chat/message/' + msgId + '/edit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ message: newText })
+        })
+        .then(function(res) {
+            return res.json().then(function(data) {
+                return { status: res.status, data: data };
+            });
+        })
+        .then(function(result) {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save';
+            }
+            if (result.data && result.data.success) {
+                var contentDiv = document.getElementById('msg-content-' + msgId);
+                var editorDiv = document.getElementById('inline-editor-' + msgId);
+                var actionsDiv = document.getElementById('bubble-actions-' + msgId);
+                var editedTag = document.getElementById('edited-tag-' + msgId);
+
+                if (contentDiv) {
+                    contentDiv.textContent = result.data.message.message;
+                    contentDiv.style.display = 'block';
+                }
+                if (editedTag) {
+                    editedTag.style.display = 'inline';
+                }
+                if (editorDiv) {
+                    editorDiv.style.display = 'none';
+                }
+                if (actionsDiv) {
+                    actionsDiv.style.display = '';
+                }
+            } else {
+                alert((result.data && result.data.error) || 'Failed to update message. Please try again.');
+            }
+        })
+        .catch(function(err) {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save';
+            }
+            alert('Network error while saving message.');
+        });
+    };
+
+    // --- 3-Dots Dropdown Menu Handling ---
+    var menuBtn = document.getElementById('chat-header-menu-btn');
+    var dropdownMenu = document.getElementById('chat-dropdown-menu');
+
+    if (menuBtn && dropdownMenu) {
+        menuBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var isOpen = dropdownMenu.classList.contains('show');
+            if (isOpen) {
+                dropdownMenu.classList.remove('show');
+                menuBtn.classList.remove('active');
+            } else {
+                dropdownMenu.classList.add('show');
+                menuBtn.classList.add('active');
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!dropdownMenu.contains(e.target) && e.target !== menuBtn) {
+                dropdownMenu.classList.remove('show');
+                menuBtn.classList.remove('active');
+            }
+        });
+    }
+
+    // --- Block Modal Dialog Handling ---
+    var openBlockBtn = document.getElementById('btn-open-block-modal');
+    var blockModal = document.getElementById('block-user-modal');
+    var closeBlockBtn = document.getElementById('block-modal-close-btn');
+    var cancelBlockBtn = document.getElementById('btn-cancel-block');
+
+    function openModal() {
+        if (dropdownMenu) {
+            dropdownMenu.classList.remove('show');
+            if (menuBtn) menuBtn.classList.remove('active');
+        }
+        if (blockModal) {
+            blockModal.classList.add('show');
+            blockModal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeModal() {
+        if (blockModal) {
+            blockModal.classList.remove('show');
+            blockModal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+    }
+
+    if (openBlockBtn) {
+        openBlockBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            openModal();
+        });
+    }
+
+    if (closeBlockBtn) {
+        closeBlockBtn.addEventListener('click', closeModal);
+    }
+
+    if (cancelBlockBtn) {
+        cancelBlockBtn.addEventListener('click', closeModal);
+    }
+
+    if (blockModal) {
+        blockModal.addEventListener('click', function(e) {
+            if (e.target === blockModal) {
+                closeModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && blockModal && blockModal.classList.contains('show')) {
+            closeModal();
+        }
+    });
+
+    // Scope Radio Card Selection
+    var scopeCards = document.querySelectorAll('.chat-scope-card');
+    scopeCards.forEach(function(card) {
+        card.addEventListener('click', function() {
+            scopeCards.forEach(function(c) { c.classList.remove('selected'); });
+            card.classList.add('selected');
+            var radio = card.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+        });
+    });
+
+    // Reason Chips Selection (Block Modal)
+    var reasonChips = document.querySelectorAll('#reason-chips-container .chat-reason-chip');
+    var reasonInput = document.getElementById('selected-block-reason');
+    reasonChips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+            reasonChips.forEach(function(c) { c.classList.remove('selected'); });
+            chip.classList.add('selected');
+            if (reasonInput) reasonInput.value = chip.getAttribute('data-reason');
+        });
+    });
+
+    // --- Report Modal Dialog Handling ---
+    var openReportBtn = document.getElementById('btn-open-report-modal');
+    var reportModal = document.getElementById('report-user-modal');
+    var closeReportBtn = document.getElementById('report-modal-close-btn');
+    var cancelReportBtn = document.getElementById('btn-cancel-report');
+
+    function openRepModal() {
+        if (dropdownMenu) { dropdownMenu.classList.remove('show'); if (menuBtn) menuBtn.classList.remove('active'); }
+        if (reportModal) { reportModal.classList.add('show'); reportModal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; }
+    }
+    function closeRepModal() {
+        if (reportModal) { reportModal.classList.remove('show'); reportModal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
+    }
+
+    if (openReportBtn) openReportBtn.addEventListener('click', function(e) { e.preventDefault(); openRepModal(); });
+    if (closeReportBtn) closeReportBtn.addEventListener('click', closeRepModal);
+    if (cancelReportBtn) cancelReportBtn.addEventListener('click', closeRepModal);
+    if (reportModal) reportModal.addEventListener('click', function(e) { if (e.target === reportModal) closeRepModal(); });
+
+    var reportChips = document.querySelectorAll('#report-reason-chips .chat-reason-chip');
+    var reportReasonInput = document.getElementById('selected-report-reason');
+    reportChips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+            reportChips.forEach(function(c) { c.classList.remove('selected'); });
+            chip.classList.add('selected');
+            if (reportReasonInput) reportReasonInput.value = chip.getAttribute('data-reason');
+        });
+    });
+
+    // --- Real-Time Polling ---
     function getLastMessageId() {
         var msgItems = document.querySelectorAll('.chat-message-item');
         if (msgItems.length > 0) {
@@ -123,33 +583,97 @@
 
         var isMine = (msg.sender_id === currentUserId);
         var msgDiv = document.createElement('div');
-        msgDiv.className = 'chat-message-item';
+        msgDiv.className = 'chat-message-item ' + (isMine ? 'mine' : 'peer');
         msgDiv.setAttribute('data-message-id', msg.id);
-        msgDiv.style.marginBottom = '12px';
-        msgDiv.style.textAlign = isMine ? 'right' : 'left';
 
         var bubble = document.createElement('div');
-        bubble.style.display = 'inline-block';
-        bubble.style.maxWidth = '70%';
-        bubble.style.padding = '8px 12px';
-        bubble.style.borderRadius = '6px';
-        bubble.style.textAlign = 'left';
-        bubble.style.background = isMine ? '#dbeafe' : '#ffffff';
-        bubble.style.border = isMine ? '1px solid #bfdbfe' : '1px solid #e2e8f0';
+        bubble.className = isMine ? 'chat-bubble-mine' : 'chat-bubble-peer';
 
+        var tickHtml = isMine ? ('<span class="chat-tick-status ' + (msg.is_read ? 'read' : 'sent') + '" id="tick-status-' + msg.id + '" title="' + (msg.is_read ? 'Seen' : 'Sent') + '">' + (msg.is_read ? '✓✓' : '✓') + '</span>') : '';
         var meta = document.createElement('div');
-        meta.style.fontSize = '0.75rem';
-        meta.style.color = '#64748b';
-        meta.style.marginBottom = '2px';
-        meta.innerHTML = '<strong>' + (isMine ? 'You' : '@' + msg.sender_username) + '</strong> &bull; ' + (msg.created_at || '');
+        meta.className = 'chat-meta';
+        meta.innerHTML = '<span><strong>' + (isMine ? 'You' : '@' + msg.sender_username) + '</strong></span>' +
+            '<span class="chat-time-wrap">' +
+            '<span class="chat-timestamp">' + (msg.created_at || '') + '</span>' +
+            '<span class="chat-edited-tag" id="edited-tag-' + msg.id + '" style="' + (msg.is_edited ? '' : 'display: none;') + '">(edited)</span>' +
+            tickHtml +
+            '</span>';
 
         var body = document.createElement('div');
-        body.style.wordBreak = 'break-word';
-        body.style.whiteSpace = 'pre-wrap';
+        body.className = 'chat-content';
+        body.id = 'msg-content-' + msg.id;
         body.textContent = msg.message;
 
         bubble.appendChild(meta);
         bubble.appendChild(body);
+
+        if (isMine) {
+            var inlineEditor = document.createElement('div');
+            inlineEditor.className = 'chat-inline-editor';
+            inlineEditor.id = 'inline-editor-' + msg.id;
+            inlineEditor.style.display = 'none';
+
+            var editTextarea = document.createElement('textarea');
+            editTextarea.className = 'chat-edit-textarea';
+            editTextarea.id = 'edit-text-' + msg.id;
+            editTextarea.rows = 2;
+            editTextarea.maxLength = 1000;
+            editTextarea.value = msg.message;
+
+            var editActions = document.createElement('div');
+            editActions.className = 'chat-edit-actions';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'btn-chat-edit-cancel';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = function() { window.cancelInlineEdit(msg.id); };
+
+            var saveBtn = document.createElement('button');
+            saveBtn.type = 'button';
+            saveBtn.className = 'btn-chat-edit-save';
+            saveBtn.textContent = 'Save';
+            saveBtn.onclick = function() { window.saveInlineEdit(msg.id); };
+
+            editActions.appendChild(cancelBtn);
+            editActions.appendChild(saveBtn);
+            inlineEditor.appendChild(editTextarea);
+            inlineEditor.appendChild(editActions);
+            bubble.appendChild(inlineEditor);
+
+            var bubbleActions = document.createElement('div');
+            bubbleActions.className = 'chat-bubble-actions';
+            bubbleActions.id = 'bubble-actions-' + msg.id;
+
+            var menuWrap = document.createElement('div');
+            menuWrap.className = 'chat-msg-menu-wrap';
+            menuWrap.id = 'msg-menu-wrap-' + msg.id;
+
+            var dotsBtn = document.createElement('button');
+            dotsBtn.type = 'button';
+            dotsBtn.className = 'btn-msg-dots';
+            dotsBtn.id = 'msg-dots-btn-' + msg.id;
+            dotsBtn.innerHTML = '⋮';
+            dotsBtn.title = 'Message options';
+            dotsBtn.onclick = function(e) { window.toggleMsgMenu(e, msg.id); };
+
+            var dropdown = document.createElement('div');
+            dropdown.className = 'chat-msg-dropdown';
+            dropdown.id = 'msg-dropdown-' + msg.id;
+
+            var editItem = document.createElement('button');
+            editItem.type = 'button';
+            editItem.className = 'chat-msg-dropdown-item';
+            editItem.innerHTML = '<span>✏️</span><span>Edit</span>';
+            editItem.onclick = function() { window.openInlineEdit(msg.id); };
+
+            dropdown.appendChild(editItem);
+            menuWrap.appendChild(dotsBtn);
+            menuWrap.appendChild(dropdown);
+            bubbleActions.appendChild(menuWrap);
+            bubble.appendChild(bubbleActions);
+        }
+
         msgDiv.appendChild(bubble);
         list.appendChild(msgDiv);
 
@@ -175,6 +699,16 @@
                 for (var i = 0; i < data.messages.length; i++) {
                     appendMessage(data.messages[i]);
                 }
+            }
+            if (data && data.last_read_id) {
+                document.querySelectorAll('.chat-tick-status.sent').forEach(function(el) {
+                    var id = parseInt(el.id.replace('tick-status-', ''), 10);
+                    if (id <= data.last_read_id) {
+                        el.className = 'chat-tick-status read';
+                        el.textContent = '✓✓';
+                        el.title = 'Seen';
+                    }
+                });
             }
         })
         .catch(function(err) {

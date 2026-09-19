@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% if is_platform_blocked_by_me %}
+    <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <h4 style="margin: 0 0 4px 0; color: #991B1B;">🚫 You have blocked @{{ user.username }} across CodeNest.</h4>
+            <p style="margin: 0; font-size: 0.88rem; color: #7F1D1D;">They cannot view your profile, send messages, or interact with your posts.</p>
+        </div>
+        <form method="POST" action="{{ url_for('chat_unblock_user', username=user.username) }}" style="margin: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" style="background: #FFFFFF; color: #059669; border: 1.5px solid #10B981; font-weight: bold; padding: 6px 14px; border-radius: 6px; cursor: pointer;">
+                ✓ Unblock User
+            </button>
+        </form>
+    </div>
+{% endif %}
+
 <div>
     <div>
         {% if user.avatar_url %}
@@ -18,10 +33,14 @@
                 <strong>Faculty:</strong> {{ user.faculty }} &nbsp;|&nbsp; 
                 <strong>Joined:</strong> {{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A' }}
             </p>
-            <p style="margin: 0;">
-                <strong>Reputation:</strong> {{ user.reputation_points }} pts &nbsp;|&nbsp;
-                <strong>Followers:</strong> <a href="{{ url_for('user_followers', username=user.username) }}"><strong>{{ user.follower_count }}</strong></a> &nbsp;|&nbsp;
-                <strong>Following:</strong> <a href="{{ url_for('user_following', username=user.username) }}"><strong>{{ user.following_count }}</strong></a>
+            <p style="margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span><strong>Reputation:</strong> <span style="background: #e8f5e9; color: #2e7d32; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid #a5d6a7;">⭐ {{ user.reputation_points }} pts</span></span>
+                <span>&bull;</span>
+                <span><strong>Super Endorsements:</strong> <span style="background: #fff3cd; color: #856404; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid #ffeeba;">🎓 {{ user.professor_endorsements_count }}</span></span>
+                <span>&bull;</span>
+                <span><strong>Followers:</strong> <a href="{{ url_for('user_followers', username=user.username) }}"><strong>{{ user.follower_count }}</strong></a></span>
+                <span>&bull;</span>
+                <span><strong>Following:</strong> <a href="{{ url_for('user_following', username=user.username) }}"><strong>{{ user.following_count }}</strong></a></span>
             </p>
         </div>
     </div>
@@ -166,8 +185,8 @@
                             <th>Question</th>
                             <th>Answer Preview</th>
                             <th>Visibility</th>
-                            <th>Prof Marks</th>
-                            <th>Status</th>
+                            <th>Reputation</th>
+                            <th>Endorsement & Status</th>
                             <th>Date</th>
                         </tr>
                     </thead>
@@ -189,12 +208,20 @@
                                         🌐 Public
                                     {% endif %}
                                 </td>
-                                <td>{{ a.professor_marks_count }}</td>
                                 <td>
-                                    {% if a.is_best_answer %}
-                                        <strong>⭐ Best Answer</strong>
+                                    <span style="font-weight: 600; color: #0284c7;">⭐ {{ a.total_points }} pts</span>
+                                </td>
+                                <td>
+                                    {% if a.has_professor_endorsement %}
+                                        <span style="background: #fff3cd; color: #856404; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid #ffeeba; display: inline-block;">
+                                            🎓 Super Excellent (+{{ a.professor_marks_count * 50 }} pts)
+                                        </span>
+                                    {% elif a.best_marks_count > 0 %}
+                                        <span style="background: #e0f2fe; color: #0369a1; font-weight: 600; padding: 2px 8px; border-radius: 4px; border: 1px solid #bae6fd; display: inline-block;">
+                                            ⭐ Best Answer (+{{ a.student_marks_count * 5 }} pts)
+                                        </span>
                                     {% else %}
-                                        Standard
+                                        <span style="color: #94a3b8;">Standard (0 pts)</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else 'N/A' }}</td>

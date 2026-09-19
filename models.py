@@ -95,16 +95,16 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
     def is_student(self):
-        return self.role == 'Student'
+        return bool(self.role and self.role.strip().lower() == 'student')
 
     def is_professor(self):
-        return self.role == 'Professor'
+        return bool(self.role and self.role.strip().lower() == 'professor')
 
     def is_moderator(self):
-        return self.role == 'Community Moderator'
+        return bool(self.role and self.role.strip().lower() in ('community moderator', 'moderator'))
 
     def is_admin(self):
-        return self.role == 'Admin'
+        return bool(self.role and self.role.strip().lower() == 'admin')
 
     @property
     def reputation_points(self):
@@ -326,6 +326,21 @@ class User(UserMixin, db.Model):
             return False
         return ChatBlock.query.filter_by(blocker_id=target_user.id, blocked_id=self.id).first() is not None
 
+    def has_blocked_platform(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return ChatBlock.query.filter_by(blocker_id=self.id, blocked_id=target_user.id, block_scope='platform').first() is not None
+
+    def is_platform_blocked_by(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return ChatBlock.query.filter_by(blocker_id=target_user.id, blocked_id=self.id, block_scope='platform').first() is not None
+
+    def has_any_platform_block_with(self, target_user):
+        if not target_user or not getattr(target_user, 'id', None):
+            return False
+        return self.has_blocked_platform(target_user) or self.is_platform_blocked_by(target_user)
+
     def is_chat_mutually_available(self, target_user):
         if not target_user or not getattr(target_user, 'id', None):
             return False
@@ -398,6 +413,9 @@ class Question(db.Model):
     )
 
     def can_view(self, viewer):
+        if viewer and viewer.is_authenticated:
+            if self.author and (self.author.has_blocked_platform(viewer) or viewer.has_blocked_platform(self.author)):
+                return False
         if self.is_draft:
             return bool(viewer and viewer.is_authenticated and viewer.id == self.author_id)
         if self.visibility == 'public':
@@ -467,6 +485,9 @@ class Answer(db.Model):
     )
 
     def can_view(self, viewer):
+        if viewer and viewer.is_authenticated:
+            if self.author and (self.author.has_blocked_platform(viewer) or viewer.has_blocked_platform(self.author)):
+                return False
         if self.visibility == 'public':
             return True
         if viewer and viewer.is_authenticated:
@@ -966,6 +987,8 @@ class Report(db.Model):
             return db.session.get(Resource, self.content_id)
         elif self.content_type == 'resource_collection':
             return db.session.get(ResourceCollection, self.content_id)
+        elif self.content_type in ('user', 'account'):
+            return db.session.get(User, self.content_id)
         return None
 
     def __repr__(self):
@@ -1271,12 +1294,14 @@ class ChatMessage(db.Model):
     recipient_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_messages_recipient_id', ondelete='CASCADE'), nullable=False)
     message = db.Column(db.Text, nullable=False)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
+    is_edited = db.Column(db.Boolean, default=False, nullable=False)
+    edited_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_chats', lazy=True))
     recipient = db.relationship('User', foreign_keys=[recipient_id], backref=db.backref('received_chats', lazy=True))
 
-    def __init__(self, sender_id=None, recipient_id=None, message=None, is_read=False, **kwargs):
+    def __init__(self, sender_id=None, recipient_id=None, message=None, is_read=False, is_edited=False, edited_at=None, **kwargs):
         super().__init__(**kwargs)
         if sender_id:
             self.sender_id = sender_id
@@ -1285,6 +1310,8 @@ class ChatMessage(db.Model):
         if message:
             self.message = message
         self.is_read = is_read
+        self.is_edited = is_edited
+        self.edited_at = edited_at
 
     def __repr__(self):
         return f'<ChatMessage #{self.id}: {self.sender_id} -> {self.recipient_id}>'
@@ -1299,20 +1326,26 @@ class ChatBlock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     blocker_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_blocks_blocker_id', ondelete='CASCADE'), nullable=False)
     blocked_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_blocks_blocked_id', ondelete='CASCADE'), nullable=False)
+    block_scope = db.Column(db.String(20), default='chat', nullable=False)
+    reason = db.Column(db.String(100), nullable=True)
+    details = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     blocker = db.relationship('User', foreign_keys=[blocker_id], backref=db.backref('chat_blocks_given', lazy=True, cascade='all, delete-orphan'))
     blocked = db.relationship('User', foreign_keys=[blocked_id], backref=db.backref('chat_blocks_received', lazy=True, cascade='all, delete-orphan'))
 
-    def __init__(self, blocker_id=None, blocked_id=None, **kwargs):
+    def __init__(self, blocker_id=None, blocked_id=None, block_scope='chat', reason=None, details=None, **kwargs):
         super().__init__(**kwargs)
         if blocker_id:
             self.blocker_id = blocker_id
         if blocked_id:
             self.blocked_id = blocked_id
+        self.block_scope = block_scope or 'chat'
+        self.reason = reason
+        self.details = details
 
     def __repr__(self):
-        return f'<ChatBlock User #{self.blocker_id} blocked #{self.blocked_id}>'
+        return f'<ChatBlock User #{self.blocker_id} blocked #{self.blocked_id} scope={self.block_scope}>'
 
 
 # -------------------------------
@@ -1416,6 +1449,15 @@ def migrate_database(db_path=None):
         CONSTRAINT fk_resource_bookmarks_resource_id FOREIGN KEY (resource_id) REFERENCES resources (id) ON DELETE CASCADE
     )
     """)
+
+    # 5. CHAT_BLOCKS table columns
+    ensure_column('chat_blocks', 'block_scope', "VARCHAR(20)", "'chat'")
+    ensure_column('chat_blocks', 'reason', "VARCHAR(100)", None)
+    ensure_column('chat_blocks', 'details', "VARCHAR(500)", None)
+
+    # 6. CHAT_MESSAGES table columns
+    ensure_column('chat_messages', 'is_edited', 'BOOLEAN', 0)
+    ensure_column('chat_messages', 'edited_at', 'DATETIME', None)
 
     conn.commit()
     conn.close()

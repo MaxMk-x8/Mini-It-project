@@ -236,13 +236,24 @@ def process_mentions(content_text, author, content_type, content_id, question_id
 @app.template_filter('render_mentions')
 def render_mentions_filter(text):
     """
-    Converts valid @username mentions into safe, clickable profile links.
+    Converts valid @username mentions into rich clickable hover cards and 
+    formats markdown code blocks into styled IDE blocks with copy buttons.
     Escapes general HTML content first to prevent XSS.
     """
     if not text:
         return ''
 
-    escaped_text = str(escape(text))
+    # Extract code blocks before escaping
+    code_blocks = []
+    def save_code(match):
+        lang = (match.group(1) or 'code').strip().lower()
+        code = match.group(2)
+        idx = len(code_blocks)
+        code_blocks.append((lang, code))
+        return f"__CODE_BLOCK_{idx}__"
+
+    text_processed = re.sub(r'```([a-zA-Z0-9_+-]*)\n?(.*?)```', save_code, text, flags=re.DOTALL)
+    escaped_text = str(escape(text_processed))
 
     def replace_mention(match):
         uname = match.group(1)
@@ -253,11 +264,47 @@ def render_mentions_filter(text):
                 profile_link = url_for('public_profile', username=user.username) if has_request_context() else f"/user/{user.username}"
             except Exception:
                 profile_link = f"/user/{user.username}"
-            return f'<a href="{profile_link}" style="font-weight: 600; text-decoration: underline;">@{user.username}</a>'
+
+            avatar_html = f'<img src="{escape(user.avatar_url)}" class="qa-avatar qa-avatar-sm">' if user.avatar_url else f'<div class="qa-avatar-default qa-avatar-sm">{escape(user.username[:2])}</div>'
+            prof_badge = '<span class="badge badge-professor" style="font-size:0.68rem;padding:1px 5px;">🎓 Prof</span>' if user.is_professor() else ''
+
+            return (
+                f'<span class="qa-mention-wrapper">'
+                f'<a href="{profile_link}" class="qa-mention-tag">@{escape(user.username)}</a>'
+                f'<span class="qa-hover-card">'
+                f'<span class="qa-hover-header">'
+                f'{avatar_html}'
+                f'<span style="display:flex;flex-direction:column;gap:1px;text-align:left;">'
+                f'<strong style="color:var(--text-color);font-size:0.88rem;display:flex;align-items:center;gap:4px;">@{escape(user.username)} {prof_badge}</strong>'
+                f'<span style="color:var(--text-muted);font-size:0.75rem;">{escape(user.role or "Student")}</span>'
+                f'</span>'
+                f'</span>'
+                f'<span class="qa-hover-footer">'
+                f'<span>⭐ {user.reputation_points} pts</span>'
+                f'<span>{escape(user.faculty or "")}</span>'
+                f'</span>'
+                f'</span>'
+                f'</span>'
+            )
         return match.group(0)
 
     mention_pattern = r'(?<![\w@])@([a-zA-Z0-9_]{3,50})\b'
     linked_text = re.sub(mention_pattern, replace_mention, escaped_text)
+
+    # Restore code blocks safely escaped
+    for idx, (lang, raw_code) in enumerate(code_blocks):
+        escaped_code = str(escape(raw_code.strip()))
+        block_html = (
+            f'<div class="qa-code-wrapper">'
+            f'<div class="qa-code-header">'
+            f'<span><span class="qa-code-dot red"></span><span class="qa-code-dot yellow"></span><span class="qa-code-dot green"></span> {escape(lang.upper() if lang else "CODE")}</span>'
+            f'<button type="button" class="qa-code-copy-btn" onclick="copyCodeBlock(this)">&#128203; Copy</button>'
+            f'</div>'
+            f'<pre class="language-{escape(lang)}"><code>{escaped_code}</code></pre>'
+            f'</div>'
+        )
+        linked_text = linked_text.replace(f"__CODE_BLOCK_{idx}__", block_html)
+
     return Markup(linked_text)
 
 
@@ -922,6 +969,15 @@ def public_profile(username):
     user = User.query.filter_by(username=username).first_or_404()
 
     is_own_profile = (current_user.id == user.id)
+
+    # If the user has blocked current_user platform-wide, profile is completely unavailable
+    if not is_own_profile and current_user.is_platform_blocked_by(user):
+        return render_template('profile_unavailable.html'), 403
+
+    is_platform_blocked_by_me = False
+    if not is_own_profile:
+        is_platform_blocked_by_me = current_user.has_blocked_platform(user)
+
     is_following = current_user.is_following(user)
     has_pending_follow = current_user.has_pending_follow(user)
 
@@ -930,14 +986,19 @@ def public_profile(username):
     contact_restricted = bool(user.contact_email and not can_see_contact and user.contact_email_privacy == 'followers')
     social_restricted = bool((user.github_url or user.linkedin_url or user.website_url) and not can_see_social and user.social_links_privacy == 'followers')
 
-    # Contributions with visibility and draft enforcement
-    all_user_questions = Question.query.filter_by(author_id=user.id, is_draft=False).order_by(Question.created_at.desc()).all()
-    questions = [q for q in all_user_questions if q.can_view(current_user)]
+    # Contributions with visibility and draft enforcement (hidden if current_user blocked them platform-wide)
+    if is_platform_blocked_by_me:
+        questions = []
+        answers = []
+        resources = []
+    else:
+        all_user_questions = Question.query.filter_by(author_id=user.id, is_draft=False).order_by(Question.created_at.desc()).all()
+        questions = [q for q in all_user_questions if q.can_view(current_user)]
 
-    all_user_answers = Answer.query.filter_by(author_id=user.id).order_by(Answer.created_at.desc()).all()
-    answers = [a for a in all_user_answers if a.can_view(current_user)]
+        all_user_answers = Answer.query.filter_by(author_id=user.id).order_by(Answer.created_at.desc()).all()
+        answers = [a for a in all_user_answers if a.can_view(current_user)]
 
-    resources = Resource.query.filter_by(uploader_id=user.id).order_by(Resource.created_at.desc()).all()
+        resources = Resource.query.filter_by(uploader_id=user.id).order_by(Resource.created_at.desc()).all()
 
     active_tab = request.args.get('tab', 'questions')
     if active_tab not in ['questions', 'answers', 'resources']:
@@ -947,6 +1008,7 @@ def public_profile(username):
         'profile.html',
         user=user,
         is_own_profile=is_own_profile,
+        is_platform_blocked_by_me=is_platform_blocked_by_me,
         is_following=is_following,
         has_pending_follow=has_pending_follow,
         can_see_contact=can_see_contact,
@@ -964,6 +1026,9 @@ def public_profile(username):
 @login_required
 def user_followers(username):
     user = User.query.filter_by(username=username).first_or_404()
+    if current_user.id != user.id and current_user.is_platform_blocked_by(user):
+        return render_template('profile_unavailable.html'), 403
+
     page = request.args.get('page', 1, type=int)
     if page < 1:
         page = 1
@@ -979,6 +1044,9 @@ def user_followers(username):
 @login_required
 def user_following(username):
     user = User.query.filter_by(username=username).first_or_404()
+    if current_user.id != user.id and current_user.is_platform_blocked_by(user):
+        return render_template('profile_unavailable.html'), 403
+
     page = request.args.get('page', 1, type=int)
     if page < 1:
         page = 1
@@ -1006,6 +1074,9 @@ def search_users():
                 User.is_verified == True
             ).order_by(User.username.asc()).limit(50).all()
 
+            if current_user.is_authenticated:
+                users = [u for u in users if not current_user.has_any_platform_block_with(u)]
+
     if is_json:
         return jsonify({
             'query': query_text,
@@ -1032,6 +1103,10 @@ def follow_user(username):
     if target_user.id == current_user.id:
         flash('You cannot follow yourself.', 'warning')
         return redirect(url_for('public_profile', username=username))
+
+    if current_user.has_any_platform_block_with(target_user):
+        flash('Unable to follow this user due to block restrictions.', 'danger')
+        return redirect(url_for('student_dashboard'))
 
     existing = UserFollow.query.filter_by(
         follower_id=current_user.id,
@@ -1657,6 +1732,17 @@ def submit_report():
         target_faculty = resource.faculty
         content_snippet = f"Resource: {resource.title}"
 
+    elif content_type in ('user', 'account'):
+        target_user = db.session.get(User, content_id)
+        if not target_user:
+            msg = 'The user being reported does not exist.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': msg}), 404
+            flash(msg, 'danger')
+            return redirect(request.referrer or url_for('home'))
+        target_faculty = target_user.faculty
+        content_snippet = f"User Account: @{target_user.username} ({target_user.role})"
+
     else:
         msg = 'Unsupported content type for reporting.'
         if is_ajax:
@@ -2269,6 +2355,26 @@ def serve_screenshot(filename):
     return send_from_directory(app.config['SCREENSHOTS_FOLDER'], filename)
 
 
+@app.route('/qa/attachment/<int:attachment_id>/delete', methods=['POST'])
+@login_required
+def delete_qa_attachment(attachment_id):
+    """Deletes a specific attached screenshot from disk and database."""
+    att = db.session.get(QAAttachment, attachment_id)
+    if not att:
+        flash('Attachment not found.', 'danger')
+        return redirect(request.referrer or url_for('qa_list'))
+
+    if att.uploader_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to delete this attachment.', 'danger')
+        return redirect(request.referrer or url_for('qa_list'))
+
+    delete_attachment_files([att])
+    db.session.delete(att)
+    db.session.commit()
+    flash('Attached photo removed successfully.', 'info')
+    return redirect(request.referrer or url_for('qa_list'))
+
+
 @app.route('/uploads/avatars/<filename>')
 def serve_avatar(filename):
     """Serves uploaded user avatar profile photos."""
@@ -2291,6 +2397,15 @@ def qa_list():
 
     # Privacy and Visibility Enforcement (Habib)
     if current_user.is_authenticated:
+        # Exclude questions by users with platform-wide block restrictions in either direction
+        blocked_user_ids = [
+            b.blocked_id for b in ChatBlock.query.filter_by(blocker_id=current_user.id, block_scope='platform').all()
+        ] + [
+            b.blocker_id for b in ChatBlock.query.filter_by(blocked_id=current_user.id, block_scope='platform').all()
+        ]
+        if blocked_user_ids:
+            query = query.filter(~Question.author_id.in_(blocked_user_ids))
+
         if current_user.is_admin() or current_user.is_moderator() or current_user.is_professor():
             # Special roles override: can view all non-draft questions across faculties
             query = query.filter(Question.is_draft == False)
@@ -2831,6 +2946,7 @@ def chat_conversation(username):
                     'sender_username': current_user.username,
                     'message': new_msg.message,
                     'created_at': new_msg.created_at.strftime('%b %d, %H:%M'),
+                    'is_edited': False,
                     'is_mine': True
                 }
             })
@@ -2881,6 +2997,10 @@ def chat_poll(username):
     if new_messages:
         db.session.commit()
 
+    last_read_id = db.session.query(db.func.max(ChatMessage.id)).filter_by(
+        sender_id=current_user.id, recipient_id=peer.id, is_read=True
+    ).scalar() or 0
+
     return jsonify({
         'messages': [
             {
@@ -2889,11 +3009,73 @@ def chat_poll(username):
                 'sender_username': m.sender.username,
                 'message': m.message,
                 'created_at': m.created_at.strftime('%b %d, %H:%M') if m.created_at else '',
+                'is_edited': getattr(m, 'is_edited', False),
+                'is_read': m.is_read,
                 'is_mine': (m.sender_id == current_user.id)
             } for m in new_messages
         ],
+        'last_read_id': last_read_id,
         'is_blocked': current_user.has_blocked_chat(peer) or peer.has_blocked_chat(current_user)
     })
+
+
+@app.route('/chat/message/<int:message_id>/edit', methods=['POST'])
+@login_required
+def chat_edit_message(message_id):
+    msg = ChatMessage.query.get_or_404(message_id)
+
+    # Security: only the sender can edit their own message
+    if msg.sender_id != current_user.id:
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': 'You are not authorized to edit this message.'}), 403
+        flash('You cannot edit someone else’s message.', 'danger')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    # Extract text from json or form body
+    if request.is_json:
+        data = request.get_json() or {}
+        new_text = (data.get('message') or '').strip()
+    else:
+        new_text = (request.form.get('message') or '').strip()
+
+    if not new_text:
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': 'Message content cannot be empty.'}), 400
+        flash('Message content cannot be empty.', 'warning')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    if len(new_text) > 1000:
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': 'Message exceeds maximum length of 1000 characters.'}), 400
+        flash('Message is too long (max 1000 characters).', 'warning')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    has_prof, term = contains_profanity(new_text)
+    if has_prof:
+        err_msg = f"Your message contains prohibited or inappropriate language ('{term}')."
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': err_msg}), 400
+        flash(err_msg, 'danger')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    msg.message = new_text
+    msg.is_edited = True
+    msg.edited_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    if request.headers.get('Accept') == 'application/json' or request.is_json:
+        return jsonify({
+            'success': True,
+            'message': {
+                'id': msg.id,
+                'message': msg.message,
+                'is_edited': True,
+                'edited_at': msg.edited_at.strftime('%b %d, %H:%M') if msg.edited_at else ''
+            }
+        })
+
+    flash('Message updated successfully.', 'success')
+    return redirect(request.referrer or url_for('chat_list'))
 
 
 @app.route('/chat/<username>/block', methods=['POST'])
@@ -2904,16 +3086,42 @@ def chat_block_user(username):
         flash('You cannot block yourself.', 'warning')
         return redirect(url_for('chat_list'))
 
+    block_scope = request.form.get('block_scope', 'chat').strip()
+    if block_scope not in ['chat', 'platform']:
+        block_scope = 'chat'
+    reason = request.form.get('reason', '').strip() or None
+    details = request.form.get('details', '').strip() or None
+
     existing = ChatBlock.query.filter_by(blocker_id=current_user.id, blocked_id=peer.id).first()
     if not existing:
-        block = ChatBlock(blocker_id=current_user.id, blocked_id=peer.id)
+        block = ChatBlock(
+            blocker_id=current_user.id,
+            blocked_id=peer.id,
+            block_scope=block_scope,
+            reason=reason,
+            details=details
+        )
         db.session.add(block)
         db.session.commit()
-        flash(f'You have blocked @{peer.username} from private chat.', 'info')
+        scope_text = "across CodeNest" if block_scope == "platform" else "from private chat"
+        flash(f'You have blocked @{peer.username} {scope_text}.', 'info')
     else:
-        flash(f'@{peer.username} is already blocked in chat.', 'info')
+        existing.block_scope = block_scope
+        existing.reason = reason
+        existing.details = details
+        db.session.commit()
+        flash(f'Block settings for @{peer.username} have been updated.', 'info')
 
-    return redirect(url_for('chat_conversation', username=peer.username))
+    # If blocked across platform, cleanly cancel any mutual follows
+    if block_scope == 'platform':
+        UserFollow.query.filter(
+            ((UserFollow.follower_id == current_user.id) & (UserFollow.followed_id == peer.id)) |
+            ((UserFollow.follower_id == peer.id) & (UserFollow.followed_id == current_user.id))
+        ).delete(synchronize_session=False)
+        db.session.commit()
+
+    redirect_target = request.referrer or url_for('chat_conversation', username=peer.username)
+    return redirect(redirect_target)
 
 
 @app.route('/chat/<username>/unblock', methods=['POST'])
@@ -2928,7 +3136,8 @@ def chat_unblock_user(username):
     else:
         flash(f'@{peer.username} is not blocked.', 'info')
 
-    return redirect(url_for('chat_conversation', username=peer.username))
+    redirect_target = request.referrer or url_for('chat_conversation', username=peer.username)
+    return redirect(redirect_target)
 
 
 #-------------------------------
