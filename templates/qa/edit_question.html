@@ -71,21 +71,28 @@
             {% endfor %}
         </div>
 
-        <!-- Existing Attached Screenshots -->
+        <!-- Existing Attached Files -->
         {% if question.attachments %}
             <div style="margin-bottom: 20px; padding: 14px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px;">
                 <strong style="display: block; font-size: 0.95rem; color: var(--text-color); margin-bottom: 10px;">
-                    📷 Attached Photos ({{ question.attachments|length }}/3):
+                    📎 Attached Files ({{ question.attachments|length }}/3):
                 </strong>
                 <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                     {% for att in question.attachments %}
                         <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; background: var(--surface-card); text-align: center; max-width: 130px; box-shadow: var(--shadow-sm);">
-                            <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank" title="View full image">
-                                <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 116px; height: 80px; object-fit: cover; border-radius: 4px; display: block;">
-                                <span style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px; display: block; max-width: 116px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    {{ att.filename }}
-                                </span>
-                            </a>
+                            {% if att.filename.lower().endswith('.pdf') or att.stored_filename.lower().endswith('.pdf') %}
+                                <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 116px; height: 80px; background: #FEF2F2; border-radius: 4px; border: 1px solid #FCA5A5;" title="Click to view PDF">
+                                    <span style="font-size: 1.5rem;">📄</span>
+                                    <span style="font-size: 0.7rem; font-weight: 700; color: #DC2626;">PDF File</span>
+                                </a>
+                            {% else %}
+                                <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank" title="View full image">
+                                    <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 116px; height: 80px; object-fit: cover; border-radius: 4px; display: block;">
+                                </a>
+                            {% endif %}
+                            <span style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px; display: block; max-width: 116px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ att.filename }}
+                            </span>
                             <button type="button" onclick="deleteAttachment({{ att.id }})" class="btn btn-sm" style="padding: 2px 6px; font-size: 0.72rem; background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 6px;">
                                 🗑️ Remove
                             </button>
@@ -95,17 +102,17 @@
             </div>
         {% endif %}
 
-        <!-- Upload New Screenshots (if under limit) -->
+        <!-- Upload New Files (if under limit) -->
         {% if question.attachments|length < 3 %}
             <div style="margin-bottom: 24px; padding: 16px; border: 2px dashed var(--border-color); border-radius: 8px; background: var(--bg-color);">
                 <label style="display: block; font-weight: 600; color: var(--text-color); margin-bottom: 4px;">
-                    📷 Upload Additional Photos (Optional — Max {{ 3 - question.attachments|length }} more, up to 5MB each)
+                    📎 Upload Additional Attachments (Max {{ 3 - question.attachments|length }} more, PNG/JPG/WebP/PDF up to 5MB)
                 </label>
                 {{ form.screenshots(style="font-size: 0.9rem; color: var(--text-color); width: 100%;") }}
             </div>
         {% else %}
             <div style="margin-bottom: 20px; padding: 10px 14px; background: var(--primary-blue-subtle); border: 1px solid var(--primary-blue); border-radius: 6px; font-size: 0.88rem; color: var(--primary-blue);">
-                ℹ️ You have reached the maximum limit of 3 attached photos. Remove an existing photo above if you wish to upload a different one.
+                ℹ️ You have reached the maximum limit of 3 attachments. Remove an existing attachment above if you wish to upload a different file.
             </div>
         {% endif %}
 

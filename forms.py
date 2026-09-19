@@ -57,9 +57,9 @@ QUESTION_CATEGORIES = [
     ('Administrative', 'Administrative')
 ]
 
-# Habib - Week 4: Allowed screenshot extensions & limits
-ALLOWED_SCREENSHOT_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp']
-MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024  # 5 MB per image
+# Habib - Week 4: Allowed screenshot & PDF attachment extensions & limits
+ALLOWED_SCREENSHOT_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'pdf']
+MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024  # 5 MB per file
 MAX_SCREENSHOTS_COUNT = 3
 
 
@@ -75,7 +75,7 @@ class QuestionForm(FlaskForm):
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
     visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
     content = TextAreaField('Question Details', validators=[DataRequired(), Length(min=10), NoProfanity()])
-    screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
+    screenshots = MultipleFileField('Attachments (Optional, max 3, up to 5MB each, PNG/JPG/WebP/PDF)')
     submit = SubmitField('Post Question')
     save_draft = SubmitField('Save as Draft')
 
@@ -86,14 +86,14 @@ class EditQuestionForm(FlaskForm):
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
     visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
     content = TextAreaField('Question Details', validators=[DataRequired(), Length(min=10), NoProfanity()])
-    screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
+    screenshots = MultipleFileField('Attachments (Optional, max 3, up to 5MB each, PNG/JPG/WebP/PDF)')
     submit = SubmitField('Update Question')
 
 
 class AnswerForm(FlaskForm):
     content = TextAreaField('Your Answer', validators=[DataRequired(), Length(min=2), NoProfanity()])
     visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
-    screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
+    screenshots = MultipleFileField('Attachments (Optional, max 3, up to 5MB each, PNG/JPG/WebP/PDF)')
     submit = SubmitField('Submit Answer')
 
 
@@ -463,7 +463,7 @@ class DraftQuestionForm(FlaskForm):
     faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
     visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
     content = TextAreaField('Question Details', validators=[Optional(), NoProfanity()])
-    screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
+    screenshots = MultipleFileField('Attachments (Optional, max 3, up to 5MB each, PNG/JPG/WebP/PDF)')
     submit_save = SubmitField('Save Draft')
     submit_publish = SubmitField('Publish Question')
 

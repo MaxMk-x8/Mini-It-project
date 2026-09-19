@@ -2278,7 +2278,7 @@ def validate_and_save_screenshots(files, uploader_id, question_id=None, answer_i
 
             ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
             if ext not in ALLOWED_SCREENSHOT_EXTENSIONS:
-                raise ValueError(f"Invalid image type '.{ext}'. Allowed formats: PNG, JPG, JPEG, WebP.")
+                raise ValueError(f"Invalid file type '.{ext}'. Allowed formats: PNG, JPG, JPEG, WebP, PDF.")
 
             # Check file size (5 MB limit)
             file.seek(0, os.SEEK_END)
@@ -2286,22 +2286,27 @@ def validate_and_save_screenshots(files, uploader_id, question_id=None, answer_i
             file.seek(0)
 
             if size > MAX_SCREENSHOT_SIZE:
-                raise ValueError(f"File '{orig_name}' exceeds the 5 MB limit per image.")
+                raise ValueError(f"File '{orig_name}' exceeds the 5 MB limit per file.")
 
             if size == 0:
                 raise ValueError(f"File '{orig_name}' is empty.")
 
-            # Validate actual image content using Pillow
-            try:
-                img = Image.open(file.stream)
-                img.verify()  # Validates image format and structure
-                if img.format.lower() not in ['png', 'jpeg', 'webp']:
-                    raise ValueError(f"File '{orig_name}' contains invalid image data ({img.format}).")
-            except Exception as img_err:
-                raise ValueError(f"File '{orig_name}' is corrupted or not a valid image: {img_err}")
-
-            # Reset stream after verify()
-            file.seek(0)
+            # Validate file content (PDF header or Pillow image verification)
+            if ext == 'pdf':
+                header = file.read(4)
+                file.seek(0)
+                if header != b'%PDF':
+                    raise ValueError(f"File '{orig_name}' is not a valid PDF document.")
+            else:
+                try:
+                    img = Image.open(file.stream)
+                    img.verify()
+                    if img.format.lower() not in ['png', 'jpeg', 'webp']:
+                        raise ValueError(f"File '{orig_name}' contains invalid image data ({img.format}).")
+                except Exception as img_err:
+                    raise ValueError(f"File '{orig_name}' is corrupted or not a valid image: {img_err}")
+                finally:
+                    file.seek(0)
 
             # Generate unique safe stored filename
             timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
@@ -2318,27 +2323,27 @@ def validate_and_save_screenshots(files, uploader_id, question_id=None, answer_i
                 stored_filename=stored_filename,
                 file_size=size,
                 file_type=ext,
+                uploader_id=uploader_id,
                 question_id=question_id,
-                answer_id=answer_id,
-                uploader_id=uploader_id
+                answer_id=answer_id
             )
             saved_attachments.append(attachment)
 
         return saved_attachments, None
 
     except Exception as e:
-        # Clean up any newly created files on disk if an error occurs
-        for path in created_filepaths:
-            if os.path.exists(path):
+        # Clean up any files that were written to disk before failure
+        for fp in created_filepaths:
+            if os.path.exists(fp):
                 try:
-                    os.remove(path)
-                except Exception:
-                    pass
+                    os.remove(fp)
+                except Exception as cleanup_err:
+                    app.logger.warning(f"Failed to remove partial file {fp}: {cleanup_err}")
         return None, str(e)
 
 
 def delete_attachment_files(attachments):
-    """Deletes physical screenshot files from disk for given QAAttachment records."""
+    """Safely removes physical screenshot/attachment files from disk."""
     for att in attachments:
         if att and att.stored_filename:
             file_path = os.path.join(app.config['SCREENSHOTS_FOLDER'], att.stored_filename)
@@ -2346,13 +2351,14 @@ def delete_attachment_files(attachments):
                 try:
                     os.remove(file_path)
                 except Exception as e:
-                    app.logger.warning(f"Failed to remove screenshot file {file_path}: {e}")
+                    app.logger.warning(f"Failed to remove attachment file {file_path}: {e}")
 
 
 @app.route('/uploads/screenshots/<filename>')
 def serve_screenshot(filename):
-    """Serves uploaded screenshot attachments."""
-    return send_from_directory(app.config['SCREENSHOTS_FOLDER'], filename)
+    """Serves uploaded screenshot attachments and PDFs."""
+    mimetype = 'application/pdf' if filename.lower().endswith('.pdf') else None
+    return send_from_directory(app.config['SCREENSHOTS_FOLDER'], filename, mimetype=mimetype)
 
 
 @app.route('/qa/attachment/<int:attachment_id>/delete', methods=['POST'])
@@ -2698,6 +2704,8 @@ def edit_question(question_id):
             return redirect(url_for('qa_detail', question_id=question.id))
 
         new_attachments = []
+        files = request.files.getlist('screenshots')
+        valid_files = [f for f in files if f and hasattr(f, 'filename') and f.filename and f.filename.strip() != '']
         if valid_files:
             current_count = len(question.attachments)
             if current_count + len(valid_files) > MAX_SCREENSHOTS_COUNT:

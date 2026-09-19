@@ -64,13 +64,20 @@
         {% if draft.attachments %}
             <div style="margin-bottom: 18px; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px;">
                 <strong style="display: block; font-size: 0.9rem; color: var(--text-color); margin-bottom: 8px;">
-                    📷 Attached Screenshots ({{ draft.attachments|length }}):
+                    📎 Attached Files ({{ draft.attachments|length }}):
                 </strong>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     {% for att in draft.attachments %}
-                        <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank">
-                            <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" width="80" height="80" style="object-fit: cover; border: 1px solid var(--border-color); border-radius: 4px;">
-                        </a>
+                        {% if att.filename.lower().endswith('.pdf') or att.stored_filename.lower().endswith('.pdf') %}
+                            <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 80px; height: 80px; background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 4px;" title="View PDF">
+                                <span style="font-size: 1.4rem;">📄</span>
+                                <span style="font-size: 0.65rem; font-weight: 700; color: #DC2626;">PDF</span>
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank">
+                                <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" width="80" height="80" style="object-fit: cover; border: 1px solid var(--border-color); border-radius: 4px;">
+                            </a>
+                        {% endif %}
                     {% endfor %}
                 </div>
             </div>
@@ -78,7 +85,7 @@
 
         <div style="margin-bottom: 24px; padding: 16px; border: 2px dashed var(--border-color); border-radius: 8px; background: var(--bg-color);">
             <label style="display: block; font-weight: 600; color: var(--text-color); margin-bottom: 4px;">
-                📷 Upload New Screenshots (Optional)
+                📎 Upload New Attachments (Optional, PNG/JPG/WebP/PDF)
             </label>
             {{ form.screenshots(style="font-size: 0.9rem; color: var(--text-color);") }}
         </div>
