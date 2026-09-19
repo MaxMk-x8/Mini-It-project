@@ -116,14 +116,7 @@ SEMESTER_CHOICES = [
     ('', '-- Select Semester (Optional) --'),
     ('March/April', 'March/April'),
     ('July/August', 'July/August'),
-    ('October/November', 'October/November'),
-    ('Octuber/November', 'October/November'),
-    ('Trimester 1', 'Trimester 1 (Legacy)'),
-    ('Trimester 2', 'Trimester 2 (Legacy)'),
-    ('Trimester 3', 'Trimester 3 (Legacy)'),
-    ('Semester 1', 'Semester 1 (Legacy)'),
-    ('Semester 2', 'Semester 2 (Legacy)'),
-    ('Special Term / Summer', 'Special Term / Summer (Legacy)')
+    ('October/November', 'October/November')
 ]
 
 ALLOWED_EXTENSIONS = ['pdf', 'docx', 'pptx', 'txt', 'zip']

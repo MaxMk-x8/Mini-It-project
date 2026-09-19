@@ -244,17 +244,29 @@
                             <th>File Type</th>
                             <th>Downloads</th>
                             <th>Date</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for r in resources %}
                             <tr>
-                                <td><a href="{{ url_for('resource_detail', resource_id=r.id) }}">{{ r.title }}</a></td>
+                                <td>
+                                    <a href="{{ url_for('resource_detail', resource_id=r.id) }}"><strong>{{ r.title }}</strong></a>
+                                    {% if r.collection_id %}
+                                        <br><small><a href="{{ url_for('collection_detail', collection_id=r.collection_id) }}" style="color: #059669;">📁 View Collection</a></small>
+                                    {% endif %}
+                                </td>
                                 <td>{{ r.category }}</td>
                                 <td>{{ r.faculty }}</td>
                                 <td>{{ r.file_type|upper }}</td>
                                 <td>{{ r.download_count }}</td>
                                 <td>{{ r.created_at.strftime('%Y-%m-%d') if r.created_at else 'N/A' }}</td>
+                                <td>
+                                    {% if (r.file_type or '')|lower in ['pdf', 'txt'] %}
+                                        <a href="{{ url_for('resource_preview', resource_id=r.id) }}" target="_blank">Preview</a> &bull;
+                                    {% endif %}
+                                    <a href="{{ url_for('resource_download', resource_id=r.id) }}">Download</a>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

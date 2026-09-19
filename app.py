@@ -3620,6 +3620,24 @@ def resource_unreview(resource_id):
     return redirect(request.referrer or url_for('resources_list'))
 
 
+@app.route('/resources/<int:resource_id>', endpoint='resource_detail')
+@login_required
+def resource_detail(resource_id):
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        flash('Resource not found.', 'danger')
+        return redirect(url_for('resources_list'))
+
+    if resource.collection_id:
+        return redirect(url_for('collection_detail', collection_id=resource.collection_id))
+
+    file_type = (resource.file_type or '').lower()
+    if file_type in ['pdf', 'txt']:
+        return redirect(url_for('resource_preview', resource_id=resource.id))
+
+    return redirect(url_for('resource_download', resource_id=resource.id))
+
+
 @app.route('/resources/<int:resource_id>/preview')
 @login_required
 def resource_preview(resource_id):
