@@ -35,8 +35,14 @@
                 <!-- 3 Dot Options -->
                 <details style="position: relative; display: inline-block;">
                     <summary class="qa-dots-btn" title="More options" style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-weight: bold; background: var(--surface-card); color: var(--text-color);">⋮</summary>
-                    <div style="position: absolute; right: 0; top: calc(100% + 4px); background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px; box-shadow: var(--shadow-md); z-index: 100; min-width: 110px;">
-                        <button type="button" onclick="openReportModal('question', {{ question.id }}, '{{ question.title|replace('\'', '\\\'') }}')" class="btn btn-danger btn-sm" style="width: 100%; white-space: nowrap;" title="Report this question">
+                    <div style="position: absolute; right: 0; top: calc(100% + 4px); background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px; box-shadow: var(--shadow-md); z-index: 100; min-width: 155px;">
+                        {% if question.can_edit(current_user) %}
+                            <a href="{{ url_for('edit_question', question_id=question.id) }}" id="menu-edit-question-link" class="btn btn-secondary btn-sm" style="width: 100%; margin-bottom: 6px; text-decoration: none; display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 0.8rem; padding: 5px 8px; box-sizing: border-box;" title="Edit question within 3-minute grace period">
+                                <span>✏️ Edit</span>
+                                <span id="menu-edit-timer" style="font-size: 0.72rem; color: #D97706; font-family: monospace; font-weight: 700;"></span>
+                            </a>
+                        {% endif %}
+                        <button type="button" onclick="openReportModal('question', {{ question.id }}, '{{ question.title|replace('\'', '\\\'') }}')" class="btn btn-danger btn-sm" style="width: 100%; white-space: nowrap; font-size: 0.8rem;" title="Report this question">
                             🚩 Report
                         </button>
                     </div>
@@ -708,6 +714,29 @@
             closeReportModal();
         }
     });
+
+    // Live countdown timer on Question Detail page for the 3-minute edit window (inside 3-dot menu)
+    {% if question.can_edit(current_user) %}
+    (function() {
+        let remainingSeconds = {{ question.seconds_remaining_to_edit() }};
+        const editTimerSpan = document.getElementById('menu-edit-timer');
+        const editLink = document.getElementById('menu-edit-question-link');
+
+        function updateDetailTimer() {
+            if (!editTimerSpan) return;
+            if (remainingSeconds <= 0) {
+                if (editLink) editLink.style.display = 'none';
+                return;
+            }
+            const mins = Math.floor(remainingSeconds / 60);
+            const secs = remainingSeconds % 60;
+            editTimerSpan.textContent = `(${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')})`;
+            remainingSeconds--;
+            setTimeout(updateDetailTimer, 1000);
+        }
+        updateDetailTimer();
+    })();
+    {% endif %}
 </script>
 </div>
 {% endblock %}

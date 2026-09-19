@@ -80,6 +80,16 @@ class QuestionForm(FlaskForm):
     save_draft = SubmitField('Save as Draft')
 
 
+class EditQuestionForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired(), Length(min=5, max=150), NoProfanity()])
+    category = SelectField('Category', choices=QUESTION_CATEGORIES, validators=[DataRequired()])
+    faculty = SelectField('Faculty', choices=FACULTIES, validators=[DataRequired()])
+    visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])
+    content = TextAreaField('Question Details', validators=[DataRequired(), Length(min=10), NoProfanity()])
+    screenshots = MultipleFileField('Screenshots (Optional, max 3, up to 5MB each, PNG/JPG/WebP)')
+    submit = SubmitField('Update Question')
+
+
 class AnswerForm(FlaskForm):
     content = TextAreaField('Your Answer', validators=[DataRequired(), Length(min=2), NoProfanity()])
     visibility = SelectField('Visibility Audience', choices=POST_VISIBILITY_CHOICES, default='public', validators=[DataRequired()])

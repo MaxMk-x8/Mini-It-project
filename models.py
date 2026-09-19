@@ -429,6 +429,32 @@ class Question(db.Model):
                 return True
         return False
 
+    def seconds_remaining_to_edit(self):
+        """Returns remaining seconds to edit a published question within the 3-minute (180s) grace period."""
+        if self.is_draft:
+            return 180
+        if not self.created_at:
+            return 0
+        created = self.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        diff = (now - created).total_seconds()
+        remaining = 180 - diff
+        return max(0, int(remaining))
+
+    def can_edit(self, user):
+        """Checks if a user is allowed to edit this question (author within 3-minute window, draft, or admin)."""
+        if not user or not user.is_authenticated:
+            return False
+        if user.is_admin():
+            return True
+        if user.id != self.author_id:
+            return False
+        if self.is_draft:
+            return True
+        return self.seconds_remaining_to_edit() > 0
+
     def __init__(self, title=None, content=None, category='General', faculty=FACULTY_CODES[0], author_id=None, best_answer_id=None, views=0, visibility='public', is_draft=False, **kwargs):
         super().__init__(**kwargs)
         if title:
@@ -444,6 +470,7 @@ class Question(db.Model):
         self.views = views
         self.visibility = visibility
         self.is_draft = is_draft
+        self.created_at = kwargs.get('created_at') or datetime.now(timezone.utc)
 
     def __repr__(self):
         return f'<Question {self.id}: {self.title[:30]}>'

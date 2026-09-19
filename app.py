@@ -33,7 +33,7 @@ from forms import (
     MAX_RESOURCE_FILE_SIZE, MAX_COLLECTION_FILES, MAX_COLLECTION_TOTAL_SIZE,
     EditProfileForm, CreateFolderForm, MoveSavedQuestionForm,
     UsernameChangeRequestForm, ReviewUsernameRequestForm,
-    POST_VISIBILITY_CHOICES, DraftQuestionForm, ChatMessageForm
+    POST_VISIBILITY_CHOICES, DraftQuestionForm, EditQuestionForm, ChatMessageForm
 )
 from constants import FACULTIES, FACULTY_CODES, contains_profanity
 from dotenv import load_dotenv
@@ -2359,20 +2359,21 @@ def serve_screenshot(filename):
 @login_required
 def delete_qa_attachment(attachment_id):
     """Deletes a specific attached screenshot from disk and database."""
+    next_url = request.form.get('next') or request.referrer or url_for('qa_list')
     att = db.session.get(QAAttachment, attachment_id)
     if not att:
         flash('Attachment not found.', 'danger')
-        return redirect(request.referrer or url_for('qa_list'))
+        return redirect(next_url)
 
     if att.uploader_id != current_user.id and not current_user.is_admin():
         flash('You are not authorized to delete this attachment.', 'danger')
-        return redirect(request.referrer or url_for('qa_list'))
+        return redirect(next_url)
 
     delete_attachment_files([att])
     db.session.delete(att)
     db.session.commit()
     flash('Attached photo removed successfully.', 'info')
-    return redirect(request.referrer or url_for('qa_list'))
+    return redirect(next_url)
 
 
 @app.route('/uploads/avatars/<filename>')
@@ -2666,6 +2667,76 @@ def qa_delete_draft(draft_id):
     db.session.commit()
     flash('Draft question deleted.', 'info')
     return redirect(url_for('qa_drafts'))
+
+
+@app.route('/qa/<int:question_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_question(question_id):
+    question = db.session.get(Question, question_id)
+    if not question:
+        flash('Question not found.', 'danger')
+        return redirect(url_for('qa_list'))
+
+    # If it's a draft, redirect to the dedicated draft editor
+    if question.is_draft:
+        return redirect(url_for('qa_edit_draft', draft_id=question.id))
+
+    # Check permission (Author within 3 minutes or Admin)
+    if not question.can_edit(current_user):
+        if question.author_id == current_user.id:
+            flash('The 3-minute grace period to edit this question has expired.', 'warning')
+        else:
+            flash('You are not authorized to edit this question.', 'danger')
+        return redirect(url_for('qa_detail', question_id=question.id))
+
+    form = EditQuestionForm(obj=question)
+
+    if form.validate_on_submit():
+        # Re-check time limit strictly on submission
+        if not question.can_edit(current_user):
+            flash('The 3-minute grace period expired before you submitted your changes.', 'danger')
+            return redirect(url_for('qa_detail', question_id=question.id))
+
+        new_attachments = []
+        if valid_files:
+            current_count = len(question.attachments)
+            if current_count + len(valid_files) > MAX_SCREENSHOTS_COUNT:
+                flash(f"Total screenshots cannot exceed {MAX_SCREENSHOTS_COUNT}. You currently have {current_count} attached.", 'danger')
+                return render_template('qa/edit_question.html', form=form, question=question)
+
+            attachments, err = validate_and_save_screenshots(valid_files, current_user.id, question_id=question.id)
+            if err:
+                flash(err, 'danger')
+                return render_template('qa/edit_question.html', form=form, question=question)
+            new_attachments = attachments
+            for att in new_attachments:
+                att.question_id = question.id
+                db.session.add(att)
+
+        try:
+            question.title = form.title.data.strip()
+            question.category = form.category.data
+            question.faculty = form.faculty.data
+            question.visibility = form.visibility.data
+            question.content = form.content.data.strip()
+
+            db.session.commit()
+
+            # Update mentions in question content
+            process_mentions(question.content, current_user, 'question', question.id, question.id)
+
+            flash('Your question has been updated successfully.', 'success')
+            return redirect(url_for('qa_detail', question_id=question.id))
+
+        except Exception as e:
+            app.logger.error(f"Error updating question: {e}")
+            db.session.rollback()
+            if new_attachments:
+                delete_attachment_files(new_attachments)
+            flash('An error occurred while updating your question. Please try again.', 'danger')
+            return render_template('qa/edit_question.html', form=form, question=question)
+
+    return render_template('qa/edit_question.html', form=form, question=question)
 
 
 @app.route('/qa/<int:question_id>', methods=['GET', 'POST'])

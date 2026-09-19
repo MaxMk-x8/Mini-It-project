@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "qa/_qa_styles.html" %}
+
+<div class="qa-container">
+<div style="margin-bottom: 16px;">
+    <a href="{{ url_for('qa_detail', question_id=question.id) }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
+        &larr; Back to Question
+    </a>
+</div>
+
+<div class="qa-card" style="max-width: 780px; margin: 0 auto; padding: 28px 32px;">
+    <div style="border-bottom: 2px solid var(--primary-blue-subtle); padding-bottom: 14px; margin-bottom: 22px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+            <div>
+                <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.5rem;">✏️ Edit Published Question</h2>
+                <p style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
+                    You can edit your question details and attached photos within the 3-minute grace period.
+                </p>
+            </div>
+            
+            <!-- Live Countdown Timer -->
+            <div id="edit-timer-container" style="background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                <span>⏱️ Time left to edit:</span>
+                <span id="countdown-timer" style="font-family: monospace; font-size: 1.05rem; color: #B45309;">--:--</span>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('edit_question', question_id=question.id) }}" enctype="multipart/form-data" id="edit-question-form">
+        {{ form.hidden_tag() }}
+
+        <div style="margin-bottom: 18px;">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Question Title <span style="color: var(--primary-red);">*</span>
+            </label>
+            {{ form.title(style="width: 100%;") }}
+            {% for error in form.title.errors %}
+                <p style="color: var(--primary-red); font-size: 0.85rem; margin: 4px 0 0 0; font-weight: 600;">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Category <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.category(style="width: 100%;") }}
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Faculty <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.faculty(style="width: 100%;") }}
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Audience Visibility <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.visibility(style="width: 100%;") }}
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Question Details & Code Snippets <span style="color: var(--primary-red);">*</span>
+            </label>
+            {{ form.content(rows=8, style="width: 100%;") }}
+            {% for error in form.content.errors %}
+                <p style="color: var(--primary-red); font-size: 0.85rem; margin: 4px 0 0 0; font-weight: 600;">{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <!-- Existing Attached Screenshots -->
+        {% if question.attachments %}
+            <div style="margin-bottom: 20px; padding: 14px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px;">
+                <strong style="display: block; font-size: 0.95rem; color: var(--text-color); margin-bottom: 10px;">
+                    📷 Attached Photos ({{ question.attachments|length }}/3):
+                </strong>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    {% for att in question.attachments %}
+                        <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; background: var(--surface-card); text-align: center; max-width: 130px; box-shadow: var(--shadow-sm);">
+                            <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank" title="View full image">
+                                <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 116px; height: 80px; object-fit: cover; border-radius: 4px; display: block;">
+                                <span style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px; display: block; max-width: 116px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {{ att.filename }}
+                                </span>
+                            </a>
+                            <button type="button" onclick="deleteAttachment({{ att.id }})" class="btn btn-sm" style="padding: 2px 6px; font-size: 0.72rem; background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 6px;">
+                                🗑️ Remove
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Upload New Screenshots (if under limit) -->
+        {% if question.attachments|length < 3 %}
+            <div style="margin-bottom: 24px; padding: 16px; border: 2px dashed var(--border-color); border-radius: 8px; background: var(--bg-color);">
+                <label style="display: block; font-weight: 600; color: var(--text-color); margin-bottom: 4px;">
+                    📷 Upload Additional Photos (Optional — Max {{ 3 - question.attachments|length }} more, up to 5MB each)
+                </label>
+                {{ form.screenshots(style="font-size: 0.9rem; color: var(--text-color); width: 100%;") }}
+            </div>
+        {% else %}
+            <div style="margin-bottom: 20px; padding: 10px 14px; background: var(--primary-blue-subtle); border: 1px solid var(--primary-blue); border-radius: 6px; font-size: 0.88rem; color: var(--primary-blue);">
+                ℹ️ You have reached the maximum limit of 3 attached photos. Remove an existing photo above if you wish to upload a different one.
+            </div>
+        {% endif %}
+
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-top: 14px; border-top: 1px solid var(--border-color);">
+            <button type="submit" class="btn btn-primary" id="save-btn">
+                💾 Save Changes
+            </button>
+            <a href="{{ url_for('qa_detail', question_id=question.id) }}" class="btn btn-secondary" style="margin-left: auto;">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+</div>
+
+<!-- Hidden form for deleting attachments dynamically -->
+<form id="delete-attachment-form" method="POST" action="" style="display: none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="hidden" name="next" value="{{ url_for('edit_question', question_id=question.id) }}"/>
+</form>
+
+<script>
+    // Live countdown timer for 3-minute edit window
+    let remainingSeconds = {{ question.seconds_remaining_to_edit() }};
+    const timerElem = document.getElementById('countdown-timer');
+    const containerElem = document.getElementById('edit-timer-container');
+    const saveBtn = document.getElementById('save-btn');
+
+    function updateTimer() {
+        if (remainingSeconds <= 0) {
+            timerElem.textContent = '00:00 (Expired)';
+            containerElem.style.background = '#FEF2F2';
+            containerElem.style.borderColor = '#EF4444';
+            containerElem.style.color = '#B91C1C';
+            saveBtn.disabled = true;
+            saveBtn.style.opacity = '0.6';
+            saveBtn.style.cursor = 'not-allowed';
+            saveBtn.title = 'Edit grace period has expired';
+            return;
+        }
+
+        const mins = Math.floor(remainingSeconds / 60);
+        const secs = remainingSeconds % 60;
+        timerElem.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        
+        if (remainingSeconds <= 30) {
+            containerElem.style.background = '#FEE2E2';
+            containerElem.style.borderColor = '#F87171';
+            containerElem.style.color = '#991B1B';
+        }
+        
+        remainingSeconds--;
+        setTimeout(updateTimer, 1000);
+    }
+
+    updateTimer();
+
+    function deleteAttachment(attId) {
+        if (confirm('Are you sure you want to remove this attached photo?')) {
+            const form = document.getElementById('delete-attachment-form');
+            form.action = `/qa/attachment/${attId}/delete`;
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}
