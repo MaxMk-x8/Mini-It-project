@@ -1706,6 +1706,12 @@ def submit_report():
                 return jsonify({'success': False, 'error': msg}), 404
             flash(msg, 'danger')
             return redirect(request.referrer or url_for('home'))
+        if question.author_id == current_user.id:
+            msg = 'You cannot report your own question.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': msg}), 400
+            flash(msg, 'warning')
+            return redirect(request.referrer or url_for('home'))
         target_faculty = question.faculty
         content_snippet = f"Question: {question.title}"
 
@@ -1716,6 +1722,12 @@ def submit_report():
             if is_ajax:
                 return jsonify({'success': False, 'error': msg}), 404
             flash(msg, 'danger')
+            return redirect(request.referrer or url_for('home'))
+        if answer.author_id == current_user.id:
+            msg = 'You cannot report your own answer or reply.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': msg}), 400
+            flash(msg, 'warning')
             return redirect(request.referrer or url_for('home'))
         target_faculty = answer.question.faculty
         prefix = "Reply" if answer.parent_answer_id else "Answer"
@@ -1729,6 +1741,12 @@ def submit_report():
                 return jsonify({'success': False, 'error': msg}), 404
             flash(msg, 'danger')
             return redirect(request.referrer or url_for('home'))
+        if resource.uploader_id == current_user.id:
+            msg = 'You cannot report your own resource.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': msg}), 400
+            flash(msg, 'warning')
+            return redirect(request.referrer or url_for('home'))
         target_faculty = resource.faculty
         content_snippet = f"Resource: {resource.title}"
 
@@ -1739,6 +1757,12 @@ def submit_report():
             if is_ajax:
                 return jsonify({'success': False, 'error': msg}), 404
             flash(msg, 'danger')
+            return redirect(request.referrer or url_for('home'))
+        if target_user.id == current_user.id:
+            msg = 'You cannot report your own account.'
+            if is_ajax:
+                return jsonify({'success': False, 'error': msg}), 400
+            flash(msg, 'warning')
             return redirect(request.referrer or url_for('home'))
         target_faculty = target_user.faculty
         content_snippet = f"User Account: @{target_user.username} ({target_user.role})"
@@ -2747,6 +2771,30 @@ def edit_question(question_id):
     return render_template('qa/edit_question.html', form=form, question=question)
 
 
+@app.route('/qa/<int:question_id>/delete', methods=['POST'])
+@login_required
+def delete_question(question_id):
+    question = db.session.get(Question, question_id)
+    if not question:
+        flash('Question not found.', 'danger')
+        return redirect(url_for('qa_list'))
+
+    if question.author_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to delete this question.', 'danger')
+        return redirect(url_for('qa_detail', question_id=question.id))
+
+    # Clean up physical screenshot files for the question and all its answers
+    attachments_to_delete = list(question.attachments)
+    for ans in question.answers:
+        attachments_to_delete.extend(ans.attachments)
+    delete_attachment_files(attachments_to_delete)
+
+    db.session.delete(question)
+    db.session.commit()
+    flash('Your question has been deleted successfully.', 'info')
+    return redirect(url_for('qa_list'))
+
+
 @app.route('/qa/<int:question_id>', methods=['GET', 'POST'])
 def qa_detail(question_id):
     question = db.session.get(Question, question_id)
@@ -2889,21 +2937,47 @@ def edit_answer(answer_id):
         flash('Answer not found.', 'danger')
         return redirect(url_for('qa_list'))
 
-    if answer.author_id != current_user.id:
+    if answer.author_id != current_user.id and not current_user.is_admin():
         flash('You can only edit your own answers.', 'danger')
         return redirect(url_for('qa_detail', question_id=answer.question_id))
 
     form = AnswerForm(obj=answer)
     if form.validate_on_submit():
-        answer.content = form.content.data.strip()
-        answer.visibility = form.visibility.data
-        db.session.commit()
+        new_attachments = []
+        files = request.files.getlist('screenshots')
+        valid_files = [f for f in files if f and hasattr(f, 'filename') and f.filename and f.filename.strip() != '']
+        if valid_files:
+            current_count = len(answer.attachments)
+            if current_count + len(valid_files) > MAX_SCREENSHOTS_COUNT:
+                flash(f"Total attachments cannot exceed {MAX_SCREENSHOTS_COUNT}. You currently have {current_count} attached.", 'danger')
+                return render_template('qa/edit_answer.html', form=form, answer=answer)
 
-        # Process mentions on edit
-        process_mentions(answer.content, current_user, 'reply' if answer.parent_answer_id else 'answer', answer.id, answer.question_id)
+            attachments, err = validate_and_save_screenshots(valid_files, current_user.id, answer_id=answer.id)
+            if err:
+                flash(err, 'danger')
+                return render_template('qa/edit_answer.html', form=form, answer=answer)
+            new_attachments = attachments
+            for att in new_attachments:
+                att.answer_id = answer.id
+                db.session.add(att)
 
-        flash('Your answer has been updated.', 'success')
-        return redirect(url_for('qa_detail', question_id=answer.question_id) + f'#answer-{answer.id}')
+        try:
+            answer.content = form.content.data.strip()
+            answer.visibility = form.visibility.data
+            db.session.commit()
+
+            # Process mentions on edit
+            process_mentions(answer.content, current_user, 'reply' if answer.parent_answer_id else 'answer', answer.id, answer.question_id)
+
+            flash('Your answer has been updated.', 'success')
+            return redirect(url_for('qa_detail', question_id=answer.question_id) + f'#answer-{answer.id}')
+        except Exception as e:
+            app.logger.error(f"Error updating answer: {e}")
+            db.session.rollback()
+            if new_attachments:
+                delete_attachment_files(new_attachments)
+            flash('An error occurred while updating your answer. Please try again.', 'danger')
+            return render_template('qa/edit_answer.html', form=form, answer=answer)
 
     return render_template('qa/edit_answer.html', form=form, answer=answer)
 
