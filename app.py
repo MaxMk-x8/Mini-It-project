@@ -3120,10 +3120,28 @@ def chat_conversation(username):
         ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
     ).order_by(ChatMessage.created_at.asc()).all()
 
+    # Fetch active pinned message for this conversation
+    now = datetime.now(timezone.utc)
+    pinned_message = ChatMessage.query.filter(
+        ChatMessage.is_pinned == True,
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
+        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+    ).order_by(ChatMessage.pinned_at.desc()).first()
+
+    if pinned_message and pinned_message.pin_expires_at:
+        exp = pinned_message.pin_expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp <= now:
+            pinned_message.is_pinned = False
+            db.session.commit()
+            pinned_message = None
+
     return render_template(
         'chat_conversation.html',
         peer=peer,
         messages=messages,
+        pinned_message=pinned_message,
         form=form,
         is_blocked_by_me=is_blocked_by_me,
         is_blocked_by_peer=is_blocked_by_peer,
@@ -3154,6 +3172,34 @@ def chat_poll(username):
         sender_id=current_user.id, recipient_id=peer.id, is_read=True
     ).scalar() or 0
 
+    now = datetime.now(timezone.utc)
+    active_pinned = ChatMessage.query.filter(
+        ChatMessage.is_pinned == True,
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
+        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+    ).order_by(ChatMessage.pinned_at.desc()).first()
+
+    if active_pinned and active_pinned.pin_expires_at:
+        exp = active_pinned.pin_expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp <= now:
+            active_pinned.is_pinned = False
+            db.session.commit()
+            active_pinned = None
+
+    pinned_data = None
+    if active_pinned:
+        pinned_data = {
+            'id': active_pinned.id,
+            'sender_id': active_pinned.sender_id,
+            'sender_username': active_pinned.sender.username,
+            'message': active_pinned.message,
+            'pin_duration': active_pinned.pin_duration,
+            'expiry_label': active_pinned.pin_expiry_label,
+            'is_mine': (active_pinned.sender_id == current_user.id)
+        }
+
     return jsonify({
         'messages': [
             {
@@ -3164,12 +3210,111 @@ def chat_poll(username):
                 'created_at': m.created_at.strftime('%b %d, %H:%M') if m.created_at else '',
                 'is_edited': getattr(m, 'is_edited', False),
                 'is_read': m.is_read,
+                'is_pinned': getattr(m, 'is_pinned', False),
                 'is_mine': (m.sender_id == current_user.id)
             } for m in new_messages
         ],
+        'pinned_message': pinned_data,
         'last_read_id': last_read_id,
         'is_blocked': current_user.has_blocked_chat(peer) or peer.has_blocked_chat(current_user)
     })
+
+
+@app.route('/chat/message/<int:message_id>/pin', methods=['POST'])
+@login_required
+def chat_pin_message(message_id):
+    msg = ChatMessage.query.get_or_404(message_id)
+
+    # User must be participant in this chat
+    if msg.sender_id != current_user.id and msg.recipient_id != current_user.id:
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': 'You are not authorized to pin messages in this chat.'}), 403
+        flash('You cannot pin messages in this chat.', 'danger')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    peer_id = msg.recipient_id if msg.sender_id == current_user.id else msg.sender_id
+    if request.is_json:
+        data = request.get_json() or {}
+        duration = data.get('duration', 'forever')
+    else:
+        duration = request.form.get('duration', 'forever')
+
+    now = datetime.now(timezone.utc)
+    expires_at = None
+    if duration == '7d':
+        expires_at = now + timedelta(days=7)
+    elif duration == '30d':
+        expires_at = now + timedelta(days=30)
+    else:
+        duration = 'forever'
+        expires_at = None
+
+    # Unpin any previous pinned message in this conversation
+    ChatMessage.query.filter(
+        ChatMessage.is_pinned == True,
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer_id)) |
+        ((ChatMessage.sender_id == peer_id) & (ChatMessage.recipient_id == current_user.id))
+    ).update({
+        'is_pinned': False,
+        'pinned_at': None,
+        'pinned_by_id': None,
+        'pin_duration': None,
+        'pin_expires_at': None
+    })
+
+    msg.is_pinned = True
+    msg.pinned_at = now
+    msg.pinned_by_id = current_user.id
+    msg.pin_duration = duration
+    msg.pin_expires_at = expires_at
+    db.session.commit()
+
+    if request.headers.get('Accept') == 'application/json' or request.is_json:
+        return jsonify({
+            'success': True,
+            'message': {
+                'id': msg.id,
+                'sender_id': msg.sender_id,
+                'sender_username': msg.sender.username,
+                'message': msg.message,
+                'pin_duration': msg.pin_duration,
+                'expiry_label': msg.pin_expiry_label,
+                'is_mine': (msg.sender_id == current_user.id)
+            }
+        })
+
+    flash('Message pinned successfully.', 'success')
+    peer_user = db.session.get(User, peer_id)
+    return redirect(url_for('chat_conversation', username=peer_user.username if peer_user else ''))
+
+
+@app.route('/chat/message/<int:message_id>/unpin', methods=['POST'])
+@login_required
+def chat_unpin_message(message_id):
+    msg = ChatMessage.query.get_or_404(message_id)
+
+    # User must be participant in this chat
+    if msg.sender_id != current_user.id and msg.recipient_id != current_user.id:
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': 'You are not authorized to unpin messages in this chat.'}), 403
+        flash('You cannot unpin messages in this chat.', 'danger')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    peer_id = msg.recipient_id if msg.sender_id == current_user.id else msg.sender_id
+
+    msg.is_pinned = False
+    msg.pinned_at = None
+    msg.pinned_by_id = None
+    msg.pin_duration = None
+    msg.pin_expires_at = None
+    db.session.commit()
+
+    if request.headers.get('Accept') == 'application/json' or request.is_json:
+        return jsonify({'success': True, 'unpinned_id': msg.id})
+
+    flash('Message unpinned.', 'info')
+    peer_user = db.session.get(User, peer_id)
+    return redirect(url_for('chat_conversation', username=peer_user.username if peer_user else ''))
 
 
 @app.route('/chat/message/<int:message_id>/edit', methods=['POST'])

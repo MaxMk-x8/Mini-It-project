@@ -85,16 +85,49 @@
             </div>
         </div>
 
+        <!-- Sticky Pinned Message Bar -->
+        <div id="chat-pinned-bar" class="chat-pinned-bar" style="{% if not pinned_message %}display: none;{% endif %}">
+            <div class="chat-pinned-left" id="pinned-bar-clickable" onclick="scrollToMessage({{ pinned_message.id if pinned_message else 'null' }})">
+                <div class="chat-pinned-icon">📌</div>
+                <div class="chat-pinned-content">
+                    <div class="chat-pinned-header-line">
+                        <span class="chat-pinned-title">Pinned Message</span>
+                        <span class="chat-pinned-dot">•</span>
+                        <span class="chat-pinned-author" id="pinned-bar-author">
+                            {% if pinned_message %}
+                                {% if pinned_message.sender_id == current_user.id %}You{% else %}@{{ pinned_message.sender.username }}{% endif %}
+                            {% endif %}
+                        </span>
+                        <span class="chat-pinned-expiry" id="pinned-bar-expiry">
+                            {{ pinned_message.pin_expiry_label if pinned_message else '' }}
+                        </span>
+                    </div>
+                    <div class="chat-pinned-text" id="pinned-bar-text">
+                        {{ pinned_message.message if pinned_message else '' }}
+                    </div>
+                </div>
+            </div>
+            <div class="chat-pinned-actions">
+                <button type="button" class="btn-pinned-unpin" id="btn-bar-unpin" onclick="unpinMessage({{ pinned_message.id if pinned_message else 'null' }})" title="Unpin message">
+                    ✕
+                </button>
+            </div>
+        </div>
+
         <!-- Chat Messages Thread -->
         <div id="chat-messages-container" class="chat-thread-container">
             <div id="messages-list">
                 {% if messages %}
                     {% for m in messages %}
                         {% set is_mine = (m.sender_id == current_user.id) %}
-                        <div class="chat-message-item {% if is_mine %}mine{% else %}peer{% endif %}" data-message-id="{{ m.id }}">
-                            <div class="{% if is_mine %}chat-bubble-mine{% else %}chat-bubble-peer{% endif %}">
+                        {% set is_active_pin = m.is_actively_pinned %}
+                        <div class="chat-message-item {% if is_mine %}mine{% else %}peer{% endif %}" data-message-id="{{ m.id }}" id="msg-item-{{ m.id }}">
+                            <div class="{% if is_mine %}chat-bubble-mine{% else %}chat-bubble-peer{% endif %}" id="bubble-{{ m.id }}">
                                 <div class="chat-meta">
-                                    <span>{% if is_mine %}<strong>You</strong>{% else %}<strong>@{{ m.sender.username }}</strong>{% endif %}</span>
+                                    <span>
+                                        {% if is_mine %}<strong>You</strong>{% else %}<strong>@{{ m.sender.username }}</strong>{% endif %}
+                                        <span class="chat-pinned-badge" id="pinned-badge-{{ m.id }}" style="{% if not is_active_pin %}display: none;{% endif %}">📌 Pinned</span>
+                                    </span>
                                     <span class="chat-time-wrap">
                                         <span class="chat-timestamp">{{ m.created_at.strftime('%b %d, %H:%M') if m.created_at else '' }}</span>
                                         <span class="chat-edited-tag" id="edited-tag-{{ m.id }}" style="{% if not m.is_edited %}display: none;{% endif %}">(edited)</span>
@@ -106,6 +139,7 @@
                                     </span>
                                 </div>
                                 <div class="chat-content" id="msg-content-{{ m.id }}">{{ m.message }}</div>
+                                
                                 {% if is_mine %}
                                     <div class="chat-inline-editor" id="inline-editor-{{ m.id }}" style="display: none;">
                                         <textarea class="chat-edit-textarea" id="edit-text-{{ m.id }}" rows="2" maxlength="1000">{{ m.message }}</textarea>
@@ -114,20 +148,27 @@
                                             <button type="button" class="btn-chat-edit-save" onclick="saveInlineEdit({{ m.id }})">Save</button>
                                         </div>
                                     </div>
-                                    <div class="chat-bubble-actions" id="bubble-actions-{{ m.id }}">
-                                        <div class="chat-msg-menu-wrap" id="msg-menu-wrap-{{ m.id }}">
-                                            <button type="button" class="btn-msg-dots" id="msg-dots-btn-{{ m.id }}" onclick="toggleMsgMenu(event, {{ m.id }})" title="Message options" aria-label="Message options">
-                                                ⋮
-                                            </button>
-                                            <div class="chat-msg-dropdown" id="msg-dropdown-{{ m.id }}">
+                                {% endif %}
+
+                                <div class="chat-bubble-actions" id="bubble-actions-{{ m.id }}">
+                                    <div class="chat-msg-menu-wrap" id="msg-menu-wrap-{{ m.id }}">
+                                        <button type="button" class="btn-msg-dots" id="msg-dots-btn-{{ m.id }}" onclick="toggleMsgMenu(event, {{ m.id }})" title="Message options" aria-label="Message options">
+                                            ⋮
+                                        </button>
+                                        <div class="chat-msg-dropdown" id="msg-dropdown-{{ m.id }}">
+                                            {% if is_mine %}
                                                 <button type="button" class="chat-msg-dropdown-item" onclick="openInlineEdit({{ m.id }})">
                                                     <span>✏️</span>
                                                     <span>Edit</span>
                                                 </button>
-                                            </div>
+                                            {% endif %}
+                                            <button type="button" class="chat-msg-dropdown-item pin-action-btn" id="pin-btn-{{ m.id }}" onclick="handlePinClick({{ m.id }}, {{ 'true' if is_active_pin else 'false' }})">
+                                                <span id="pin-icon-{{ m.id }}">{% if is_active_pin %}❌{% else %}📌{% endif %}</span>
+                                                <span id="pin-text-{{ m.id }}">{% if is_active_pin %}Unpin Message{% else %}Pin Message{% endif %}</span>
+                                            </button>
                                         </div>
                                     </div>
-                                {% endif %}
+                                </div>
                             </div>
                         </div>
                     {% endfor %}
@@ -178,6 +219,53 @@
                     </div>
                 </form>
             {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Pin Duration Selection Modal -->
+<div class="chat-modal-overlay" id="pin-message-modal" aria-hidden="true">
+    <div class="chat-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="pin-modal-title" style="max-width: 440px;">
+        <div class="chat-modal-header">
+            <h3 id="pin-modal-title"><span>📌</span> Pin Message</h3>
+            <button type="button" class="chat-modal-close-btn" id="pin-modal-close-btn" aria-label="Close modal">✕</button>
+        </div>
+        <div class="chat-modal-body">
+            <p style="font-size: 0.92rem; color: #475569; margin: 0 0 14px 0;">
+                Choose how long this message will remain pinned to the top of the chat for both participants:
+            </p>
+
+            <div class="chat-pin-options">
+                <label class="chat-pin-option-card" id="pin-opt-7d">
+                    <input type="radio" name="pin_duration_choice" value="7d" />
+                    <div class="chat-pin-option-content">
+                        <div class="chat-pin-option-title">⏱️ 7 Days</div>
+                        <div class="chat-pin-option-desc">Automatically unpins after 1 week</div>
+                    </div>
+                </label>
+
+                <label class="chat-pin-option-card" id="pin-opt-30d">
+                    <input type="radio" name="pin_duration_choice" value="30d" />
+                    <div class="chat-pin-option-content">
+                        <div class="chat-pin-option-title">📅 30 Days</div>
+                        <div class="chat-pin-option-desc">Automatically unpins after 1 month</div>
+                    </div>
+                </label>
+
+                <label class="chat-pin-option-card selected" id="pin-opt-forever">
+                    <input type="radio" name="pin_duration_choice" value="forever" checked />
+                    <div class="chat-pin-option-content">
+                        <div class="chat-pin-option-title">♾️ Until I Unpin It</div>
+                        <div class="chat-pin-option-desc">Stays pinned permanently until manually removed</div>
+                    </div>
+                </label>
+            </div>
+        </div>
+        <div class="chat-modal-footer">
+            <button type="button" class="btn-modal-cancel" id="btn-cancel-pin">Cancel</button>
+            <button type="button" class="btn-modal-confirm-pin" id="btn-confirm-pin">
+                <span>📌</span> Pin Message
+            </button>
         </div>
     </div>
 </div>
@@ -298,6 +386,7 @@
     var currentUserId = {{ current_user.id }};
     var pollUrl = "{{ url_for('chat_poll', username=peer.username) }}";
     var csrfToken = "{{ csrf_token() }}";
+    var currentTargetPinMsgId = null;
 
     // --- 3-Dot Message Menu & Inline Editing ---
     window.toggleMsgMenu = function(e, msgId) {
@@ -428,6 +517,189 @@
         });
     };
 
+    // --- Pinned Message Logic & Duration Modal ---
+    var pinModal = document.getElementById('pin-message-modal');
+    var closePinBtn = document.getElementById('pin-modal-close-btn');
+    var cancelPinBtn = document.getElementById('btn-cancel-pin');
+    var confirmPinBtn = document.getElementById('btn-confirm-pin');
+    var pinOptionCards = document.querySelectorAll('.chat-pin-option-card');
+
+    pinOptionCards.forEach(function(card) {
+        card.addEventListener('click', function() {
+            pinOptionCards.forEach(function(c) { c.classList.remove('selected'); });
+            card.classList.add('selected');
+            var radio = card.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+        });
+    });
+
+    function openPinDurationModal(msgId) {
+        currentTargetPinMsgId = msgId;
+        // Close dropdowns
+        document.querySelectorAll('.chat-msg-dropdown.show').forEach(function(d) {
+            d.classList.remove('show');
+        });
+        if (pinModal) {
+            pinModal.classList.add('show');
+            pinModal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closePinDurationModal() {
+        currentTargetPinMsgId = null;
+        if (pinModal) {
+            pinModal.classList.remove('show');
+            pinModal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+    }
+
+    if (closePinBtn) closePinBtn.addEventListener('click', closePinDurationModal);
+    if (cancelPinBtn) cancelPinBtn.addEventListener('click', closePinDurationModal);
+    if (pinModal) {
+        pinModal.addEventListener('click', function(e) {
+            if (e.target === pinModal) closePinDurationModal();
+        });
+    }
+
+    window.handlePinClick = function(msgId, isPinned) {
+        if (isPinned) {
+            window.unpinMessage(msgId);
+        } else {
+            openPinDurationModal(msgId);
+        }
+    };
+
+    if (confirmPinBtn) {
+        confirmPinBtn.addEventListener('click', function() {
+            if (!currentTargetPinMsgId) return;
+            var selectedRadio = document.querySelector('input[name="pin_duration_choice"]:checked');
+            var duration = selectedRadio ? selectedRadio.value : 'forever';
+
+            confirmPinBtn.disabled = true;
+            confirmPinBtn.textContent = 'Pinning...';
+
+            fetch('/chat/message/' + currentTargetPinMsgId + '/pin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ duration: duration })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                confirmPinBtn.disabled = false;
+                confirmPinBtn.innerHTML = '<span>📌</span> Pin Message';
+                if (data && data.success) {
+                    updatePinnedBar(data.message);
+                    closePinDurationModal();
+                } else {
+                    alert((data && data.error) || 'Failed to pin message.');
+                }
+            })
+            .catch(function(err) {
+                confirmPinBtn.disabled = false;
+                confirmPinBtn.innerHTML = '<span>📌</span> Pin Message';
+                alert('Network error while pinning message.');
+            });
+        });
+    }
+
+    window.unpinMessage = function(msgId) {
+        if (!msgId) return;
+        document.querySelectorAll('.chat-msg-dropdown.show').forEach(function(d) {
+            d.classList.remove('show');
+        });
+
+        fetch('/chat/message/' + msgId + '/unpin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data && data.success) {
+                updatePinnedBar(null);
+            }
+        })
+        .catch(function(err) {
+            console.error('Failed to unpin message:', err);
+        });
+    };
+
+    window.scrollToMessage = function(msgId) {
+        if (!msgId) return;
+        var msgItem = document.getElementById('msg-item-' + msgId);
+        var bubble = document.getElementById('bubble-' + msgId);
+        if (msgItem && container) {
+            var targetOffset = msgItem.offsetTop - container.offsetTop - 70;
+            container.scrollTo({ top: targetOffset, behavior: 'smooth' });
+
+            if (bubble) {
+                bubble.classList.remove('chat-bubble-highlight');
+                void bubble.offsetWidth; // Trigger reflow
+                bubble.classList.add('chat-bubble-highlight');
+                setTimeout(function() {
+                    bubble.classList.remove('chat-bubble-highlight');
+                }, 2600);
+            }
+        }
+    };
+
+    function updatePinnedBar(pinnedData) {
+        var bar = document.getElementById('chat-pinned-bar');
+        var authorEl = document.getElementById('pinned-bar-author');
+        var expiryEl = document.getElementById('pinned-bar-expiry');
+        var textEl = document.getElementById('pinned-bar-text');
+        var unpinBtn = document.getElementById('btn-bar-unpin');
+        var clickableLeft = document.getElementById('pinned-bar-clickable');
+
+        // Reset all message badges and pin buttons in thread
+        document.querySelectorAll('.chat-pinned-badge').forEach(function(b) { b.style.display = 'none'; });
+        document.querySelectorAll('.pin-action-btn').forEach(function(btn) {
+            var mId = btn.id.replace('pin-btn-', '');
+            btn.onclick = function() { window.handlePinClick(parseInt(mId, 10), false); };
+            var icon = document.getElementById('pin-icon-' + mId);
+            var text = document.getElementById('pin-text-' + mId);
+            if (icon) icon.textContent = '📌';
+            if (text) text.textContent = 'Pin Message';
+        });
+
+        if (pinnedData && pinnedData.id) {
+            if (authorEl) authorEl.textContent = pinnedData.is_mine ? 'You' : '@' + pinnedData.sender_username;
+            if (expiryEl) expiryEl.textContent = pinnedData.expiry_label || '';
+            if (textEl) textEl.textContent = pinnedData.message || '';
+            if (unpinBtn) {
+                unpinBtn.onclick = function() { window.unpinMessage(pinnedData.id); };
+            }
+            if (clickableLeft) {
+                clickableLeft.onclick = function() { window.scrollToMessage(pinnedData.id); };
+            }
+
+            var activeBadge = document.getElementById('pinned-badge-' + pinnedData.id);
+            if (activeBadge) activeBadge.style.display = 'inline-flex';
+
+            var activePinBtn = document.getElementById('pin-btn-' + pinnedData.id);
+            if (activePinBtn) {
+                activePinBtn.onclick = function() { window.handlePinClick(pinnedData.id, true); };
+                var icon = document.getElementById('pin-icon-' + pinnedData.id);
+                var text = document.getElementById('pin-text-' + pinnedData.id);
+                if (icon) icon.textContent = '❌';
+                if (text) text.textContent = 'Unpin Message';
+            }
+
+            if (bar) bar.style.display = 'flex';
+        } else {
+            if (bar) bar.style.display = 'none';
+        }
+    }
+
     // --- 3-Dots Dropdown Menu Handling ---
     var menuBtn = document.getElementById('chat-header-menu-btn');
     var dropdownMenu = document.getElementById('chat-dropdown-menu');
@@ -450,6 +722,16 @@
                 dropdownMenu.classList.remove('show');
                 menuBtn.classList.remove('active');
             }
+            document.querySelectorAll('.chat-msg-dropdown.show').forEach(function(d) {
+                if (!d.contains(e.target)) {
+                    d.classList.remove('show');
+                }
+            });
+            document.querySelectorAll('.btn-msg-dots.active').forEach(function(b) {
+                if (!b.contains(e.target)) {
+                    b.classList.remove('active');
+                }
+            });
         });
     }
 
@@ -486,25 +768,18 @@
         });
     }
 
-    if (closeBlockBtn) {
-        closeBlockBtn.addEventListener('click', closeModal);
-    }
-
-    if (cancelBlockBtn) {
-        cancelBlockBtn.addEventListener('click', closeModal);
-    }
-
+    if (closeBlockBtn) closeBlockBtn.addEventListener('click', closeModal);
+    if (cancelBlockBtn) cancelBlockBtn.addEventListener('click', closeModal);
     if (blockModal) {
         blockModal.addEventListener('click', function(e) {
-            if (e.target === blockModal) {
-                closeModal();
-            }
+            if (e.target === blockModal) closeModal();
         });
     }
 
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && blockModal && blockModal.classList.contains('show')) {
-            closeModal();
+        if (e.key === 'Escape') {
+            if (blockModal && blockModal.classList.contains('show')) closeModal();
+            if (pinModal && pinModal.classList.contains('show')) closePinDurationModal();
         }
     });
 
@@ -585,14 +860,17 @@
         var msgDiv = document.createElement('div');
         msgDiv.className = 'chat-message-item ' + (isMine ? 'mine' : 'peer');
         msgDiv.setAttribute('data-message-id', msg.id);
+        msgDiv.id = 'msg-item-' + msg.id;
 
         var bubble = document.createElement('div');
         bubble.className = isMine ? 'chat-bubble-mine' : 'chat-bubble-peer';
+        bubble.id = 'bubble-' + msg.id;
 
         var tickHtml = isMine ? ('<span class="chat-tick-status ' + (msg.is_read ? 'read' : 'sent') + '" id="tick-status-' + msg.id + '" title="' + (msg.is_read ? 'Seen' : 'Sent') + '">' + (msg.is_read ? '✓✓' : '✓') + '</span>') : '';
         var meta = document.createElement('div');
         meta.className = 'chat-meta';
-        meta.innerHTML = '<span><strong>' + (isMine ? 'You' : '@' + msg.sender_username) + '</strong></span>' +
+        meta.innerHTML = '<span><strong>' + (isMine ? 'You' : '@' + msg.sender_username) + '</strong>' +
+            '<span class="chat-pinned-badge" id="pinned-badge-' + msg.id + '" style="' + (msg.is_pinned ? '' : 'display: none;') + '">📌 Pinned</span></span>' +
             '<span class="chat-time-wrap">' +
             '<span class="chat-timestamp">' + (msg.created_at || '') + '</span>' +
             '<span class="chat-edited-tag" id="edited-tag-' + msg.id + '" style="' + (msg.is_edited ? '' : 'display: none;') + '">(edited)</span>' +
@@ -640,39 +918,49 @@
             inlineEditor.appendChild(editTextarea);
             inlineEditor.appendChild(editActions);
             bubble.appendChild(inlineEditor);
+        }
 
-            var bubbleActions = document.createElement('div');
-            bubbleActions.className = 'chat-bubble-actions';
-            bubbleActions.id = 'bubble-actions-' + msg.id;
+        var bubbleActions = document.createElement('div');
+        bubbleActions.className = 'chat-bubble-actions';
+        bubbleActions.id = 'bubble-actions-' + msg.id;
 
-            var menuWrap = document.createElement('div');
-            menuWrap.className = 'chat-msg-menu-wrap';
-            menuWrap.id = 'msg-menu-wrap-' + msg.id;
+        var menuWrap = document.createElement('div');
+        menuWrap.className = 'chat-msg-menu-wrap';
+        menuWrap.id = 'msg-menu-wrap-' + msg.id;
 
-            var dotsBtn = document.createElement('button');
-            dotsBtn.type = 'button';
-            dotsBtn.className = 'btn-msg-dots';
-            dotsBtn.id = 'msg-dots-btn-' + msg.id;
-            dotsBtn.innerHTML = '⋮';
-            dotsBtn.title = 'Message options';
-            dotsBtn.onclick = function(e) { window.toggleMsgMenu(e, msg.id); };
+        var dotsBtn = document.createElement('button');
+        dotsBtn.type = 'button';
+        dotsBtn.className = 'btn-msg-dots';
+        dotsBtn.id = 'msg-dots-btn-' + msg.id;
+        dotsBtn.innerHTML = '⋮';
+        dotsBtn.title = 'Message options';
+        dotsBtn.onclick = function(e) { window.toggleMsgMenu(e, msg.id); };
 
-            var dropdown = document.createElement('div');
-            dropdown.className = 'chat-msg-dropdown';
-            dropdown.id = 'msg-dropdown-' + msg.id;
+        var dropdown = document.createElement('div');
+        dropdown.className = 'chat-msg-dropdown';
+        dropdown.id = 'msg-dropdown-' + msg.id;
 
+        if (isMine) {
             var editItem = document.createElement('button');
             editItem.type = 'button';
             editItem.className = 'chat-msg-dropdown-item';
             editItem.innerHTML = '<span>✏️</span><span>Edit</span>';
             editItem.onclick = function() { window.openInlineEdit(msg.id); };
-
             dropdown.appendChild(editItem);
-            menuWrap.appendChild(dotsBtn);
-            menuWrap.appendChild(dropdown);
-            bubbleActions.appendChild(menuWrap);
-            bubble.appendChild(bubbleActions);
         }
+
+        var pinItem = document.createElement('button');
+        pinItem.type = 'button';
+        pinItem.className = 'chat-msg-dropdown-item pin-action-btn';
+        pinItem.id = 'pin-btn-' + msg.id;
+        pinItem.onclick = function() { window.handlePinClick(msg.id, !!msg.is_pinned); };
+        pinItem.innerHTML = '<span id="pin-icon-' + msg.id + '">' + (msg.is_pinned ? '❌' : '📌') + '</span><span id="pin-text-' + msg.id + '">' + (msg.is_pinned ? 'Unpin Message' : 'Pin Message') + '</span>';
+        dropdown.appendChild(pinItem);
+
+        menuWrap.appendChild(dotsBtn);
+        menuWrap.appendChild(dropdown);
+        bubbleActions.appendChild(menuWrap);
+        bubble.appendChild(bubbleActions);
 
         msgDiv.appendChild(bubble);
         list.appendChild(msgDiv);
@@ -709,6 +997,9 @@
                         el.title = 'Seen';
                     }
                 });
+            }
+            if (data && 'pinned_message' in data) {
+                updatePinnedBar(data.pinned_message);
             }
         })
         .catch(function(err) {

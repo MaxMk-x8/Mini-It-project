@@ -1232,4 +1232,233 @@
         color: #FFFFFF;
         box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
     }
+
+    /* --- Pinned Message Header Bar --- */
+    .chat-pinned-bar {
+        background: #F8FAFC;
+        border-bottom: 1px solid var(--border-subtle);
+        border-left: 4px solid var(--primary-blue);
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        box-shadow: 0 2px 6px rgba(0, 75, 152, 0.05);
+        transition: all 0.2s ease;
+    }
+
+    .chat-pinned-bar:hover {
+        background: #F1F5F9;
+    }
+
+    .chat-pinned-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .chat-pinned-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: var(--primary-blue-subtle);
+        color: var(--primary-blue);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    .chat-pinned-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .chat-pinned-header-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        margin-bottom: 2px;
+    }
+
+    .chat-pinned-title {
+        font-weight: 700;
+        color: var(--primary-blue);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .chat-pinned-dot {
+        color: var(--text-muted);
+    }
+
+    .chat-pinned-author {
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+
+    .chat-pinned-expiry {
+        margin-left: auto;
+        font-size: 0.72rem;
+        color: #D97706;
+        background: #FEF3C7;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .chat-pinned-text {
+        font-size: 0.88rem;
+        color: var(--text-dark);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: 500;
+    }
+
+    .chat-pinned-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .btn-pinned-unpin {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.15s ease;
+    }
+
+    .btn-pinned-unpin:hover {
+        background: #FEE2E2;
+        color: #DC2626;
+        border-color: #FCA5A5;
+    }
+
+    /* --- Pin Duration Option Cards --- */
+    .chat-pin-options {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .chat-pin-option-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 16px;
+        background: #FFFFFF;
+        border: 1.5px solid var(--border-subtle);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .chat-pin-option-card:hover {
+        border-color: var(--primary-blue-light);
+        background: #F8FAFC;
+    }
+
+    .chat-pin-option-card.selected {
+        border-color: var(--primary-blue);
+        background: #F0F6FC;
+        box-shadow: 0 0 0 1px var(--primary-blue);
+    }
+
+    .chat-pin-option-card input[type="radio"] {
+        margin-top: 3px;
+        accent-color: var(--primary-blue);
+        cursor: pointer;
+    }
+
+    .chat-pin-option-content {
+        flex: 1;
+    }
+
+    .chat-pin-option-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--text-dark);
+        margin-bottom: 2px;
+    }
+
+    .chat-pin-option-desc {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    .btn-modal-confirm-pin {
+        padding: 10px 22px;
+        background: var(--primary-blue);
+        border: 1px solid var(--primary-blue-dark);
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.92rem;
+        color: #FFFFFF;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        box-shadow: 0 2px 6px rgba(0, 75, 152, 0.25);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-modal-confirm-pin:hover {
+        background: var(--primary-blue-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(0, 75, 152, 0.35);
+    }
+
+    /* --- Pinned Message Bubble Highlight Pulse --- */
+    @keyframes pinBubblePulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(0, 75, 152, 0.6);
+            transform: scale(1);
+        }
+        50% {
+            box-shadow: 0 0 0 10px rgba(0, 75, 152, 0.2);
+            transform: scale(1.02);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(0, 75, 152, 0);
+            transform: scale(1);
+        }
+    }
+
+    .chat-bubble-highlight {
+        animation: pinBubblePulse 1.2s ease 2;
+        border: 2px solid var(--primary-blue) !important;
+    }
+
+    .chat-pinned-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+        background: var(--primary-blue-subtle);
+        padding: 1px 5px;
+        border-radius: 4px;
+        margin-left: 4px;
+    }
 </style>

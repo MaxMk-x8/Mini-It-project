@@ -1324,11 +1324,50 @@ class ChatMessage(db.Model):
     is_edited = db.Column(db.Boolean, default=False, nullable=False)
     edited_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    is_pinned = db.Column(db.Boolean, default=False, nullable=False)
+    pinned_at = db.Column(db.DateTime, nullable=True)
+    pinned_by_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_messages_pinned_by_id', ondelete='SET NULL'), nullable=True)
+    pin_duration = db.Column(db.String(20), nullable=True)  # '7d', '30d', 'forever'
+    pin_expires_at = db.Column(db.DateTime, nullable=True)
 
     sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_chats', lazy=True))
     recipient = db.relationship('User', foreign_keys=[recipient_id], backref=db.backref('received_chats', lazy=True))
+    pinned_by = db.relationship('User', foreign_keys=[pinned_by_id])
 
-    def __init__(self, sender_id=None, recipient_id=None, message=None, is_read=False, is_edited=False, edited_at=None, **kwargs):
+    @property
+    def is_actively_pinned(self):
+        if not self.is_pinned:
+            return False
+        if self.pin_expires_at:
+            exp = self.pin_expires_at
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            if exp <= datetime.now(timezone.utc):
+                return False
+        return True
+
+    @property
+    def pin_expiry_label(self):
+        if not self.is_pinned:
+            return ""
+        if not self.pin_expires_at:
+            return "Pinned indefinitely"
+        exp = self.pin_expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        diff = exp - datetime.now(timezone.utc)
+        days = max(0, diff.days)
+        hours = max(0, int(diff.seconds / 3600))
+        if days > 1:
+            return f"Expires in {days} days"
+        elif days == 1:
+            return "Expires in 1 day"
+        elif hours > 0:
+            return f"Expires in {hours}h"
+        else:
+            return "Expires soon"
+
+    def __init__(self, sender_id=None, recipient_id=None, message=None, is_read=False, is_edited=False, edited_at=None, is_pinned=False, pinned_at=None, pinned_by_id=None, pin_duration=None, pin_expires_at=None, **kwargs):
         super().__init__(**kwargs)
         if sender_id:
             self.sender_id = sender_id
@@ -1339,6 +1378,11 @@ class ChatMessage(db.Model):
         self.is_read = is_read
         self.is_edited = is_edited
         self.edited_at = edited_at
+        self.is_pinned = is_pinned
+        self.pinned_at = pinned_at
+        self.pinned_by_id = pinned_by_id
+        self.pin_duration = pin_duration
+        self.pin_expires_at = pin_expires_at
 
     def __repr__(self):
         return f'<ChatMessage #{self.id}: {self.sender_id} -> {self.recipient_id}>'
