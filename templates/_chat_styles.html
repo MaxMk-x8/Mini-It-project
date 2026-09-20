@@ -200,20 +200,26 @@
         color: var(--text-muted);
     }
 
-    /* --- Conversation Card & Thread Container --- */
+    /* --- Conversation Card & Thread Container (Glassmorphic Vibe) --- */
     .chat-card {
-        background: var(--surface-white);
-        border: 1px solid var(--border-subtle);
-        border-radius: 12px;
-        box-shadow: var(--shadow-card);
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(56, 189, 248, 0.22);
+        border-top: 3.5px solid transparent;
+        border-image: linear-gradient(90deg, #004B98 0%, #38BDF8 55%, #ED1C24 100%) 1;
+        border-radius: 14px;
+        box-shadow: 0 10px 30px -4px rgba(0, 51, 102, 0.08), 0 4px 12px -2px rgba(237, 28, 36, 0.04);
         overflow: hidden;
         margin-bottom: 24px;
     }
 
     .chat-card-header {
         padding: 16px 20px;
-        background: #FFFFFF;
-        border-bottom: 1.5px solid var(--border-subtle);
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-bottom: 1.5px solid rgba(56, 189, 248, 0.16);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -298,13 +304,15 @@
         border: 1px solid var(--border-subtle);
     }
 
-    /* --- Messages Thread Area --- */
+    /* --- Messages Thread Area (Glass Ambient Texture) --- */
     .chat-thread-container {
         min-height: 360px;
         max-height: 520px;
         overflow-y: auto;
         padding: 22px 20px;
-        background: var(--bg-ice-gradient);
+        background: radial-gradient(circle at 98% 3%, rgba(237, 28, 36, 0.045) 0%, transparent 35%),
+                    radial-gradient(circle at 2% 98%, rgba(56, 189, 248, 0.08) 0%, transparent 45%),
+                    linear-gradient(180deg, #F0F6FC 0%, #E8F2FA 100%);
         background-color: var(--bg-ice);
         display: flex;
         flex-direction: column;
@@ -319,7 +327,7 @@
         background: transparent;
     }
     .chat-thread-container::-webkit-scrollbar-thumb {
-        background-color: rgba(0, 75, 152, 0.25);
+        background-color: rgba(56, 189, 248, 0.35);
         border-radius: 10px;
     }
     .chat-thread-container::-webkit-scrollbar-thumb:hover {
@@ -341,21 +349,23 @@
         align-items: flex-start;
     }
 
-    /* Outgoing Message (You) */
+    /* Outgoing Message (You) - Sapphire / Sky Blue Gradient with Crimson Glow */
     .chat-bubble-mine {
         max-width: 72%;
         padding: 12px 16px;
         border-radius: 18px 18px 4px 18px;
-        background: var(--primary-blue-gradient);
+        background: linear-gradient(135deg, #004B98 0%, #003366 70%, #094785 100%);
         color: #FFFFFF;
-        box-shadow: var(--shadow-message-mine);
+        border: 1px solid rgba(56, 189, 248, 0.28);
+        box-shadow: 0 4px 16px rgba(0, 75, 152, 0.24), 0 2px 6px rgba(237, 28, 36, 0.1);
         position: relative;
         word-break: break-word;
-        transition: transform 0.12s ease;
+        transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
     }
 
     .chat-bubble-mine:hover {
-        transform: scale(1.008);
+        transform: translateY(-1.5px);
+        box-shadow: 0 6px 20px rgba(0, 75, 152, 0.3), 0 3px 8px rgba(237, 28, 36, 0.15);
     }
 
     .chat-bubble-mine .chat-meta {
@@ -567,22 +577,27 @@
         opacity: 0.6;
         cursor: not-allowed;
     }
+    /* Incoming Message (Peer) - Frosted Glass with Sky Blue border & Red ambient touch */
     .chat-bubble-peer {
         max-width: 72%;
         padding: 12px 16px;
         border-radius: 18px 18px 18px 4px;
-        background: #FFFFFF;
+        background: rgba(255, 255, 255, 0.90);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         color: var(--text-dark);
-        border: 1px solid #DFE7F0;
+        border: 1px solid rgba(56, 189, 248, 0.28);
         border-left: 4px solid var(--primary-blue);
-        box-shadow: var(--shadow-message-peer);
+        box-shadow: 0 4px 14px rgba(0, 75, 152, 0.07), 0 1px 3px rgba(237, 28, 36, 0.04);
         position: relative;
         word-break: break-word;
-        transition: transform 0.12s ease;
+        transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
     }
 
     .chat-bubble-peer:hover {
-        transform: scale(1.008);
+        transform: translateY(-1.5px);
+        box-shadow: 0 6px 18px rgba(0, 75, 152, 0.11), 0 2px 6px rgba(237, 28, 36, 0.06);
+        border-color: rgba(56, 189, 248, 0.45);
     }
 
     .chat-bubble-peer .chat-meta {
@@ -613,20 +628,22 @@
         display: block;
     }
 
-    /* --- Chat Composer Area --- */
+    /* --- Chat Composer Area (Glassmorphic Tray) --- */
     .chat-composer-card {
-        background: #FFFFFF;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
         padding: 18px 20px;
-        border-top: 1.5px solid var(--border-subtle);
+        border-top: 1.5px solid rgba(56, 189, 248, 0.18);
     }
 
     .chat-textarea {
         width: 100%;
         box-sizing: border-box;
         padding: 12px 16px;
-        border: 1.5px solid #CBD5E1;
+        border: 1.5px solid rgba(203, 213, 225, 0.85);
         border-radius: 10px;
-        background-color: #F8FAFC;
+        background-color: rgba(248, 250, 252, 0.82);
         color: var(--text-dark);
         font-size: 0.95rem;
         font-family: inherit;
@@ -639,7 +656,7 @@
     .chat-textarea:focus {
         background-color: #FFFFFF;
         border-color: var(--primary-blue);
-        box-shadow: 0 0 0 3.5px var(--primary-blue-glow);
+        box-shadow: 0 0 0 3.5px rgba(56, 189, 248, 0.22), 0 2px 8px rgba(237, 28, 36, 0.05);
     }
 
     .chat-composer-footer {
@@ -1455,10 +1472,101 @@
         gap: 3px;
         font-size: 0.68rem;
         font-weight: 700;
-        color: var(--primary-blue);
-        background: var(--primary-blue-subtle);
-        padding: 1px 5px;
-        border-radius: 4px;
-        margin-left: 4px;
+        color: #D97706;
+        background: #FEF3C7;
+        padding: 2px 7px;
+        border-radius: 9999px;
+        margin-left: 6px;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        box-shadow: 0 1px 3px rgba(245, 158, 11, 0.2);
+    }
+
+    /* --- Modern Pure CSS Chat UI Enhancements (Zero JavaScript) --- */
+    
+    /* 1. Sticky Frosted Glass Pinned Message Bar */
+    .chat-pinned-bar {
+        position: sticky;
+        top: 0;
+        z-index: 25;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        background: rgba(255, 251, 235, 0.92);
+        border: 1.5px solid rgba(245, 158, 11, 0.35);
+        border-radius: 10px;
+        margin: 8px 12px 14px 12px;
+        box-shadow: 0 4px 16px -2px rgba(217, 119, 6, 0.12), 0 2px 6px -1px rgba(0, 51, 102, 0.06);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .chat-pinned-bar:hover {
+        box-shadow: 0 6px 20px -2px rgba(217, 119, 6, 0.2), 0 3px 8px -1px rgba(0, 51, 102, 0.08);
+        border-color: rgba(245, 158, 11, 0.55);
+    }
+
+    .chat-pinned-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        animation: pinIconFloat 2.5s ease-in-out infinite;
+    }
+
+    @keyframes pinIconFloat {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-2px) rotate(-6deg); }
+    }
+
+    /* 2. Micro-Lift on Message Hover */
+    .chat-bubble-mine, .chat-bubble-peer {
+        transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+    }
+
+    .chat-bubble-mine:hover {
+        transform: translateY(-1.5px);
+        box-shadow: 0 6px 18px rgba(0, 75, 152, 0.28);
+    }
+
+    .chat-bubble-peer:hover {
+        transform: translateY(-1.5px);
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+    }
+
+    /* 3. Glowing Composer Textarea Focus Ring */
+    .chat-textarea {
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .chat-textarea:focus {
+        outline: none;
+        border-color: var(--primary-blue);
+        background-color: #FFFFFF;
+        box-shadow: 0 0 0 3.5px rgba(0, 75, 152, 0.18), 0 2px 8px rgba(0, 75, 152, 0.08);
+    }
+
+    /* 4. Send Button Interactive Hover Animation */
+    .btn-chat-send {
+        transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .btn-chat-send:hover {
+        transform: translateY(-1.5px);
+        box-shadow: 0 4px 14px rgba(237, 28, 36, 0.4);
+    }
+
+    .btn-chat-send:hover span:last-child {
+        display: inline-block;
+        transform: translateX(3px) rotate(-12deg);
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .btn-chat-send:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(237, 28, 36, 0.3);
+    }
+
+    /* 5. Seen Tick Read Receipt Glow */
+    .chat-tick-status.read {
+        color: #38BDF8;
+        text-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
     }
 </style>
