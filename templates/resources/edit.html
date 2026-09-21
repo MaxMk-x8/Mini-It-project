@@ -5,95 +5,95 @@
 
 <p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a></p>
 
-<div style="max-width: 600px; padding: 12px; background-color: #f1f1f1; border-left: 4px solid #007bff; margin-bottom: 20px; border-radius: 4px;">
+<div class="res-info-box res-info-box--current-file">
     <strong>Current Attached File:</strong> {{ resource.filename }} ({{ resource.file_type|upper }} &bull; {{ resource.formatted_size }})<br>
-    <small style="color: #666;">Uploaded on {{ resource.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</small>
+    <small>Uploaded on {{ resource.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</small>
 </div>
 
-<form method="POST" action="{{ url_for('resource_edit', resource_id=resource.id) }}" enctype="multipart/form-data" style="max-width: 600px;">
+<form method="POST" action="{{ url_for('resource_edit', resource_id=resource.id) }}" enctype="multipart/form-data" class="res-form">
     {{ form.hidden_tag() }}
 
-    <div style="margin-bottom: 20px; padding: 14px; background-color: #f0f9ff; border: 1px dashed #0284c7; border-radius: 6px;">
-        <label for="file" style="font-weight: bold; color: #0369a1;">{{ form.file.label.text }}</label><br>
-        <p style="margin: 4px 0 10px 0; font-size: 0.88rem; color: #475569;">
+    <div class="res-info-box res-info-box--blue" style="margin-bottom: 20px;">
+        <label for="file">{{ form.file.label.text }}</label><br>
+        <p style="margin: 4px 0 10px 0;">
             Need to upload the latest PDF or newer version? Select a new file below to replace <em>{{ resource.filename }}</em>. (Leave empty to keep the existing file).
         </p>
-        {{ form.file(style="padding: 4px 0;") }}
+        {{ form.file(class="res-form-field", style="padding: 4px 0; border: none; background: transparent;") }}
         {% for error in form.file.errors %}
-            <br><span style="color: red; font-size: 0.9em;">{{ error }}</span>
+            <br><span class="res-form-error">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 15px;">
+    <div class="res-form-group">
         {{ form.title.label }}<br>
-        {{ form.title(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {{ form.title(class="res-form-field") }}
         {% for error in form.title.errors %}
-            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+            <span class="res-form-error">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 15px;">
+    <div class="res-form-group">
         {{ form.category.label }}<br>
-        {{ form.category(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {{ form.category(class="res-form-field") }}
         {% for error in form.category.errors %}
-            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+            <span class="res-form-error">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 15px;">
+    <div class="res-form-group">
         {{ form.faculty.label }}<br>
-        {{ form.faculty(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {{ form.faculty(class="res-form-field") }}
         {% for error in form.faculty.errors %}
-            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+            <span class="res-form-error">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 15px;">
+    <div class="res-form-group">
         {{ form.description.label }}<br>
-        {{ form.description(rows=4, style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {{ form.description(rows=4, class="res-form-field") }}
         {% for error in form.description.errors %}
-            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+            <span class="res-form-error">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 15px; display: flex; gap: 12px; flex-wrap: wrap;">
+    <div class="res-form-row">
         <div style="flex: 1; min-width: 160px;">
             {{ form.course_code.label }}<br>
-            {{ form.course_code(style="width: 100%; padding: 8px; box-sizing: border-box;", placeholder="e.g. CPT111, BCN2023") }}
+            {{ form.course_code(class="res-form-field", placeholder="e.g. CPT111, BCN2023") }}
             {% for error in form.course_code.errors %}
-                <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+                <span class="res-form-error">{{ error }}</span>
             {% endfor %}
         </div>
         <div style="flex: 2; min-width: 220px;">
             {{ form.course_name.label }}<br>
-            {{ form.course_name(style="width: 100%; padding: 8px; box-sizing: border-box;", placeholder="e.g. Data Structures & Algorithms") }}
+            {{ form.course_name(class="res-form-field", placeholder="e.g. Data Structures & Algorithms") }}
             {% for error in form.course_name.errors %}
-                <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+                <span class="res-form-error">{{ error }}</span>
             {% endfor %}
         </div>
     </div>
 
-    <div style="margin-bottom: 15px; display: flex; gap: 12px; flex-wrap: wrap;">
+    <div class="res-form-row">
         <div style="flex: 1; min-width: 160px;">
             {{ form.academic_year.label }}<br>
-            {{ form.academic_year(style="width: 100%; padding: 8px; box-sizing: border-box;", placeholder="e.g. 2025/2026") }}
+            {{ form.academic_year(class="res-form-field", placeholder="e.g. 2025/2026") }}
             {% for error in form.academic_year.errors %}
-                <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+                <span class="res-form-error">{{ error }}</span>
             {% endfor %}
         </div>
         <div style="flex: 1; min-width: 160px;">
             {{ form.semester.label }}<br>
-            {{ form.semester(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+            {{ form.semester(class="res-form-field") }}
             {% for error in form.semester.errors %}
-                <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+                <span class="res-form-error">{{ error }}</span>
             {% endfor %}
         </div>
     </div>
 
     <div>
-        {{ form.submit(style="padding: 10px 20px; font-weight: bold; cursor: pointer;") }}
+        {{ form.submit(class="res-btn res-btn--primary res-btn--submit") }}
         &nbsp;
-        <a href="{{ url_for('resources_list') }}">Cancel</a>
+        <a href="{{ url_for('resources_list') }}" class="res-link--muted">Cancel</a>
     </div>
 </form>
 

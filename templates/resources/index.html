@@ -3,32 +3,32 @@
 {% block content %}
 <h2>Resource Hub</h2>
 
-<div style="margin-bottom: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+<div class="res-top-actions">
     {% if current_user.is_authenticated %}
-        <a href="{{ url_for('resource_upload') }}" style="display: inline-block; padding: 7px 14px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">+ Upload Single File</a>
-        <a href="{{ url_for('resource_upload_folder') }}" style="display: inline-block; padding: 7px 14px; background-color: #059669; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">📁 + Upload Notes Folder (Collection)</a>
-        <a href="{{ url_for('my_uploads') }}" style="display: inline-block; padding: 7px 14px; background-color: #f1f5f9; color: #1e293b; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 4px;">My Uploads</a>
+        <a href="{{ url_for('resource_upload') }}" class="res-btn res-btn--primary">+ Upload Single File</a>
+        <a href="{{ url_for('resource_upload_folder') }}" class="res-btn res-btn--success">📁 + Upload Notes Folder (Collection)</a>
+        <a href="{{ url_for('my_uploads') }}" class="res-btn res-btn--secondary">My Uploads</a>
     {% else %}
         <p><a href="{{ url_for('login') }}">Log in</a> to upload, rate, preview, and share study materials and folder collections.</p>
     {% endif %}
 </div>
 
 <!-- Search, Academic Filter & Sort Form -->
-<form method="GET" action="{{ url_for('resources_list') }}" style="margin-bottom: 25px; padding: 16px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #f8fafc;">
-    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+<form method="GET" action="{{ url_for('resources_list') }}" class="res-filter-bar">
+    <div class="res-filter-bar__row">
         <div>
             <label for="q"><strong>Search:</strong></label><br>
-            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords, course code, title..." style="padding: 6px; width: 200px;">
+            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords, course code, title..." style="width: 200px;">
         </div>
 
         <div>
             <label for="course_code"><strong>Course Code:</strong></label><br>
-            <input type="text" id="course_code" name="course_code" value="{{ selected_course_code }}" placeholder="e.g. CPT111" style="padding: 6px; width: 110px;">
+            <input type="text" id="course_code" name="course_code" value="{{ selected_course_code }}" placeholder="e.g. CPT111" style="width: 110px;">
         </div>
 
         <div>
             <label for="semester"><strong>Semester / Term:</strong></label><br>
-            <select id="semester" name="semester" style="padding: 6px;">
+            <select id="semester" name="semester">
                 <option value="">-- All Terms --</option>
                 {% for code, label in semesters %}
                     {% if code %}
@@ -40,7 +40,7 @@
 
         <div>
             <label for="faculty"><strong>Faculty:</strong></label><br>
-            <select id="faculty" name="faculty" style="padding: 6px;">
+            <select id="faculty" name="faculty">
                 <option value="">-- All Faculties --</option>
                 {% for code, name in faculties %}
                     <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
@@ -50,7 +50,7 @@
 
         <div>
             <label for="category"><strong>Category:</strong></label><br>
-            <select id="category" name="category" style="padding: 6px;">
+            <select id="category" name="category">
                 <option value="">-- All Categories --</option>
                 {% for code, label in categories %}
                     <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
@@ -60,7 +60,7 @@
 
         <div>
             <label for="sort"><strong>Sort By:</strong></label><br>
-            <select id="sort" name="sort" style="padding: 6px;">
+            <select id="sort" name="sort">
                 <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>Newest First</option>
                 <option value="downloads" {% if selected_sort == 'downloads' %}selected{% endif %}>Most Downloaded</option>
                 <option value="rating" {% if selected_sort == 'rating' %}selected{% endif %}>Highest Rated</option>
@@ -68,9 +68,9 @@
         </div>
 
         <div style="align-self: flex-end;">
-            <button type="submit" style="padding: 7px 16px; font-weight: bold; background-color: #1e293b; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply Filter</button>
+            <button type="submit" class="res-btn res-btn--dark">Apply Filter</button>
             {% if query_text or selected_faculty or selected_category or selected_course_code or selected_semester or selected_sort != 'newest' %}
-                <a href="{{ url_for('resources_list') }}" style="margin-left: 8px; color: #64748b;">Reset</a>
+                <a href="{{ url_for('resources_list') }}" class="res-link--muted" style="margin-left: 8px;">Reset</a>
             {% endif %}
         </div>
     </div>
@@ -79,25 +79,25 @@
 <hr>
 
 <!-- Resources Feed Header -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-    <h3 style="margin: 0;">Available Resources & Collections ({{ total_items }})</h3>
-    <small style="color: #64748b;">Page {{ page }} of {{ total_pages }}</small>
+<div class="res-section-header">
+    <h3>Available Resources & Collections ({{ total_items }})</h3>
+    <small>Page {{ page }} of {{ total_pages }}</small>
 </div>
 
 {% if items %}
     <ul style="list-style-type: none; padding-left: 0;">
         {% for item in items %}
-            <li style="margin-bottom: 20px; padding: 18px; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 280px;">
-                        <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap;">
+            <li class="res-card">
+                <div class="res-card-header">
+                    <div class="res-card-body">
+                        <div class="res-badges">
                             {% if item.is_collection or item.resources is defined %}
-                                <span style="display: inline-block; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
+                                <span class="res-badge res-badge--folder">
                                     📁 NOTES FOLDER
                                 </span>
                             {% else %}
                                 {% set ext = item.file_type|lower %}
-                                <span style="display: inline-block; background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
+                                <span class="res-badge res-badge--file">
                                     {% if ext == 'pdf' %}📄 PDF
                                     {% elif ext == 'docx' %}📝 DOCX
                                     {% elif ext == 'pptx' %}📊 PPTX
@@ -109,36 +109,36 @@
                             {% endif %}
 
                             {% if item.course_code %}
-                                <span style="background-color: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; border: 1px solid #c7d2fe;">
+                                <span class="res-badge res-badge--course">
                                     📚 {{ item.course_code }}
                                 </span>
                             {% endif %}
 
                             {% if item.semester or item.academic_year %}
-                                <span style="background-color: #f8fafc; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; border: 1px solid #cbd5e1;">
+                                <span class="res-badge res-badge--semester">
                                     🗓️ {{ item.semester or '' }} {{ item.academic_year or '' }}
                                 </span>
                             {% endif %}
                         </div>
 
-                        <h4 style="margin: 0 0 4px 0; font-size: 1.15rem;">
+                        <h4 class="res-card-title">
                             {% if item.is_collection or item.resources is defined %}
-                                <a href="{{ url_for('collection_detail', collection_id=item.id) }}" style="color: #0f172a; text-decoration: none;">
+                                <a href="{{ url_for('collection_detail', collection_id=item.id) }}">
                                     <strong>{{ item.title }}</strong>
                                 </a>
                             {% else %}
-                                <span style="color: #0f172a;">{{ item.title }}</span>
-                                <span style="font-size: 0.8em; color: #64748b; font-weight: normal;">({{ item.formatted_size }})</span>
+                                <span>{{ item.title }}</span>
+                                <span style="font-size: 0.8em; font-weight: normal; color: var(--color-text-secondary);">({{ item.formatted_size }})</span>
                             {% endif %}
                         </h4>
 
                         {% if item.course_name %}
-                            <p style="margin: 0 0 4px 0; color: #334155; font-size: 0.9rem;">
+                            <p style="margin: 0 0 4px 0; font-size: 0.9rem;">
                                 Course: <em>{{ item.course_name }}</em>
                             </p>
                         {% endif %}
 
-                        <p style="font-size: 0.875rem; color: #64748b; margin: 4px 0 8px 0;">
+                        <p class="res-card-meta">
                             Faculty: <strong>{{ item.faculty }}</strong> | 
                             Category: <strong>{{ item.category }}</strong> | 
                             Uploaded by: <strong>{{ item.uploader.username }}</strong> ({{ item.uploader.role }}) | 
@@ -147,12 +147,12 @@
                     </div>
 
                     <!-- Statistics Badges -->
-                    <div style="display: flex; gap: 8px; align-items: center; font-size: 0.875rem; flex-wrap: wrap;">
-                        <span style="background-color: #eff6ff; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; border: 1px solid #bfdbfe;">
+                    <div class="res-stats">
+                        <span class="res-stat-badge res-stat-badge--downloads">
                             📥 <strong>{{ item.download_count or 0 }}</strong> downloads
                         </span>
 
-                        <span style="background-color: #fefce8; color: #a16207; padding: 4px 8px; border-radius: 4px; border: 1px solid #fef08a;">
+                        <span class="res-stat-badge res-stat-badge--rating">
                             {% if item.average_rating %}
                                 ★ <strong>{{ item.average_rating }}</strong> / 5.0 ({{ item.rating_count }} {{ 'rating' if item.rating_count == 1 else 'ratings' }})
                             {% else %}
@@ -161,13 +161,13 @@
                         </span>
 
                         {% if item.is_collection or item.resources is defined %}
-                            <span style="background-color: #f5f3ff; color: #6d28d9; padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd6fe;">
+                            <span class="res-stat-badge res-stat-badge--reviewed">
                                 🎓 <strong>{{ item.professor_reviewed_count }} of {{ item.file_count }}</strong> files professor-reviewed
                             </span>
                         {% elif current_user.is_authenticated %}
                             {% set my_rating = item.user_rating(current_user) %}
                             {% if my_rating %}
-                                <span style="background-color: #f0fdf4; color: #15803d; padding: 4px 8px; border-radius: 4px; border: 1px solid #bbf7d0;">
+                                <span class="res-stat-badge res-stat-badge--user-rating">
                                     Your rating: <strong>{{ my_rating }} ★</strong>
                                 </span>
                             {% endif %}
@@ -176,26 +176,26 @@
                 </div>
 
                 {% if item.description %}
-                    <p style="margin: 8px 0 12px 0; color: #334155; font-size: 0.95rem;">{{ item.description }}</p>
+                    <p class="res-card-description">{{ item.description }}</p>
                 {% endif %}
 
                 {% if item.is_collection or item.resources is defined %}
-                    <p style="font-size: 0.875rem; color: #475569; margin: 6px 0;">
+                    <p class="res-card-collection-info">
                         Contains <strong>{{ item.file_count }}</strong> files ({{ item.formatted_total_size }})
                     </p>
                 {% else %}
-                    <p style="font-size: 0.85rem; color: #64748b; margin: 4px 0;">
+                    <p class="res-card-file-info">
                         Original File: <em>{{ item.filename }}</em>
                     </p>
 
                     <!-- Standalone Resource Professor-Reviewed Badge -->
                     {% if item.is_reviewed_by_professor %}
-                        <div style="margin: 10px 0; padding: 10px 12px; background-color: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 6px;">
-                            <div style="display: flex; align-items: center; gap: 6px; color: #5b21b6; font-size: 0.9rem; font-weight: bold;">
+                        <div class="res-prof-review">
+                            <div class="res-prof-review__heading">
                                 🎓 PROFESSOR REVIEWED
                             </div>
                             {% for rev in item.reviews %}
-                                <div style="font-size: 0.85rem; color: #4c1d95; margin-top: 4px;">
+                                <div class="res-prof-review__detail">
                                     Reviewed by <strong>Prof. {{ rev.professor.username }}</strong> on {{ rev.created_at.strftime('%Y-%m-%d') }}:
                                     {% if rev.review_note %}
                                         <em>"{{ rev.review_note }}"</em>
@@ -204,7 +204,7 @@
                                     {% endif %}
                                 </div>
                             {% endfor %}
-                            <div style="font-size: 0.75rem; color: #6b7280; margin-top: 5px; font-style: italic;">
+                            <div class="res-prof-review__disclaimer">
                                 * This badge records an MMU Professor's review; it does not constitute official university accreditation or a guarantee of complete accuracy.
                             </div>
                         </div>
@@ -212,72 +212,72 @@
                 {% endif %}
 
                 <!-- Action Controls & Forms -->
-                <div style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div class="res-card-actions">
+                    <div class="res-card-actions-left">
                         {% if item.is_collection or item.resources is defined %}
-                            <a href="{{ url_for('collection_detail', collection_id=item.id) }}" style="display: inline-block; padding: 6px 12px; background-color: #059669; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                            <a href="{{ url_for('collection_detail', collection_id=item.id) }}" class="res-btn res-btn--success">
                                 📁 Open Notes Collection &rarr;
                             </a>
-                            <a href="{{ url_for('collection_download_zip', collection_id=item.id) }}" style="display: inline-block; padding: 6px 12px; background-color: #1e293b; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                            <a href="{{ url_for('collection_download_zip', collection_id=item.id) }}" class="res-btn res-btn--dark">
                                 📦 Download ZIP
                             </a>
                             {% if current_user.is_authenticated and (current_user.id == item.uploader_id or current_user.is_admin()) %}
-                                <a href="{{ url_for('collection_add_files', collection_id=item.id) }}" style="color: #059669; font-size: 0.9rem; font-weight: bold;">+ Add Files</a>
-                                <a href="{{ url_for('collection_edit', collection_id=item.id) }}" style="color: #2563eb; font-size: 0.9rem;">Edit</a>
+                                <a href="{{ url_for('collection_add_files', collection_id=item.id) }}" class="res-link--success">+ Add Files</a>
+                                <a href="{{ url_for('collection_edit', collection_id=item.id) }}" class="res-link">Edit</a>
                                 <form method="POST" action="{{ url_for('collection_delete', collection_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this entire collection and all its files?');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.9rem;">Delete</button>
+                                    <button type="submit" class="res-link--danger">Delete</button>
                                 </form>
                             {% endif %}
                         {% else %}
                             {% set ext = item.file_type|lower %}
                             {% if ext in ['pdf', 'txt'] %}
-                                <a href="{{ url_for('resource_preview', resource_id=item.id) }}" target="_blank" style="display: inline-block; padding: 6px 12px; background-color: #f1f5f9; color: #1e293b; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.9rem; font-weight: bold;">
+                                <a href="{{ url_for('resource_preview', resource_id=item.id) }}" target="_blank" class="res-btn res-btn--secondary res-btn--sm">
                                     👁️ Preview
                                 </a>
                             {% endif %}
-                            <a href="{{ url_for('resource_download', resource_id=item.id) }}" style="display: inline-block; padding: 6px 12px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                            <a href="{{ url_for('resource_download', resource_id=item.id) }}" class="res-btn res-btn--primary">
                                 📥 Download File
                             </a>
                             {% if current_user.is_authenticated %}
                                 {% set is_saved = item.is_bookmarked_by(current_user) %}
                                 <form method="POST" action="{{ url_for('toggle_resource_bookmark', resource_id=item.id) }}" style="display: inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; background-color: {% if is_saved %}#fef3c7{% else %}#f8fafc{% endif %}; color: {% if is_saved %}#92400e{% else %}#475569{% endif %}; border: 1px solid {% if is_saved %}#f59e0b{% else %}#cbd5e1{% endif %}; border-radius: 4px; font-weight: 600; font-size: 0.88rem; cursor: pointer;">
+                                    <button type="submit" class="res-btn-bookmark {% if is_saved %}res-btn-bookmark--active{% endif %}">
                                         {% if is_saved %}★ Bookmarked{% else %}☆ Bookmark{% endif %}
                                     </button>
                                 </form>
                             {% endif %}
                             {% if current_user.is_authenticated and (current_user.id == item.uploader_id or current_user.is_admin()) %}
-                                <a href="{{ url_for('resource_edit', resource_id=item.id) }}" style="color: #2563eb; font-size: 0.9rem;">Edit</a>
+                                <a href="{{ url_for('resource_edit', resource_id=item.id) }}" class="res-link">Edit</a>
                                 <form method="POST" action="{{ url_for('resource_delete', resource_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this resource?');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.9rem;">Delete</button>
+                                    <button type="submit" class="res-link--danger">Delete</button>
                                 </form>
                             {% endif %}
                         {% endif %}
                     </div>
 
                     <!-- Right Controls: Professor Endorsement & Student Community Rating -->
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <div class="res-card-actions-right">
                         <!-- Professor Review Action for Standalone Resources -->
                         {% if not (item.is_collection or item.resources is defined) and current_user.is_authenticated and current_user.is_professor() and current_user.id != item.uploader_id %}
                             {% if item.is_reviewed_by(current_user) %}
                                 <form method="POST" action="{{ url_for('resource_unreview', resource_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Withdraw your professor review on this resource?');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" style="padding: 4px 8px; font-size: 0.8rem; background-color: #faf5ff; border: 1px solid #ddd6fe; color: #6d28d9; border-radius: 4px; cursor: pointer;">
+                                    <button type="submit" class="res-btn res-btn--sm" style="background-color: var(--color-badge-purple-bg); border: 1px solid var(--color-badge-purple-border); color: var(--color-badge-purple-text);">
                                         Withdraw Prof Review
                                     </button>
                                 </form>
                             {% else %}
                                 <details style="display: inline-block;">
-                                    <summary style="font-size: 0.82rem; color: #6d28d9; cursor: pointer; font-weight: 500;">
+                                    <summary class="res-prof-endorse-summary">
                                         + Endorse as Professor
                                     </summary>
-                                    <form method="POST" action="{{ url_for('resource_review', resource_id=item.id) }}" style="margin-top: 6px; padding: 8px; background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 4px;">
+                                    <form method="POST" action="{{ url_for('resource_review', resource_id=item.id) }}" class="res-prof-endorse-form">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <input type="text" name="review_note" placeholder="Optional review note..." maxlength="255" style="width: 180px; padding: 4px; font-size: 0.8rem;">
-                                        <button type="submit" style="padding: 4px 8px; background: #6d28d9; color: white; border: none; border-radius: 3px; font-size: 0.8rem; cursor: pointer;">
+                                        <input type="text" name="review_note" placeholder="Optional review note..." maxlength="255" class="res-form-field" style="width: 180px; padding: 4px; font-size: 0.8rem;">
+                                        <button type="submit" class="res-btn res-btn--sm" style="background-color: var(--color-badge-purple-text); color: white;">
                                             Submit Review
                                         </button>
                                     </form>
@@ -287,10 +287,10 @@
 
                         <!-- Inline Star Rating Form for Standalone Resources -->
                         {% if not (item.is_collection or item.resources is defined) and current_user.is_authenticated and current_user.id != item.uploader_id %}
-                            <form method="POST" action="{{ url_for('resource_rate', resource_id=item.id) }}" style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                            <form method="POST" action="{{ url_for('resource_rate', resource_id=item.id) }}" class="res-rating-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <label for="rating-{{ item.id }}" style="font-size: 0.85rem; color: #475569;">Rate:</label>
-                                <select id="rating-{{ item.id }}" name="rating" style="padding: 3px 6px; font-size: 0.85rem; border-radius: 3px; border: 1px solid #cbd5e1;">
+                                <label for="rating-{{ item.id }}">Rate:</label>
+                                <select id="rating-{{ item.id }}" name="rating">
                                     {% set curr = item.user_rating(current_user) %}
                                     <option value="5" {% if curr == 5 %}selected{% endif %}>5 ★★★★★ (Excellent)</option>
                                     <option value="4" {% if curr == 4 %}selected{% endif %}>4 ★★★★☆ (Very Good)</option>
@@ -298,7 +298,7 @@
                                     <option value="2" {% if curr == 2 %}selected{% endif %}>2 ★★☆☆☆ (Fair)</option>
                                     <option value="1" {% if curr == 1 %}selected{% endif %}>1 ★☆☆☆☆ (Poor)</option>
                                 </select>
-                                <button type="submit" style="padding: 3px 8px; font-size: 0.85rem; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer;">
+                                <button type="submit">
                                     {% if curr %}Update{% else %}Submit{% endif %}
                                 </button>
                             </form>
@@ -311,35 +311,35 @@
 
     <!-- 10-Item Pagination Controls with Active Filters -->
     {% if total_pages > 1 %}
-        <div style="margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <div class="res-pagination">
             {% if page > 1 %}
-                <a href="{{ url_for('resources_list', page=page-1, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">&laquo; Previous</a>
+                <a href="{{ url_for('resources_list', page=page-1, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" class="res-page-link">&laquo; Previous</a>
             {% else %}
-                <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 4px; color: #94a3b8;">&laquo; Previous</span>
+                <span class="res-page-link--disabled">&laquo; Previous</span>
             {% endif %}
 
             {% for p in range(1, total_pages + 1) %}
                 {% if p == page %}
-                    <span style="padding: 6px 12px; background-color: #2563eb; color: white; border-radius: 4px; font-weight: bold;">{{ p }}</span>
+                    <span class="res-page-link--active">{{ p }}</span>
                 {% else %}
-                    <a href="{{ url_for('resources_list', page=p, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">{{ p }}</a>
+                    <a href="{{ url_for('resources_list', page=p, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" class="res-page-link">{{ p }}</a>
                 {% endif %}
             {% endfor %}
 
             {% if page < total_pages %}
-                <a href="{{ url_for('resources_list', page=page+1, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">Next &raquo;</a>
+                <a href="{{ url_for('resources_list', page=page+1, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" class="res-page-link">Next &raquo;</a>
             {% else %}
-                <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 4px; color: #94a3b8;">Next &raquo;</span>
+                <span class="res-page-link--disabled">Next &raquo;</span>
             {% endif %}
         </div>
     {% endif %}
 
 {% else %}
-    <div style="padding: 30px; text-align: center; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-        <p style="color: #64748b; font-size: 1.05rem;">No study materials or folder collections found matching your criteria.</p>
+    <div class="res-empty-state">
+        <p>No study materials or folder collections found matching your criteria.</p>
         {% if current_user.is_authenticated %}
-            <a href="{{ url_for('resource_upload') }}" style="color: #2563eb; font-weight: bold;">Upload a single file</a> or 
-            <a href="{{ url_for('resource_upload_folder') }}" style="color: #059669; font-weight: bold;">Upload a notes folder collection</a>!
+            <a href="{{ url_for('resource_upload') }}" class="res-link" style="font-weight: bold;">Upload a single file</a> or 
+            <a href="{{ url_for('resource_upload_folder') }}" class="res-link--success">Upload a notes folder collection</a>!
         {% else %}
             <a href="{{ url_for('login') }}">Log in</a> to upload and share resources.
         {% endif %}

@@ -6,6 +6,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='resources.css') }}">
     <style>
         .table-bordered {
             width: 100%;
@@ -18,6 +19,15 @@
             text-align: left;
         }
     </style>
+    <script>
+        /* Theme: apply saved preference BEFORE paint to prevent flash */
+        (function() {
+            var saved = localStorage.getItem('codenest-theme');
+            if (saved === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <script>
         // Security: Prevent back-button viewing of cached authenticated pages after logout
         window.addEventListener('pageshow', function (event) {
@@ -50,6 +60,10 @@
             <a href="{{ url_for('register') }}">Register</a>
         {% endif %}
 
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">
+            <span id="theme-icon">🌙</span>
+        </button>
+
         <form action="{{ url_for('search_users') }}" method="GET" style="display: inline-block; margin-left: 15px;">
             <input type="text" name="q" placeholder="Search @username..." value="{{ request.args.get('q', '') }}" style="padding: 2px 6px;">
             <button type="submit" style="padding: 2px 8px;">Search</button>
@@ -75,5 +89,30 @@
     {% endwith %}
 
     {% block content %}{% endblock %}
+
+    <script>
+        /* Theme toggle: persists choice in localStorage */
+        function toggleTheme() {
+            var html = document.documentElement;
+            var icon = document.getElementById('theme-icon');
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                localStorage.setItem('codenest-theme', 'light');
+                icon.textContent = '🌙';
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                localStorage.setItem('codenest-theme', 'dark');
+                icon.textContent = '☀️';
+            }
+        }
+        /* Set correct icon on load */
+        (function() {
+            var icon = document.getElementById('theme-icon');
+            if (icon && document.documentElement.getAttribute('data-theme') === 'dark') {
+                icon.textContent = '☀️';
+            }
+        })();
+    </script>
 </body>
 </html>
+
