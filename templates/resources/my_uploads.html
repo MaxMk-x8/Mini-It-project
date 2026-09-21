@@ -1,13 +1,22 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>My Uploads</h2>
-<p style="color: var(--color-text-secondary);">Manage your uploaded academic study materials and complete notes folder collections.</p>
+{% include "resources/_resource_styles.html" %}
 
-<div class="res-top-actions">
-    <a href="{{ url_for('resource_upload') }}" class="res-btn res-btn--primary">+ Upload Single File</a>
-    <a href="{{ url_for('resource_upload_folder') }}" class="res-btn res-btn--success">📁 + Upload Notes Folder</a>
-    <a href="{{ url_for('resources_list') }}" class="res-btn res-btn--secondary">&larr; Back to Resource Hub</a>
+<div class="res-container">
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+    <div>
+        <h2 style="margin: 0;">My Uploads</h2>
+        <p style="margin: 4px 0 0 0; color: var(--color-text-secondary); font-size: 0.95rem;">
+            Manage your uploaded academic study materials and complete notes folder collections.
+        </p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+        <a href="{{ url_for('resource_upload') }}" class="res-btn res-btn--primary">+ Upload Single File</a>
+        <a href="{{ url_for('resource_upload_folder') }}" class="res-btn res-btn--success">📁 + Upload Notes Folder</a>
+        <a href="{{ url_for('resources_list') }}" class="res-btn res-btn--secondary">&larr; Back to Hub</a>
+    </div>
 </div>
 
 <!-- Search, Academic Filter & Sort Form -->
@@ -258,5 +267,6 @@
         <a href="{{ url_for('resource_upload_folder') }}" class="res-link--success">Upload a notes folder collection</a>!
     </div>
 {% endif %}
+</div>
 
 {% endblock %}

@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Edit Notes Collection</h2>
+{% include "resources/_resource_styles.html" %}
+
+<div class="res-container">
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+    <h2 style="margin: 0;">Edit Notes Collection</h2>
+    <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+</div>
 
 <p><a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}">&larr; Back to Collection</a></p>
 
@@ -143,5 +149,6 @@ function handleIndividualFilesSelect(input) {
     summary.textContent = 'Selected replacement files: ' + input.files.length + ' file(s) (' + totalMB + ' MB total)';
 }
 </script>
+</div>
 
 {% endblock %}

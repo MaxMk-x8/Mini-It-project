@@ -1,17 +1,29 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Resource Hub</h2>
+{% include "resources/_resource_styles.html" %}
 
-<div class="res-top-actions">
-    {% if current_user.is_authenticated %}
-        <a href="{{ url_for('resource_upload') }}" class="res-btn res-btn--primary">+ Upload Single File</a>
-        <a href="{{ url_for('resource_upload_folder') }}" class="res-btn res-btn--success">📁 + Upload Notes Folder (Collection)</a>
-        <a href="{{ url_for('my_uploads') }}" class="res-btn res-btn--secondary">My Uploads</a>
-    {% else %}
-        <p><a href="{{ url_for('login') }}">Log in</a> to upload, rate, preview, and share study materials and folder collections.</p>
-    {% endif %}
+<div class="res-container">
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+    <div>
+        <h2 style="margin: 0;">Resource Hub</h2>
+        <p style="margin: 4px 0 0 0; color: var(--color-text-secondary); font-size: 0.95rem;">
+            Discover, download, and share verified academic notes, lecture slides, and past papers.
+        </p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('resource_upload') }}" class="res-btn res-btn--primary">+ Upload Single File</a>
+            <a href="{{ url_for('resource_upload_folder') }}" class="res-btn res-btn--success">📁 + Upload Notes Folder</a>
+            <a href="{{ url_for('my_uploads') }}" class="res-btn res-btn--secondary">My Uploads</a>
+        {% endif %}
+    </div>
 </div>
+
+{% if not current_user.is_authenticated %}
+    <p><a href="{{ url_for('login') }}">Log in</a> to upload, rate, preview, and share study materials and folder collections.</p>
+{% endif %}
 
 <!-- Search, Academic Filter & Sort Form -->
 <form method="GET" action="{{ url_for('resources_list') }}" class="res-filter-bar">
@@ -345,5 +357,6 @@
         {% endif %}
     </div>
 {% endif %}
+</div>
 
 {% endblock %}

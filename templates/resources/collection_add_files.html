@@ -1,8 +1,16 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>➕ Add Files to Notes Collection</h2>
-<p style="color: var(--color-text-secondary);">Append additional study files or subfolders to your existing notes collection.</p>
+{% include "resources/_resource_styles.html" %}
+
+<div class="res-container">
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+    <div>
+        <h2 style="margin: 0;">➕ Add Files to Notes Collection</h2>
+        <p style="margin: 4px 0 0 0; color: var(--color-text-secondary); font-size: 0.95rem;">Append additional study files or subfolders to your existing notes collection.</p>
+    </div>
+    <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+</div>
 
 <p>
     <a href="{{ url_for('collection_detail', collection_id=collection.id) }}">&larr; Back to Collection</a> | 
@@ -66,4 +74,5 @@
         <a href="{{ url_for('collection_detail', collection_id=collection.id) }}" class="res-link--muted">Cancel</a>
     </div>
 </form>
+</div>
 {% endblock %}

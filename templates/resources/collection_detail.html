@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 
 {% block content %}
-<p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a> | <a href="{{ url_for('my_uploads') }}">My Uploads</a></p>
+{% include "resources/_resource_styles.html" %}
+
+<div class="res-container">
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+    <p style="margin: 0;"><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a> | <a href="{{ url_for('my_uploads') }}">My Uploads</a></p>
+    <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+</div>
 
 <!-- Collection Header Card -->
 <div class="res-card" style="margin-bottom: 24px;">
@@ -237,5 +243,6 @@
 {% else %}
     <p style="color: var(--color-text-secondary);">This collection currently contains no files.</p>
 {% endif %}
+</div>
 
 {% endblock %}

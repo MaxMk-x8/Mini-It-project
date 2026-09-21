@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Edit Resource Details</h2>
+{% include "resources/_resource_styles.html" %}
+
+<div class="res-container">
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+    <h2 style="margin: 0;">Edit Resource Details</h2>
+    <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+</div>
 
 <p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a></p>
 
@@ -96,5 +102,6 @@
         <a href="{{ url_for('resources_list') }}" class="res-link--muted">Cancel</a>
     </div>
 </form>
+</div>
 
 {% endblock %}

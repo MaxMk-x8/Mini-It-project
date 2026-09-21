@@ -1,0 +1,32 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='resources.css') }}">
+<script>
+    function toggleResourceTheme() {
+        var container = document.querySelector('.res-container');
+        var btn = document.getElementById('res-theme-btn');
+        if (!container) return;
+        if (container.getAttribute('data-theme') === 'dark') {
+            container.removeAttribute('data-theme');
+            localStorage.setItem('codenest-res-theme', 'light');
+            if (btn) btn.innerHTML = '🌙 Dark Mode';
+        } else {
+            container.setAttribute('data-theme', 'dark');
+            localStorage.setItem('codenest-res-theme', 'dark');
+            if (btn) btn.innerHTML = '☀️ Light Mode';
+        }
+    }
+    (function() {
+        var saved = localStorage.getItem('codenest-res-theme');
+        if (saved === 'dark') {
+            document.addEventListener('DOMContentLoaded', function() {
+                var container = document.querySelector('.res-container');
+                var btn = document.getElementById('res-theme-btn');
+                if (container) {
+                    container.setAttribute('data-theme', 'dark');
+                }
+                if (btn) {
+                    btn.innerHTML = '☀️ Light Mode';
+                }
+            });
+        }
+    })();
+</script>

@@ -1,53 +1,60 @@
 {% extends "base.html" %}
 
 {% block content %}
-<p>
-    <a href="{{ request.referrer or url_for('resources_list') }}">&larr; Back</a> | 
-    <a href="{{ url_for('resources_list') }}">Resource Hub</a>
-</p>
+{% include "resources/_resource_styles.html" %}
 
-<div class="res-preview-header">
-    <div class="res-preview-header__top">
-        <div>
-            <span class="res-badge res-badge--file">
-                📃 TXT PREVIEW
-            </span>
-            <h2 style="margin: 4px 0 6px 0;">{{ resource.title }}</h2>
-            <p class="res-preview-header__meta">
-                File: <strong>{{ resource.filename }}</strong> ({{ resource.formatted_size }}) | 
-                Faculty: <strong>{{ resource.faculty }}</strong> | 
-                Category: <strong>{{ resource.category }}</strong>
-                {% if resource.course_code %}
-                    | Course: <strong>{{ resource.course_code }}</strong>{% if resource.course_name %} - {{ resource.course_name }}{% endif %}
-                {% endif %}
-                {% if resource.semester or resource.academic_year %}
-                    | Period: <strong>{{ resource.semester or '' }} {{ resource.academic_year or '' }}</strong>
-                {% endif %}
-            </p>
-        </div>
-        <div>
-            <a href="{{ url_for('resource_download', resource_id=resource.id) }}" class="res-btn res-btn--primary res-btn--lg">
-                📥 Download Full File
-            </a>
+<div class="res-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+        <p style="margin: 0;">
+            <a href="{{ request.referrer or url_for('resources_list') }}">&larr; Back</a> | 
+            <a href="{{ url_for('resources_list') }}">Resource Hub</a>
+        </p>
+        <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+    </div>
+
+    <div class="res-preview-header">
+        <div class="res-preview-header__top">
+            <div>
+                <span class="res-badge res-badge--file">
+                    📃 TXT PREVIEW
+                </span>
+                <h2 style="margin: 4px 0 6px 0;">{{ resource.title }}</h2>
+                <p class="res-preview-header__meta">
+                    File: <strong>{{ resource.filename }}</strong> ({{ resource.formatted_size }}) | 
+                    Faculty: <strong>{{ resource.faculty }}</strong> | 
+                    Category: <strong>{{ resource.category }}</strong>
+                    {% if resource.course_code %}
+                        | Course: <strong>{{ resource.course_code }}</strong>{% if resource.course_name %} - {{ resource.course_name }}{% endif %}
+                    {% endif %}
+                    {% if resource.semester or resource.academic_year %}
+                        | Period: <strong>{{ resource.semester or '' }} {{ resource.academic_year or '' }}</strong>
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <a href="{{ url_for('resource_download', resource_id=resource.id) }}" class="res-btn res-btn--primary res-btn--lg">
+                    📥 Download Full File
+                </a>
+            </div>
         </div>
     </div>
-</div>
 
-{% if is_truncated %}
-    <div class="res-preview-warning">
-        ⚠️ <strong>Notice:</strong> Preview truncated for file size. Download full file to read completely.
+    {% if is_truncated %}
+        <div class="res-preview-warning">
+            ⚠️ <strong>Notice:</strong> Preview truncated for file size. Download full file to read completely.
+        </div>
+    {% endif %}
+
+    <div class="res-preview-content">
+        <pre>{{ content }}</pre>
     </div>
-{% endif %}
 
-<div class="res-preview-content">
-    <pre>{{ content }}</pre>
-</div>
-
-<div style="margin-top: 20px;">
-    <a href="{{ url_for('resource_download', resource_id=resource.id) }}" class="res-btn res-btn--primary res-btn--lg">
-        📥 Download File ({{ resource.formatted_size }})
-    </a>
-    &nbsp;
-    <a href="{{ request.referrer or url_for('resources_list') }}" class="res-link--muted">&larr; Return to previous page</a>
+    <div style="margin-top: 20px;">
+        <a href="{{ url_for('resource_download', resource_id=resource.id) }}" class="res-btn res-btn--primary res-btn--lg">
+            📥 Download File ({{ resource.formatted_size }})
+        </a>
+        &nbsp;
+        <a href="{{ request.referrer or url_for('resources_list') }}" class="res-link--muted">&larr; Return to previous page</a>
+    </div>
 </div>
 {% endblock %}
