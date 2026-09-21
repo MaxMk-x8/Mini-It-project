@@ -1,60 +1,198 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>Register</h2>
-<p>Your role (Student/Professor) is assigned automatically based on your email domain.</p>
-<form method="POST" onsubmit="if (this.checkValidity && !this.checkValidity()) { return; } const btn = this.querySelector('input[type=submit]'); if (btn) { setTimeout(() => { btn.disabled = true; btn.value = 'Registering...'; }, 10); }">
-    {{ form.hidden_tag() }}
-    <p>
-        {{ form.username.label }}<br>{{ form.username() }}
-        {% for error in form.username.errors %}
-            <br><span style="color: red;">{{ error }}</span>
-        {% endfor %}
-    </p>
-    <p>
-        {{ form.email.label }}<br>{{ form.email() }} (e.g. name@student.mmu.edu.my or name@mmu.edu.my)
-        {% for error in form.email.errors %}
-            <br><span style="color: red;">{{ error }}</span>
-        {% endfor %}
-    </p>
-    <p>
-        {{ form.faculty.label }}<br>{{ form.faculty() }}
-        {% for error in form.faculty.errors %}
-            <br><span style="color: red;">{{ error }}</span>
-        {% endfor %}
-    </p>
-    <div>
-        {{ form.password.label }}<br>{{ form.password(id="register-password-input") }}
-        {% for error in form.password.errors %}
-            <br><span style="color: red;">{{ error }}</span>
-        {% endfor %}
 
-        <!-- Interactive Password Strength Meter -->
-        <div id="password-strength-container" style="margin-top: 8px; max-width: 320px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
-                <span>Password Strength:</span>
-                <strong id="password-strength-label" style="color: #64748b;">None</strong>
-            </div>
-            <div style="height: 6px; width: 100%; background: #e2e8f0; border-radius: 3px; overflow: hidden; display: flex;">
-                <div id="bar-1" style="flex: 1; height: 100%; background: transparent; transition: background 0.3s; margin-right: 2px;"></div>
-                <div id="bar-2" style="flex: 1; height: 100%; background: transparent; transition: background 0.3s; margin-right: 2px;"></div>
-                <div id="bar-3" style="flex: 1; height: 100%; background: transparent; transition: background 0.3s;"></div>
-            </div>
-            <ul style="list-style: none; padding: 0; margin: 8px 0 0 0; font-size: 0.8rem; color: #64748b; line-height: 1.4;">
-                <li id="req-length">✖ At least 8 characters</li>
-                <li id="req-cases">✖ Lowercase &amp; uppercase letters</li>
-                <li id="req-number">✖ At least one number (0-9)</li>
-                <li id="req-symbol">✖ At least one symbol (!@#$%^&*)</li>
-            </ul>
+{% block content %}
+<style>
+    .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(85vh - 80px);
+        padding: 20px;
+    }
+    .auth-card {
+        width: 100%;
+        max-width: 460px;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        padding: 36px 30px;
+        box-shadow: 0 20px 45px -10px rgba(0, 51, 102, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+    }
+    .auth-header {
+        text-align: center;
+        margin-bottom: 22px;
+    }
+    .auth-logo {
+        height: 38px;
+        margin-bottom: 12px;
+        filter: drop-shadow(0 4px 12px rgba(0, 51, 102, 0.1));
+    }
+    .auth-title {
+        margin: 0 0 6px 0;
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .auth-subtitle {
+        margin: 0;
+        font-size: 0.88rem;
+        color: #64748b;
+        line-height: 1.5;
+    }
+    .form-group {
+        margin-bottom: 16px;
+    }
+    .form-label {
+        display: block;
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: #334155;
+        margin-bottom: 6px;
+    }
+    .form-input, .form-select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 14px;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(6px);
+        font-size: 0.95rem;
+        font-family: inherit;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+    .form-input:focus, .form-select:focus {
+        background: #ffffff;
+        border-color: #004FB6;
+        box-shadow: 0 0 0 3px rgba(0, 79, 182, 0.15);
+    }
+    .form-error {
+        color: #dc2626;
+        font-size: 0.82rem;
+        margin-top: 4px;
+        display: block;
+    }
+    .btn-auth-submit {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.98rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 14px rgba(0, 51, 102, 0.25);
+        margin-top: 10px;
+    }
+    .btn-auth-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 51, 102, 0.35);
+    }
+    .auth-footer {
+        margin-top: 18px;
+        text-align: center;
+        font-size: 0.88rem;
+        color: #64748b;
+    }
+    .auth-footer a {
+        color: #004FB6;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .auth-footer a:hover {
+        color: #003366;
+        text-decoration: underline;
+    }
+</style>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <a href="{{ url_for('home') }}" title="CodeNest Home">
+                <img src="{{ url_for('static', filename='images/codenest_logo_transparent.png') }}" alt="CodeNest" class="auth-logo">
+            </a>
+            <h2 class="auth-title">Create an Account</h2>
+            <p class="auth-subtitle">Join the MMU academic &amp; coding knowledge exchange hub</p>
         </div>
+
+        <form method="POST" onsubmit="if (this.checkValidity && !this.checkValidity()) { return; } const btn = this.querySelector('input[type=submit]'); if (btn) { setTimeout(() => { btn.disabled = true; btn.value = 'Registering...'; }, 10); }">
+            {{ form.hidden_tag() }}
+
+            <div class="form-group">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-input", placeholder="Choose a username") }}
+                {% for error in form.username.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-input", placeholder="e.g. name@student.mmu.edu.my") }}
+                <span style="display: block; font-size: 0.78rem; color: #64748b; margin-top: 4px;">Role (Student/Professor) is auto-assigned from email domain.</span>
+                {% for error in form.email.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                {{ form.faculty.label(class="form-label") }}
+                {{ form.faculty(class="form-select") }}
+                {% for error in form.faculty.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(id="register-password-input", class="form-input", placeholder="Create a strong password") }}
+                {% for error in form.password.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+
+                <!-- Password Strength Meter -->
+                <div id="password-strength-container" style="margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px;">
+                        <span>Password Strength:</span>
+                        <strong id="password-strength-label" style="color: #64748b;">None</strong>
+                    </div>
+                    <div style="height: 5px; width: 100%; background: #e2e8f0; border-radius: 3px; overflow: hidden; display: flex;">
+                        <div id="bar-1" style="flex: 1; height: 100%; background: transparent; transition: background 0.3s; margin-right: 2px;"></div>
+                        <div id="bar-2" style="flex: 1; height: 100%; background: transparent; transition: background 0.3s; margin-right: 2px;"></div>
+                        <div id="bar-3" style="flex: 1; height: 100%; background: transparent; transition: background 0.3s;"></div>
+                    </div>
+                    <ul style="list-style: none; padding: 0; margin: 8px 0 0 0; font-size: 0.78rem; color: #64748b; line-height: 1.4;">
+                        <li id="req-length">✖ At least 8 characters</li>
+                        <li id="req-cases">✖ Lowercase &amp; uppercase letters</li>
+                        <li id="req-number">✖ At least one number (0-9)</li>
+                        <li id="req-symbol">✖ At least one symbol (!@#$%^&*)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="form-group">
+                {{ form.confirm_password.label(class="form-label") }}
+                {{ form.confirm_password(class="form-input", placeholder="Confirm your password") }}
+                {% for error in form.confirm_password.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+
+            <div>
+                {{ form.submit(class="btn-auth-submit") }}
+            </div>
+
+            <div class="auth-footer">
+                Already have an account? <a href="{{ url_for('login') }}">Log in here</a>
+            </div>
+        </form>
     </div>
-    <p>
-        {{ form.confirm_password.label }}<br>{{ form.confirm_password() }}
-        {% for error in form.confirm_password.errors %}
-            <br><span style="color: red;">{{ error }}</span>
-        {% endfor %}
-    </p>
-    <p>{{ form.submit() }}</p>
-</form>
+</div>
 
 <script>
 (function() {

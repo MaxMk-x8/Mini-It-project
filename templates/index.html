@@ -1,4 +1,312 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h1>Welcome to {{ app_name }}</h1>
+<style>
+    /* Glassmorphic Hero Card */
+    .glass-hero {
+        text-align: center;
+        padding: 48px 24px 40px;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        margin-bottom: 32px;
+        position: relative;
+        overflow: hidden;
+    }
+    .glass-hero::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 15%; right: 15%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.3), rgba(237, 28, 36, 0.3), transparent);
+    }
+    .hero-logo {
+        max-width: 370px;
+        width: 85%;
+        height: auto;
+        filter: drop-shadow(0 12px 24px rgba(0, 51, 102, 0.14));
+        margin-bottom: 20px;
+        transition: transform 0.3s ease;
+    }
+    .hero-logo:hover { transform: scale(1.02); }
+
+    /* Refined Frosted Glass Badge */
+    .glass-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 18px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 4px 16px -2px rgba(0, 51, 102, 0.06), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+        margin-bottom: 18px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #334155;
+        letter-spacing: 0.3px;
+        transition: all 0.25s ease;
+    }
+    .glass-badge:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 8px 20px -2px rgba(0, 51, 102, 0.1), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
+    }
+    .badge-sparkle {
+        font-size: 0.85rem;
+    }
+    .badge-highlight {
+        color: #003366;
+        font-weight: 700;
+    }
+
+    .hero-subtitle {
+        max-width: 620px;
+        margin: 0 auto 28px;
+        color: #475569;
+        font-size: 1.05rem;
+        line-height: 1.6;
+    }
+
+    /* Glass Action Buttons */
+    .cta-group {
+        display: flex;
+        justify-content: center;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+    .btn-glass {
+        padding: 12px 22px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        box-shadow: 0 6px 20px rgba(0, 51, 102, 0.28);
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 26px rgba(0, 51, 102, 0.38);
+        color: #ffffff;
+    }
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(10px);
+        color: #003366;
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+    }
+    .btn-secondary:hover {
+        background: #ffffff;
+        transform: translateY(-2px);
+        color: #004FB6;
+    }
+    .btn-accent {
+        background: linear-gradient(135deg, #ED1C24, #c9141b);
+        color: #ffffff;
+        box-shadow: 0 6px 20px rgba(237, 28, 36, 0.28);
+    }
+    .btn-accent:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 26px rgba(237, 28, 36, 0.38);
+        color: #ffffff;
+    }
+
+    /* Glass Authenticated User Banner */
+    .glass-user-banner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-left: 5px solid #004FB6;
+        border-radius: 16px;
+        padding: 18px 22px;
+        margin-bottom: 32px;
+        box-shadow: 0 10px 30px rgba(0, 51, 102, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+    }
+    .user-chip {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        margin-right: 6px;
+    }
+    .chip-role { background: rgba(224, 242, 254, 0.85); color: #0369a1; border: 1px solid rgba(186, 230, 253, 0.8); }
+    .chip-faculty { background: rgba(241, 245, 249, 0.85); color: #475569; border: 1px solid rgba(226, 232, 240, 0.8); }
+    .chip-pts { background: rgba(254, 226, 226, 0.85); color: #b91c1c; border: 1px solid rgba(254, 202, 202, 0.8); font-weight: 700; }
+    
+    .quick-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.88rem;
+        font-weight: 600;
+        transition: all 0.18s ease;
+    }
+    .quick-link.solid {
+        background: #003366;
+        color: #ffffff;
+    }
+    .quick-link.solid:hover { background: #004FB6; }
+    .quick-link.outline {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(8px);
+        color: #334155;
+        border: 1px solid rgba(203, 213, 225, 0.8);
+    }
+    .quick-link.outline:hover { background: #ffffff; color: #003366; }
+
+    /* Glass 4-Column Feature Grid */
+    .glass-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 20px;
+    }
+    .glass-card {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 18px;
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease;
+        box-shadow: 0 10px 30px -8px rgba(0, 51, 102, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.85);
+    }
+    .glass-card:hover {
+        transform: translateY(-6px);
+        background: rgba(255, 255, 255, 0.85);
+        border-color: rgba(0, 79, 182, 0.4);
+        box-shadow: 0 20px 40px -10px rgba(0, 51, 102, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+    }
+    .glass-icon-orb {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 14px;
+        background: rgba(255, 255, 255, 0.8);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+    }
+    .card-title { font-size: 1.15rem; font-weight: 700; margin: 0 0 8px 0; color: #0f172a; }
+    .card-desc { font-size: 0.9rem; color: #64748b; line-height: 1.5; margin: 0 0 18px 0; flex-grow: 1; }
+    .card-link { font-size: 0.9rem; font-weight: 700; color: #004FB6; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: gap 0.18s ease; }
+    .card-link:hover { color: #003366; gap: 8px; }
+</style>
+
+<!-- Frosted Glass Hero Section -->
+<div class="glass-hero">
+    <div>
+        <img src="{{ url_for('static', filename='images/codenest_logo_transparent.png') }}" alt="CodeNest" class="hero-logo">
+    </div>
+
+    <div>
+        <div class="glass-badge">
+            <span class="badge-sparkle">✨</span>
+            <span>You are going to be the next <span class="badge-highlight">polymaths</span></span>
+        </div>
+    </div>
+
+    <p class="hero-subtitle">
+        The collaborative coding and academic knowledge exchange hub for Multimedia University.
+    </p>
+
+    <div class="cta-group">
+        <a href="{{ url_for('qa_list') }}" class="btn-glass btn-primary">💬 Explore Q&A Discussions</a>
+        <a href="{{ url_for('resources_list') }}" class="btn-glass btn-secondary">📚 Study Resources</a>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('chat_list') }}" class="btn-glass btn-accent">⚡ Peer Chat</a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="btn-glass btn-accent">🔑 Log In</a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Authenticated User Welcome Banner -->
+{% if current_user.is_authenticated %}
+<div class="glass-user-banner">
+    <div>
+        <h3 style="margin: 0 0 6px 0; font-size: 1.2rem;">Welcome back, <strong>@{{ current_user.username }}</strong>! 👋</h3>
+        <div>
+            <span class="user-chip chip-role">{{ current_user.role }}</span>
+            <span class="user-chip chip-faculty">{{ current_user.faculty or 'MMU' }}</span>
+            <span class="user-chip chip-pts">⭐ {{ current_user.reputation_points }} pts</span>
+        </div>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{{ url_for('qa_ask') }}" class="quick-link solid">✍️ Ask Question</a>
+        <a href="{{ url_for('saved_questions') }}" class="quick-link outline">🔖 Bookmarks</a>
+    </div>
+</div>
+{% endif %}
+
+<!-- 4-Column Feature Grid -->
+<div class="glass-grid">
+    <!-- 1. Q&A Knowledge Base -->
+    <div class="glass-card">
+        <div class="glass-icon-orb">💡</div>
+        <h3 class="card-title">Q&A Knowledge Base</h3>
+        <p class="card-desc">Ask coursework questions, share code solutions, and get verified answers endorsed by professors.</p>
+        <a href="{{ url_for('qa_list') }}" class="card-link">Explore Q&A &rarr;</a>
+    </div>
+
+    <!-- 2. Academic Resources -->
+    <div class="glass-card">
+        <div class="glass-icon-orb">📂</div>
+        <h3 class="card-title">Academic Resources</h3>
+        <p class="card-desc">Find past exam papers, lecture slides, and curated collections categorized by faculty and semester.</p>
+        <a href="{{ url_for('resources_list') }}" class="card-link">Browse Resources &rarr;</a>
+    </div>
+
+    <!-- 3. Direct Peer Messaging -->
+    <div class="glass-card">
+        <div class="glass-icon-orb">💬</div>
+        <h3 class="card-title">Direct Peer Messaging</h3>
+        <p class="card-desc">Chat in real-time with classmates and study partners via private 1-on-1 chats and unread alerts.</p>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('chat_list') }}" class="card-link">Open Chat &rarr;</a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="card-link">Log In &rarr;</a>
+        {% endif %}
+    </div>
+
+    <!-- 4. Community & Growth -->
+    <div class="glass-card">
+        <div class="glass-icon-orb">🎓</div>
+        <h3 class="card-title">Community & Growth</h3>
+        <p class="card-desc">Earn reputation points for quality answers, follow MMU peers, and apply for moderator roles.</p>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('public_profile', username=current_user.username) }}" class="card-link">My Profile &rarr;</a>
+        {% else %}
+            <a href="{{ url_for('register') }}" class="card-link">Register &rarr;</a>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}

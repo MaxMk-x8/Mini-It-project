@@ -187,6 +187,14 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
+@app.context_processor
+def inject_global_vars():
+    return {
+        'app_name': 'CodeNest',
+        'current_year': datetime.now(timezone.utc).year
+    }
+
+
 # =====================================================================
 # USER MENTION HELPERS & JINJA FILTERS (HABIB)
 # =====================================================================

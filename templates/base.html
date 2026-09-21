@@ -2,21 +2,102 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>{{ app_name }}</title>
+    <title>{{ app_name or 'CodeNest' }}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
     <style>
-        .table-bordered {
-            width: 100%;
-            border-collapse: collapse;
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #0f172a;
+            /* Ambient background glow for translucent glass cards to blur */
+            background: radial-gradient(circle at 15% 15%, rgba(0, 51, 102, 0.09) 0%, transparent 40%),
+                        radial-gradient(circle at 85% 20%, rgba(237, 28, 36, 0.07) 0%, transparent 45%),
+                        radial-gradient(circle at 50% 85%, rgba(0, 79, 182, 0.08) 0%, transparent 50%),
+                        #f6f8fc;
+            background-attachment: fixed;
+            min-height: 100vh;
         }
-        .table-bordered th,
-        .table-bordered td {
-            border: 1px solid #cbd5e1;
+
+        /* Frosted Glass Sticky Navbar */
+        nav {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03);
+        }
+        nav a {
+            color: #003366;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.93rem;
             padding: 6px 10px;
-            text-align: left;
+            border-radius: 8px;
+            transition: all 0.18s ease;
         }
+        nav a:hover {
+            background: rgba(0, 51, 102, 0.06);
+            color: #004FB6;
+        }
+        .nav-logo {
+            height: 38px;
+            vertical-align: middle;
+            transition: transform 0.2s ease;
+        }
+        .nav-logo:hover {
+            transform: scale(1.03);
+        }
+        .nav-search-input {
+            padding: 6px 14px;
+            border: 1px solid rgba(203, 213, 225, 0.8);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(8px);
+            outline: none;
+            font-size: 0.88rem;
+            transition: all 0.2s ease;
+        }
+        .nav-search-input:focus {
+            background: #ffffff;
+            border-color: #004FB6;
+            box-shadow: 0 0 0 3px rgba(0, 79, 182, 0.12);
+        }
+        .nav-search-btn {
+            padding: 6px 12px;
+            background: #003366;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: background 0.18s;
+        }
+        .nav-search-btn:hover { background: #004FB6; }
+
+        /* Content Wrapper */
+        .content-wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px 48px;
+        }
+
+        .table-bordered { width: 100%; border-collapse: collapse; }
+        .table-bordered th, .table-bordered td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; }
     </style>
     <script>
         // Security: Prevent back-button viewing of cached authenticated pages after logout
@@ -32,6 +113,10 @@
 </head>
 <body>
     <nav>
+        <!-- CodeNest compact brand logo -->
+        <a href="{{ url_for('home') }}" style="display: inline-flex; align-items: center; padding: 0; margin-right: 4px;">
+            <img src="{{ url_for('static', filename='images/codenest_logo_transparent.png') }}" alt="CodeNest" class="nav-logo">
+        </a>
         <a href="{{ url_for('home') }}">Home</a> |
         <a href="{{ url_for('qa_list') }}">Q&A</a> |
         {% if current_user.is_authenticated %}
@@ -50,30 +135,32 @@
             <a href="{{ url_for('register') }}">Register</a>
         {% endif %}
 
-        <form action="{{ url_for('search_users') }}" method="GET" style="display: inline-block; margin-left: 15px;">
-            <input type="text" name="q" placeholder="Search @username..." value="{{ request.args.get('q', '') }}" style="padding: 2px 6px;">
-            <button type="submit" style="padding: 2px 8px;">Search</button>
+        <form action="{{ url_for('search_users') }}" method="GET" style="display: inline-flex; align-items: center; gap: 6px; margin-left: auto;">
+            <input type="text" name="q" placeholder="Search @username..." value="{{ request.args.get('q', '') }}" class="nav-search-input">
+            <button type="submit" class="nav-search-btn">Search</button>
         </form>
     </nav>
 
-    <hr>
-
-    {% if current_user.is_authenticated and current_user.unread_warnings_count > 0 %}
-        <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
-            <p style="margin: 0; color: #991b1b; font-weight: bold;">
-                ⚠️ You have {{ current_user.unread_warnings_count }} official warning(s) in your <a href="{{ url_for('inbox') }}" style="color: #b91c1c; text-decoration: underline;">Inbox</a>. Please review and acknowledge them.
-            </p>
-        </div>
-    {% endif %}
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <p><strong>[{{ category }}]</strong> {{ message }}</p>
-            {% endfor %}
+    <div class="content-wrap">
+        {% if current_user.is_authenticated and current_user.unread_warnings_count > 0 %}
+            <div style="background: rgba(254, 226, 226, 0.85); backdrop-filter: blur(10px); border: 1px solid #ef4444; border-radius: 10px; padding: 12px 18px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #991b1b; font-weight: bold;">
+                    ⚠️ You have {{ current_user.unread_warnings_count }} official warning(s) in your <a href="{{ url_for('inbox') }}" style="color: #b91c1c; text-decoration: underline;">Inbox</a>. Please review and acknowledge them.
+                </p>
+            </div>
         {% endif %}
-    {% endwith %}
 
-    {% block content %}{% endblock %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.9); border-radius: 10px; padding: 10px 16px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                        <strong>[{{ category }}]</strong> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
 </body>
 </html>
