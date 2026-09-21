@@ -1,101 +1,107 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Edit Notes Collection</h2>
+{% include "resources/_resource_styles.html" %}
+
+<div class="res-container">
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+    <h2 style="margin: 0;">Edit Notes Collection</h2>
+    <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+</div>
 
 <p><a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}">&larr; Back to Collection</a></p>
 
-<div style="max-width: 600px; padding: 12px 16px; background-color: #fffbeb; border-left: 4px solid #d97706; margin-bottom: 20px; border-radius: 4px;">
+<div class="res-info-box res-info-box--amber">
     <strong>Collection:</strong> {{ collection.title }} ({{ collection.files_count }} files &bull; {{ collection.formatted_size }})<br>
-    <small style="color: #64748b;">Created on {{ collection.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</small>
+    <small>Created on {{ collection.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</small>
 </div>
 
-<form method="POST" action="{{ url_for('resource_collection_edit', collection_id=collection.id) }}" enctype="multipart/form-data" style="max-width: 600px;">
+<form method="POST" action="{{ url_for('resource_collection_edit', collection_id=collection.id) }}" enctype="multipart/form-data" class="res-form">
     {{ form.hidden_tag() }}
 
-    <div style="margin-bottom: 20px; padding: 14px; background-color: #fffbeb; border: 1px dashed #d97706; border-radius: 6px;">
-        <label style="font-weight: bold; color: #92400e;">Replace Files / Folder (Optional)</label>
-        <p style="margin: 4px 0 10px 0; font-size: 0.88rem; color: #78350f;">
+    <div class="res-info-box res-info-box--amber-dashed" style="margin-bottom: 20px;">
+        <label>Replace Files / Folder (Optional)</label>
+        <p style="margin: 4px 0 10px 0;">
             Want to replace all files or upload a newer folder for this collection? Select a folder or files below. (Leave empty to keep all existing {{ collection.files_count }} files).
         </p>
-        <label style="font-size: 0.85rem; font-weight: bold; color: #78350f;">Select Folder:</label><br>
+        <label style="font-size: 0.85rem;">Select Folder:</label><br>
         <input type="file" id="folder_input" name="replacement_folder" webkitdirectory directory multiple onchange="handleFolderSelect(this)" style="margin-bottom: 8px;"><br>
-        <label style="font-size: 0.85rem; font-weight: bold; color: #78350f;">Or Select Multiple Files:</label><br>
+        <label style="font-size: 0.85rem;">Or Select Multiple Files:</label><br>
         <input type="file" name="files" multiple onchange="handleIndividualFilesSelect(this)">
         <div id="relative_paths_container"></div>
-        <div id="folder_summary" style="margin-top: 8px; font-size: 0.85rem; color: #92400e; font-weight: bold;"></div>
+        <div id="folder_summary" class="res-replacement-summary"></div>
     </div>
 
-    <div style="margin-bottom: 15px;">
+    <div class="res-form-group">
         {{ form.title.label }}<br>
-        {{ form.title(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {{ form.title(class="res-form-field") }}
         {% for error in form.title.errors %}
-            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+            <span class="res-form-error">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 15px;">
+    <div class="res-form-group">
         {{ form.category.label }}<br>
-        {{ form.category(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {{ form.category(class="res-form-field") }}
         {% for error in form.category.errors %}
-            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+            <span class="res-form-error">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 15px;">
+    <div class="res-form-group">
         {{ form.faculty.label }}<br>
-        {{ form.faculty(style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {{ form.faculty(class="res-form-field") }}
         {% for error in form.faculty.errors %}
-            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+            <span class="res-form-error">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 15px;">
+    <div class="res-form-group">
         {{ form.description.label }}<br>
-        {{ form.description(rows=4, style="width: 100%; padding: 8px; box-sizing: border-box;") }}
+        {{ form.description(rows=4, class="res-form-field") }}
         {% for error in form.description.errors %}
-            <span style="color: red; font-size: 0.9em;">{{ error }}</span>
+            <span class="res-form-error">{{ error }}</span>
         {% endfor %}
     </div>
 
-    <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+    <div class="res-form-row">
         <div style="flex: 1; min-width: 160px;">
             {{ form.course_code.label }}<br>
-            {{ form.course_code(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;", placeholder="e.g. CPT111, BCN2023") }}
+            {{ form.course_code(class="res-form-field", placeholder="e.g. CPT111, BCN2023") }}
             {% for error in form.course_code.errors %}
-                <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+                <span class="res-form-error">{{ error }}</span>
             {% endfor %}
         </div>
         <div style="flex: 2; min-width: 220px;">
             {{ form.course_name.label }}<br>
-            {{ form.course_name(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;", placeholder="e.g. Data Structures & Algorithms") }}
+            {{ form.course_name(class="res-form-field", placeholder="e.g. Data Structures & Algorithms") }}
             {% for error in form.course_name.errors %}
-                <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+                <span class="res-form-error">{{ error }}</span>
             {% endfor %}
         </div>
     </div>
 
-    <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+    <div class="res-form-row">
         <div style="flex: 1; min-width: 160px;">
             {{ form.academic_year.label }}<br>
-            {{ form.academic_year(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;", placeholder="e.g. 2025/2026") }}
+            {{ form.academic_year(class="res-form-field", placeholder="e.g. 2025/2026") }}
             {% for error in form.academic_year.errors %}
-                <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+                <span class="res-form-error">{{ error }}</span>
             {% endfor %}
         </div>
         <div style="flex: 1; min-width: 160px;">
             {{ form.semester.label }}<br>
-            {{ form.semester(style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;") }}
+            {{ form.semester(class="res-form-field") }}
             {% for error in form.semester.errors %}
-                <span style="color: #dc2626; font-size: 0.875rem;">{{ error }}</span>
+                <span class="res-form-error">{{ error }}</span>
             {% endfor %}
         </div>
     </div>
 
     <div>
-        {{ form.submit(style="padding: 10px 20px; font-weight: bold; background: #d97706; color: white; border: none; border-radius: 4px; cursor: pointer;") }}
+        {{ form.submit(class="res-btn res-btn--warning res-btn--submit") }}
         &nbsp;
-        <a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}" style="color: #64748b;">Cancel</a>
+        <a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}" class="res-link--muted">Cancel</a>
     </div>
 </form>
 
@@ -143,5 +149,6 @@ function handleIndividualFilesSelect(input) {
     summary.textContent = 'Selected replacement files: ' + input.files.length + ' file(s) (' + totalMB + ' MB total)';
 }
 </script>
+</div>
 
 {% endblock %}

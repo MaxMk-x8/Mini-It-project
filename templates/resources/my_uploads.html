@@ -1,31 +1,40 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>My Uploads</h2>
-<p style="color: #64748b;">Manage your uploaded academic study materials and complete notes folder collections.</p>
+{% include "resources/_resource_styles.html" %}
 
-<div style="margin-bottom: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-    <a href="{{ url_for('resource_upload') }}" style="display: inline-block; padding: 7px 14px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">+ Upload Single File</a>
-    <a href="{{ url_for('resource_upload_folder') }}" style="display: inline-block; padding: 7px 14px; background-color: #059669; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">📁 + Upload Notes Folder</a>
-    <a href="{{ url_for('resources_list') }}" style="display: inline-block; padding: 7px 14px; background-color: #f1f5f9; color: #1e293b; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 4px;">&larr; Back to Resource Hub</a>
+<div class="res-container">
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+    <div>
+        <h2 style="margin: 0;">My Uploads</h2>
+        <p style="margin: 4px 0 0 0; color: var(--color-text-secondary); font-size: 0.95rem;">
+            Manage your uploaded academic study materials and complete notes folder collections.
+        </p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+        <a href="{{ url_for('resource_upload') }}" class="res-btn res-btn--primary">+ Upload Single File</a>
+        <a href="{{ url_for('resource_upload_folder') }}" class="res-btn res-btn--success">📁 + Upload Notes Folder</a>
+        <a href="{{ url_for('resources_list') }}" class="res-btn res-btn--secondary">&larr; Back to Hub</a>
+    </div>
 </div>
 
 <!-- Search, Academic Filter & Sort Form -->
-<form method="GET" action="{{ url_for('my_uploads') }}" style="margin-bottom: 25px; padding: 16px; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #f8fafc;">
-    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+<form method="GET" action="{{ url_for('my_uploads') }}" class="res-filter-bar">
+    <div class="res-filter-bar__row">
         <div>
             <label for="q"><strong>Search:</strong></label><br>
-            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in your uploads..." style="padding: 6px; width: 200px;">
+            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in your uploads..." style="width: 200px;">
         </div>
 
         <div>
             <label for="course_code"><strong>Course Code:</strong></label><br>
-            <input type="text" id="course_code" name="course_code" value="{{ selected_course_code }}" placeholder="e.g. CPT111" style="padding: 6px; width: 110px;">
+            <input type="text" id="course_code" name="course_code" value="{{ selected_course_code }}" placeholder="e.g. CPT111" style="width: 110px;">
         </div>
 
         <div>
             <label for="semester"><strong>Semester / Term:</strong></label><br>
-            <select id="semester" name="semester" style="padding: 6px;">
+            <select id="semester" name="semester">
                 <option value="">-- All Terms --</option>
                 {% for code, label in semesters %}
                     {% if code %}
@@ -37,7 +46,7 @@
 
         <div>
             <label for="faculty"><strong>Faculty:</strong></label><br>
-            <select id="faculty" name="faculty" style="padding: 6px;">
+            <select id="faculty" name="faculty">
                 <option value="">-- All Faculties --</option>
                 {% for code, name in faculties %}
                     <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
@@ -47,7 +56,7 @@
 
         <div>
             <label for="category"><strong>Category:</strong></label><br>
-            <select id="category" name="category" style="padding: 6px;">
+            <select id="category" name="category">
                 <option value="">-- All Categories --</option>
                 {% for code, label in categories %}
                     <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
@@ -57,7 +66,7 @@
 
         <div>
             <label for="sort"><strong>Sort By:</strong></label><br>
-            <select id="sort" name="sort" style="padding: 6px;">
+            <select id="sort" name="sort">
                 <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>Newest First</option>
                 <option value="downloads" {% if selected_sort == 'downloads' %}selected{% endif %}>Most Downloaded</option>
                 <option value="rating" {% if selected_sort == 'rating' %}selected{% endif %}>Highest Rated</option>
@@ -65,9 +74,9 @@
         </div>
 
         <div style="align-self: flex-end;">
-            <button type="submit" style="padding: 7px 16px; font-weight: bold; background-color: #1e293b; color: white; border: none; border-radius: 4px; cursor: pointer;">Filter</button>
+            <button type="submit" class="res-btn res-btn--dark">Filter</button>
             {% if query_text or selected_faculty or selected_category or selected_course_code or selected_semester or selected_sort != 'newest' %}
-                <a href="{{ url_for('my_uploads') }}" style="margin-left: 8px; color: #64748b;">Reset</a>
+                <a href="{{ url_for('my_uploads') }}" class="res-link--muted" style="margin-left: 8px;">Reset</a>
             {% endif %}
         </div>
     </div>
@@ -75,25 +84,25 @@
 
 <hr>
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-    <h3 style="margin: 0;">My Uploaded Items ({{ total_items }})</h3>
-    <small style="color: #64748b;">Page {{ page }} of {{ total_pages }}</small>
+<div class="res-section-header">
+    <h3>My Uploaded Items ({{ total_items }})</h3>
+    <small>Page {{ page }} of {{ total_pages }}</small>
 </div>
 
 {% if items %}
     <ul style="list-style-type: none; padding-left: 0;">
         {% for item in items %}
-            <li style="margin-bottom: 20px; padding: 18px; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 280px;">
-                        <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap;">
+            <li class="res-card">
+                <div class="res-card-header">
+                    <div class="res-card-body">
+                        <div class="res-badges">
                             {% if item.is_collection or item.resources is defined %}
-                                <span style="display: inline-block; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
+                                <span class="res-badge res-badge--folder">
                                     📁 NOTES FOLDER
                                 </span>
                             {% else %}
                                 {% set ext = item.file_type|lower %}
-                                <span style="display: inline-block; background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
+                                <span class="res-badge res-badge--file">
                                     {% if ext == 'pdf' %}📄 PDF
                                     {% elif ext == 'docx' %}📝 DOCX
                                     {% elif ext == 'pptx' %}📊 PPTX
@@ -105,36 +114,36 @@
                             {% endif %}
 
                             {% if item.course_code %}
-                                <span style="background-color: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; border: 1px solid #c7d2fe;">
+                                <span class="res-badge res-badge--course">
                                     📚 {{ item.course_code }}
                                 </span>
                             {% endif %}
 
                             {% if item.semester or item.academic_year %}
-                                <span style="background-color: #f8fafc; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; border: 1px solid #cbd5e1;">
+                                <span class="res-badge res-badge--semester">
                                     🗓️ {{ item.semester or '' }} {{ item.academic_year or '' }}
                                 </span>
                             {% endif %}
                         </div>
 
-                        <h4 style="margin: 0 0 4px 0; font-size: 1.15rem;">
+                        <h4 class="res-card-title">
                             {% if item.is_collection or item.resources is defined %}
-                                <a href="{{ url_for('collection_detail', collection_id=item.id) }}" style="color: #0f172a; text-decoration: none;">
+                                <a href="{{ url_for('collection_detail', collection_id=item.id) }}">
                                     <strong>{{ item.title }}</strong>
                                 </a>
                             {% else %}
-                                <span style="color: #0f172a;">{{ item.title }}</span>
-                                <span style="font-size: 0.8em; color: #64748b; font-weight: normal;">({{ item.formatted_size }})</span>
+                                <span>{{ item.title }}</span>
+                                <span style="font-size: 0.8em; font-weight: normal; color: var(--color-text-secondary);">({{ item.formatted_size }})</span>
                             {% endif %}
                         </h4>
 
                         {% if item.course_name %}
-                            <p style="margin: 0 0 4px 0; color: #334155; font-size: 0.9rem;">
+                            <p style="margin: 0 0 4px 0; font-size: 0.9rem;">
                                 Course: <em>{{ item.course_name }}</em>
                             </p>
                         {% endif %}
 
-                        <p style="font-size: 0.875rem; color: #64748b; margin: 4px 0 8px 0;">
+                        <p class="res-card-meta">
                             Faculty: <strong>{{ item.faculty }}</strong> | 
                             Category: <strong>{{ item.category }}</strong> | 
                             Uploaded: {{ item.created_at.strftime('%Y-%m-%d %H:%M') }} UTC
@@ -142,12 +151,12 @@
                     </div>
 
                     <!-- Statistics -->
-                    <div style="display: flex; gap: 8px; align-items: center; font-size: 0.875rem; flex-wrap: wrap;">
-                        <span style="background-color: #eff6ff; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; border: 1px solid #bfdbfe;">
+                    <div class="res-stats">
+                        <span class="res-stat-badge res-stat-badge--downloads">
                             📥 <strong>{{ item.download_count or 0 }}</strong> downloads
                         </span>
 
-                        <span style="background-color: #fefce8; color: #a16207; padding: 4px 8px; border-radius: 4px; border: 1px solid #fef08a;">
+                        <span class="res-stat-badge res-stat-badge--rating">
                             {% if item.average_rating %}
                                 ★ <strong>{{ item.average_rating }}</strong> / 5.0 ({{ item.rating_count }} {{ 'rating' if item.rating_count == 1 else 'ratings' }})
                             {% else %}
@@ -156,11 +165,11 @@
                         </span>
 
                         {% if item.is_collection or item.resources is defined %}
-                            <span style="background-color: #f5f3ff; color: #6d28d9; padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd6fe;">
+                            <span class="res-stat-badge res-stat-badge--reviewed">
                                 🎓 <strong>{{ item.professor_reviewed_count }} of {{ item.file_count }}</strong> files professor-reviewed
                             </span>
                         {% elif item.is_reviewed_by_professor %}
-                            <span style="background-color: #f5f3ff; color: #6d28d9; padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd6fe;">
+                            <span class="res-stat-badge res-stat-badge--reviewed">
                                 🎓 Professor Reviewed
                             </span>
                         {% endif %}
@@ -168,20 +177,20 @@
                 </div>
 
                 {% if item.description %}
-                    <p style="margin: 8px 0 12px 0; color: #334155; font-size: 0.95rem;">{{ item.description }}</p>
+                    <p class="res-card-description">{{ item.description }}</p>
                 {% endif %}
 
                 {% if item.is_collection or item.resources is defined %}
-                    <p style="font-size: 0.875rem; color: #475569; margin: 6px 0;">
+                    <p class="res-card-collection-info">
                         Contains <strong>{{ item.file_count }}</strong> files ({{ item.formatted_total_size }})
                     </p>
                 {% else %}
-                    <p style="font-size: 0.85rem; color: #64748b; margin: 4px 0;">
+                    <p class="res-card-file-info">
                         Original File: <em>{{ item.filename }}</em>
                     </p>
 
                     {% if item.is_reviewed_by_professor %}
-                        <div style="margin: 8px 0; padding: 8px 12px; background-color: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 4px; font-size: 0.85rem; color: #5b21b6;">
+                        <div class="res-prof-review" style="font-size: 0.85rem;">
                             🎓 <strong>Endorsed by MMU Professor:</strong>
                             {% for rev in item.reviews %}
                                 <span>Prof. {{ rev.professor.username }} ({{ rev.created_at.strftime('%Y-%m-%d') }}){% if rev.review_note %}: <em>"{{ rev.review_note }}"</em>{% endif %}</span>
@@ -191,34 +200,34 @@
                 {% endif %}
 
                 <!-- Management Controls -->
-                <div style="margin-top: 14px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px; flex-wrap: wrap;">
+                <div class="res-card-actions" style="justify-content: flex-start;">
                     {% if item.is_collection or item.resources is defined %}
-                        <a href="{{ url_for('collection_detail', collection_id=item.id) }}" style="display: inline-block; padding: 5px 12px; background-color: #059669; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                        <a href="{{ url_for('collection_detail', collection_id=item.id) }}" class="res-btn res-btn--success res-btn--sm">
                             📁 View Collection
                         </a>
-                        <a href="{{ url_for('collection_download_zip', collection_id=item.id) }}" style="display: inline-block; padding: 5px 12px; background-color: #1e293b; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                        <a href="{{ url_for('collection_download_zip', collection_id=item.id) }}" class="res-btn res-btn--dark res-btn--sm">
                             📦 Download ZIP
                         </a>
-                        <a href="{{ url_for('collection_add_files', collection_id=item.id) }}" style="color: #059669; font-size: 0.9rem; font-weight: bold;">+ Add Files</a>
-                        <a href="{{ url_for('collection_edit', collection_id=item.id) }}" style="color: #2563eb; font-size: 0.9rem;">Edit Metadata</a>
+                        <a href="{{ url_for('collection_add_files', collection_id=item.id) }}" class="res-link--success">+ Add Files</a>
+                        <a href="{{ url_for('collection_edit', collection_id=item.id) }}" class="res-link">Edit Metadata</a>
                         <form method="POST" action="{{ url_for('collection_delete', collection_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this collection and all its files?');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.9rem;">Delete</button>
+                            <button type="submit" class="res-link--danger">Delete</button>
                         </form>
                     {% else %}
                         {% set ext = item.file_type|lower %}
                         {% if ext in ['pdf', 'txt'] %}
-                            <a href="{{ url_for('resource_preview', resource_id=item.id) }}" target="_blank" style="display: inline-block; padding: 5px 12px; background-color: #f1f5f9; color: #1e293b; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.9rem; font-weight: bold;">
+                            <a href="{{ url_for('resource_preview', resource_id=item.id) }}" target="_blank" class="res-btn res-btn--secondary res-btn--sm">
                                 👁️ Preview
                             </a>
                         {% endif %}
-                        <a href="{{ url_for('resource_download', resource_id=item.id) }}" style="display: inline-block; padding: 5px 12px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">
+                        <a href="{{ url_for('resource_download', resource_id=item.id) }}" class="res-btn res-btn--primary res-btn--sm">
                             📥 Download File
                         </a>
-                        <a href="{{ url_for('resource_edit', resource_id=item.id) }}" style="color: #2563eb; font-size: 0.9rem;">Edit Details</a>
+                        <a href="{{ url_for('resource_edit', resource_id=item.id) }}" class="res-link">Edit Details</a>
                         <form method="POST" action="{{ url_for('resource_delete', resource_id=item.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this resource?');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0; text-decoration: underline; font-size: 0.9rem;">Delete</button>
+                            <button type="submit" class="res-link--danger">Delete</button>
                         </form>
                     {% endif %}
                 </div>
@@ -228,35 +237,36 @@
 
     <!-- 10-Item Pagination Controls with Active Filters -->
     {% if total_pages > 1 %}
-        <div style="margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <div class="res-pagination">
             {% if page > 1 %}
-                <a href="{{ url_for('my_uploads', page=page-1, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">&laquo; Previous</a>
+                <a href="{{ url_for('my_uploads', page=page-1, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" class="res-page-link">&laquo; Previous</a>
             {% else %}
-                <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 4px; color: #94a3b8;">&laquo; Previous</span>
+                <span class="res-page-link--disabled">&laquo; Previous</span>
             {% endif %}
 
             {% for p in range(1, total_pages + 1) %}
                 {% if p == page %}
-                    <span style="padding: 6px 12px; background-color: #2563eb; color: white; border-radius: 4px; font-weight: bold;">{{ p }}</span>
+                    <span class="res-page-link--active">{{ p }}</span>
                 {% else %}
-                    <a href="{{ url_for('my_uploads', page=p, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">{{ p }}</a>
+                    <a href="{{ url_for('my_uploads', page=p, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" class="res-page-link">{{ p }}</a>
                 {% endif %}
             {% endfor %}
 
             {% if page < total_pages %}
-                <a href="{{ url_for('my_uploads', page=page+1, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; color: #1e293b;">Next &raquo;</a>
+                <a href="{{ url_for('my_uploads', page=page+1, q=query_text, faculty=selected_faculty, category=selected_category, course_code=selected_course_code, semester=selected_semester, sort=selected_sort) }}" class="res-page-link">Next &raquo;</a>
             {% else %}
-                <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 4px; color: #94a3b8;">Next &raquo;</span>
+                <span class="res-page-link--disabled">Next &raquo;</span>
             {% endif %}
         </div>
     {% endif %}
 
 {% else %}
-    <div style="padding: 30px; text-align: center; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-        <p style="color: #64748b; font-size: 1.05rem;">You have not uploaded any study materials or folder collections matching this criteria.</p>
-        <a href="{{ url_for('resource_upload') }}" style="color: #2563eb; font-weight: bold;">Upload a single file</a> or 
-        <a href="{{ url_for('resource_upload_folder') }}" style="color: #059669; font-weight: bold;">Upload a notes folder collection</a>!
+    <div class="res-empty-state">
+        <p>You have not uploaded any study materials or folder collections matching this criteria.</p>
+        <a href="{{ url_for('resource_upload') }}" class="res-link" style="font-weight: bold;">Upload a single file</a> or 
+        <a href="{{ url_for('resource_upload_folder') }}" class="res-link--success">Upload a notes folder collection</a>!
     </div>
 {% endif %}
+</div>
 
 {% endblock %}

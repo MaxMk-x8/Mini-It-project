@@ -114,6 +114,11 @@ RESOURCE_CATEGORIES = [
 
 SEMESTER_CHOICES = [
     ('', '-- Select Semester (Optional) --'),
+    ('Trimester 1', 'Trimester 1'),
+    ('Trimester 2', 'Trimester 2'),
+    ('Trimester 3', 'Trimester 3'),
+    ('Semester 1', 'Semester 1'),
+    ('Semester 2', 'Semester 2'),
     ('March/April', 'March/April'),
     ('July/August', 'July/August'),
     ('October/November', 'October/November')

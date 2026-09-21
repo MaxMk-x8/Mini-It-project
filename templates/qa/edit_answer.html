@@ -5,20 +5,20 @@
 
 <div class="qa-container">
 <div style="margin-bottom: 16px;">
-    <a href="{{ url_for('qa_detail', question_id=answer.question_id) }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+    <a href="{{ url_for('qa_detail', question_id=answer.question_id) }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
         &larr; Back to Question
     </a>
 </div>
 
-<div class="qa-card" style="max-width: 680px; margin: 0 auto; padding: 28px 32px;">
+<div class="qa-card" style="max-width: 720px; margin: 0 auto; padding: 28px 32px;">
     <div style="border-bottom: 2px solid var(--primary-blue-subtle); padding-bottom: 14px; margin-bottom: 22px;">
         <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.5rem;">✏️ Edit Answer</h2>
         <p style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
-            Update your answer content or change its visibility audience.
+            Update your answer content, manage attached photos, or change audience visibility.
         </p>
     </div>
 
-    <form method="POST" action="{{ url_for('edit_answer', answer_id=answer.id) }}">
+    <form method="POST" action="{{ url_for('edit_answer', answer_id=answer.id) }}" enctype="multipart/form-data" id="edit-answer-form">
         {{ form.hidden_tag() }}
 
         <div style="margin-bottom: 18px;">
@@ -31,7 +31,7 @@
             {% endfor %}
         </div>
 
-        <div style="margin-bottom: 22px; max-width: 250px;">
+        <div style="margin-bottom: 20px; max-width: 250px;">
             <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
                 Audience Visibility
             </label>
@@ -41,7 +41,52 @@
             {% endfor %}
         </div>
 
-        <div style="display: flex; gap: 10px; align-items: center; padding-top: 10px; border-top: 1px solid var(--border-color);">
+        <!-- Existing Attached Files -->
+        {% if answer.attachments %}
+            <div style="margin-bottom: 20px; padding: 14px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px;">
+                <strong style="display: block; font-size: 0.95rem; color: var(--text-color); margin-bottom: 10px;">
+                    📎 Attached Files ({{ answer.attachments|length }}/3):
+                </strong>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    {% for att in answer.attachments %}
+                        <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; background: var(--surface-card); text-align: center; max-width: 130px; box-shadow: var(--shadow-sm);">
+                            {% if att.filename.lower().endswith('.pdf') or att.stored_filename.lower().endswith('.pdf') %}
+                                <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 116px; height: 80px; background: #FEF2F2; border-radius: 4px; border: 1px solid #FCA5A5;" title="Click to view PDF">
+                                    <span style="font-size: 1.5rem;">📄</span>
+                                    <span style="font-size: 0.7rem; font-weight: 700; color: #DC2626;">PDF File</span>
+                                </a>
+                            {% else %}
+                                <a href="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" target="_blank" title="View full image">
+                                    <img src="{{ url_for('serve_screenshot', filename=att.stored_filename) }}" alt="{{ att.filename }}" style="width: 116px; height: 80px; object-fit: cover; border-radius: 4px; display: block;">
+                                </a>
+                            {% endif %}
+                            <span style="font-size: 0.75rem; color: var(--primary-blue); margin-top: 4px; display: block; max-width: 116px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ att.filename }}
+                            </span>
+                            <button type="button" onclick="deleteAttachment({{ att.id }})" class="btn btn-sm" style="padding: 2px 6px; font-size: 0.72rem; background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 6px;">
+                                🗑️ Remove
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Upload New Files (if under limit) -->
+        {% if answer.attachments|length < 3 %}
+            <div style="margin-bottom: 24px; padding: 16px; border: 2px dashed var(--border-color); border-radius: 8px; background: var(--bg-color);">
+                <label style="display: block; font-weight: 600; color: var(--text-color); margin-bottom: 4px;">
+                    📎 Upload Additional Attachments (Max {{ 3 - answer.attachments|length }} more, PNG/JPG/WebP/PDF up to 5MB)
+                </label>
+                {{ form.screenshots(style="font-size: 0.9rem; color: var(--text-color); width: 100%;") }}
+            </div>
+        {% else %}
+            <div style="margin-bottom: 20px; padding: 10px 14px; background: var(--primary-blue-subtle); border: 1px solid var(--primary-blue); border-radius: 6px; font-size: 0.88rem; color: var(--primary-blue);">
+                ℹ️ You have reached the maximum limit of 3 attachments. Remove an existing attachment above if you wish to upload a different file.
+            </div>
+        {% endif %}
+
+        <div style="display: flex; gap: 10px; align-items: center; padding-top: 14px; border-top: 1px solid var(--border-color);">
             {{ form.submit(value="Update Answer", class="btn btn-primary") }}
             <a href="{{ url_for('qa_detail', question_id=answer.question_id) }}" class="btn btn-secondary" style="margin-left: auto;">
                 Cancel
@@ -50,5 +95,20 @@
     </form>
 </div>
 </div>
-{% endblock %}
 
+<!-- Hidden form for deleting attachments dynamically -->
+<form id="delete-attachment-form" method="POST" action="" style="display: none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="hidden" name="next" value="{{ url_for('edit_answer', answer_id=answer.id) }}"/>
+</form>
+
+<script>
+    function deleteAttachment(attId) {
+        if (confirm('Are you sure you want to remove this attached photo?')) {
+            const form = document.getElementById('delete-attachment-form');
+            form.action = `/qa/attachment/${attId}/delete`;
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}
