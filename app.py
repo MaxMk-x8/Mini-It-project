@@ -18,7 +18,7 @@ from models import (
     Report, ModeratorApplication, BannedEmail, UserWarning, ResourceRating,
     ResourceCollection, ResourceReview, UserFollow, SavedQuestionFolder, SavedQuestion,
     UsernameChangeRequest, SavedAnswer, Notification, ChatMessage, ChatBlock,
-    ResourceBookmark, init_db, migrate_database
+    ResourceBookmark, Idea, IdeaInterest, init_db, migrate_database
 )
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
@@ -33,7 +33,8 @@ from forms import (
     MAX_RESOURCE_FILE_SIZE, MAX_COLLECTION_FILES, MAX_COLLECTION_TOTAL_SIZE,
     EditProfileForm, CreateFolderForm, MoveSavedQuestionForm,
     UsernameChangeRequestForm, ReviewUsernameRequestForm,
-    POST_VISIBILITY_CHOICES, DraftQuestionForm, EditQuestionForm, ChatMessageForm
+    POST_VISIBILITY_CHOICES, DraftQuestionForm, EditQuestionForm, ChatMessageForm,
+    IdeaForm, IdeaEditForm, IdeaInterestForm, IDEA_CATEGORIES, IDEA_FACULTIES
 )
 from constants import FACULTIES, FACULTY_CODES, contains_profanity
 from dotenv import load_dotenv
@@ -4770,6 +4771,374 @@ def resource_delete(resource_id):
     if col_id:
         return redirect(url_for('resource_collection_detail', collection_id=col_id))
     return redirect(url_for('resources_list'))
+
+
+# =====================================================================
+# IDEA LAB CONTROLLER (Feature Owner: Pritiv)
+# =====================================================================
+
+@app.route('/ideas')
+def ideas_index():
+    """Browse ideas feed with keyword search, category, and faculty filtering."""
+    query_text = request.args.get('q', '').strip()
+    selected_category = request.args.get('category', '').strip()
+    selected_faculty = request.args.get('faculty', '').strip()
+
+    query = Idea.query
+
+    if query_text:
+        search_filter = f"%{query_text}%"
+        query = query.filter(
+            (Idea.title.ilike(search_filter)) |
+            (Idea.description.ilike(search_filter)) |
+            (Idea.course_code.ilike(search_filter)) |
+            (Idea.course_name.ilike(search_filter))
+        )
+
+    if selected_category:
+        query = query.filter(Idea.category == selected_category)
+
+    if selected_faculty:
+        query = query.filter(Idea.faculty == selected_faculty)
+
+    all_ideas = query.order_by(Idea.created_at.desc()).all()
+
+    # Pagination: 10 items per page
+    PER_PAGE = 10
+    total_items = len(all_ideas)
+    total_pages = max(1, (total_items + PER_PAGE - 1) // PER_PAGE)
+    try:
+        page = int(request.args.get('page', 1))
+    except (ValueError, TypeError):
+        page = 1
+    if page < 1:
+        page = 1
+    elif page > total_pages and total_items > 0:
+        page = total_pages
+
+    start_idx = (page - 1) * PER_PAGE
+    end_idx = start_idx + PER_PAGE
+    ideas_for_page = all_ideas[start_idx:end_idx]
+
+    return render_template(
+        'ideas/index.html',
+        ideas=ideas_for_page,
+        total_items=total_items,
+        page=page,
+        total_pages=total_pages,
+        query_text=query_text,
+        selected_category=selected_category,
+        selected_faculty=selected_faculty,
+        categories=IDEA_CATEGORIES,
+        faculties=IDEA_FACULTIES
+    )
+
+
+@app.route('/ideas/post', methods=['GET', 'POST'])
+@login_required
+def idea_post():
+    """Publish a new project idea."""
+    form = IdeaForm()
+    if form.validate_on_submit():
+        idea = Idea(
+            title=form.title.data.strip(),
+            description=form.description.data.strip(),
+            category=form.category.data,
+            faculty=form.faculty.data,
+            course_code=form.course_code.data.strip().upper() if form.course_code.data else None,
+            course_name=form.course_name.data.strip() if form.course_name.data else None,
+            max_members=form.max_members.data,
+            owner_id=current_user.id
+        )
+        db.session.add(idea)
+        db.session.commit()
+        flash(f"Project idea '{idea.title}' posted successfully!", 'success')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    return render_template('ideas/post.html', form=form)
+
+
+@app.route('/ideas/<int:idea_id>')
+def idea_detail(idea_id):
+    """View details of a project idea."""
+    idea = db.session.get(Idea, idea_id)
+    if not idea:
+        flash('Project idea not found.', 'danger')
+        return redirect(url_for('ideas_index'))
+
+    interest_form = IdeaInterestForm()
+    user_interest = idea.get_user_interest(current_user.id) if current_user.is_authenticated else None
+    pending_interests = [i for i in idea.interests if i.status == 'pending'] if current_user.is_authenticated and current_user.id == idea.owner_id else []
+
+    return render_template(
+        'ideas/detail.html',
+        idea=idea,
+        interest_form=interest_form,
+        user_interest=user_interest,
+        pending_interests=pending_interests
+    )
+
+
+@app.route('/ideas/<int:idea_id>/edit', methods=['GET', 'POST'])
+@login_required
+def idea_edit(idea_id):
+    """Edit project idea details."""
+    idea = db.session.get(Idea, idea_id)
+    if not idea:
+        flash('Project idea not found.', 'danger')
+        return redirect(url_for('ideas_index'))
+
+    if idea.owner_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to edit this project idea.', 'danger')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    form = IdeaEditForm(obj=idea)
+    if form.validate_on_submit():
+        new_max = form.max_members.data
+        if new_max < idea.accepted_members_count:
+            flash(f"Maximum capacity cannot be smaller than current accepted team size ({idea.accepted_members_count}).", 'danger')
+            return render_template('ideas/edit.html', form=form, idea=idea)
+
+        idea.title = form.title.data.strip()
+        idea.description = form.description.data.strip()
+        idea.category = form.category.data
+        idea.faculty = form.faculty.data
+        idea.course_code = form.course_code.data.strip().upper() if form.course_code.data else None
+        idea.course_name = form.course_name.data.strip() if form.course_name.data else None
+        idea.max_members = new_max
+        if idea.accepted_members_count >= idea.max_members:
+            idea.is_full = True
+        idea.updated_at = datetime.now(timezone.utc)
+
+        db.session.commit()
+        flash('Project idea updated successfully!', 'success')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    return render_template('ideas/edit.html', form=form, idea=idea)
+
+
+@app.route('/ideas/<int:idea_id>/delete', methods=['POST'])
+@login_required
+def idea_delete(idea_id):
+    """Delete a project idea and its applications."""
+    idea = db.session.get(Idea, idea_id)
+    if not idea:
+        flash('Project idea not found.', 'danger')
+        return redirect(url_for('ideas_index'))
+
+    if idea.owner_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to delete this project idea.', 'danger')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    title = idea.title
+    db.session.delete(idea)
+    db.session.commit()
+    flash(f"Project idea '{title}' has been deleted.", 'info')
+    return redirect(url_for('ideas_index'))
+
+
+@app.route('/ideas/<int:idea_id>/interest', methods=['POST'])
+@login_required
+def idea_express_interest(idea_id):
+    """Express interest in joining a project idea."""
+    idea = db.session.get(Idea, idea_id)
+    if not idea:
+        flash('Project idea not found.', 'danger')
+        return redirect(url_for('ideas_index'))
+
+    if idea.owner_id == current_user.id:
+        flash('You cannot express interest in your own project idea.', 'warning')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    if not idea.is_open:
+        flash('This project idea is currently closed to new applications.', 'warning')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    if idea.is_group_complete:
+        flash('This project team is already full.', 'warning')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    existing = idea.get_user_interest(current_user.id)
+    if existing:
+        if existing.status == 'pending':
+            flash('You already have a pending application for this project.', 'info')
+        elif existing.status == 'accepted':
+            flash('You are already an accepted member of this project team!', 'success')
+        elif existing.status == 'rejected':
+            flash('Your previous application for this project was not accepted.', 'warning')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    form = IdeaInterestForm()
+    if form.validate_on_submit():
+        pitch = form.message.data.strip() if form.message.data else None
+        interest = IdeaInterest(
+            idea_id=idea.id,
+            user_id=current_user.id,
+            message=pitch,
+            status='pending'
+        )
+        db.session.add(interest)
+
+        # Notify project owner
+        notif = Notification(
+            user_id=idea.owner_id,
+            sender_id=current_user.id,
+            notification_type='idea',
+            title=f"New interest in '{idea.title}'",
+            message=f"@{current_user.username} expressed interest in your project idea: '{idea.title}'",
+            link_url=url_for('idea_detail', idea_id=idea.id)
+        )
+        db.session.add(notif)
+        db.session.commit()
+        flash('Your interest and pitch have been submitted to the project owner!', 'success')
+    else:
+        for field, errs in form.errors.items():
+            for err in errs:
+                flash(f"Error: {err}", 'danger')
+
+    return redirect(url_for('idea_detail', idea_id=idea.id))
+
+
+@app.route('/ideas/<int:idea_id>/withdraw', methods=['POST'])
+@login_required
+def idea_withdraw_interest(idea_id):
+    """Withdraw a pending application."""
+    idea = db.session.get(Idea, idea_id)
+    if not idea:
+        flash('Project idea not found.', 'danger')
+        return redirect(url_for('ideas_index'))
+
+    interest = IdeaInterest.query.filter_by(idea_id=idea.id, user_id=current_user.id).first()
+    if not interest:
+        flash('No application found to withdraw.', 'warning')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    if interest.status != 'pending':
+        flash('Only pending applications can be withdrawn.', 'warning')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    db.session.delete(interest)
+    db.session.commit()
+    flash('Your application has been withdrawn.', 'info')
+    next_url = request.form.get('next') or url_for('idea_detail', idea_id=idea.id)
+    return redirect(next_url)
+
+
+@app.route('/ideas/<int:idea_id>/respond/<int:interest_id>', methods=['POST'])
+@login_required
+def idea_respond_interest(idea_id, interest_id):
+    """Accept or reject an applicant."""
+    idea = db.session.get(Idea, idea_id)
+    if not idea:
+        flash('Project idea not found.', 'danger')
+        return redirect(url_for('ideas_index'))
+
+    if idea.owner_id != current_user.id and not current_user.is_admin():
+        flash('Only the project owner can respond to applications.', 'danger')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    interest = db.session.get(IdeaInterest, interest_id)
+    if not interest or interest.idea_id != idea.id:
+        flash('Applicant record not found.', 'danger')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    if interest.status != 'pending':
+        flash('This application has already been decided.', 'info')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    action = request.form.get('action')
+    if action == 'accept':
+        if idea.accepted_members_count >= idea.max_members:
+            flash(f"Cannot accept applicant: maximum team capacity ({idea.max_members}) reached.", 'warning')
+            return redirect(url_for('idea_detail', idea_id=idea.id))
+
+        interest.status = 'accepted'
+        interest.responded_at = datetime.now(timezone.utc)
+
+        # If team is now full, auto-mark is_full
+        if idea.accepted_members_count + 1 >= idea.max_members:
+            idea.is_full = True
+
+        notif = Notification(
+            user_id=interest.user_id,
+            sender_id=current_user.id,
+            notification_type='idea',
+            title=f"Application Accepted: '{idea.title}'",
+            message=f"Congratulations! @{current_user.username} accepted your application to join '{idea.title}'.",
+            link_url=url_for('idea_detail', idea_id=idea.id)
+        )
+        db.session.add(notif)
+        db.session.commit()
+        flash(f"Accepted @{interest.user.username} as a teammate!", 'success')
+
+    elif action == 'reject':
+        interest.status = 'rejected'
+        interest.responded_at = datetime.now(timezone.utc)
+
+        notif = Notification(
+            user_id=interest.user_id,
+            sender_id=current_user.id,
+            notification_type='idea',
+            title=f"Application Update: '{idea.title}'",
+            message=f"@{current_user.username} has updated your application status for '{idea.title}'.",
+            link_url=url_for('idea_detail', idea_id=idea.id)
+        )
+        db.session.add(notif)
+        db.session.commit()
+        flash(f"Application from @{interest.user.username} has been rejected.", 'info')
+    else:
+        flash('Invalid response action.', 'danger')
+
+    return redirect(url_for('idea_detail', idea_id=idea.id))
+
+
+@app.route('/ideas/<int:idea_id>/toggle-full', methods=['POST'])
+@login_required
+def idea_toggle_full(idea_id):
+    """Toggle group full / open status."""
+    idea = db.session.get(Idea, idea_id)
+    if not idea:
+        flash('Project idea not found.', 'danger')
+        return redirect(url_for('ideas_index'))
+
+    if idea.owner_id != current_user.id and not current_user.is_admin():
+        flash('You are not authorized to update this status.', 'danger')
+        return redirect(url_for('idea_detail', idea_id=idea.id))
+
+    if idea.is_full:
+        # Reopen if accepted members haven't already reached max capacity
+        if idea.accepted_members_count >= idea.max_members:
+            flash(f"Cannot reopen group: team has already reached its maximum capacity of {idea.max_members} members.", 'warning')
+        else:
+            idea.is_full = False
+            db.session.commit()
+            flash('Project group reopened for new applications.', 'success')
+    else:
+        idea.is_full = True
+        db.session.commit()
+        flash('Project group marked as full.', 'info')
+
+    next_url = request.form.get('next') or url_for('idea_detail', idea_id=idea.id)
+    return redirect(next_url)
+
+
+@app.route('/ideas/my-ideas')
+@login_required
+def my_ideas():
+    """Personal Idea Lab dashboard displaying posted ideas and applied ideas."""
+    active_tab = request.args.get('tab', 'posted')
+    if active_tab not in ['posted', 'applied']:
+        active_tab = 'posted'
+
+    posted_ideas = Idea.query.filter_by(owner_id=current_user.id).order_by(Idea.created_at.desc()).all()
+    applied_interests = IdeaInterest.query.filter_by(user_id=current_user.id).order_by(IdeaInterest.created_at.desc()).all()
+
+    return render_template(
+        'ideas/my_ideas.html',
+        active_tab=active_tab,
+        posted_ideas=posted_ideas,
+        applied_interests=applied_interests
+    )
 
 
 @app.context_processor

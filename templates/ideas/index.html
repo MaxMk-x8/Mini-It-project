@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    {# Page Header #}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 pb-2 border-bottom">
+        <div>
+            <h2 class="mb-1 text-primary">💡 Idea Lab</h2>
+            <p class="text-muted mb-0">
+                Discover student project ideas, pitch your skills, and form collaborative teams across MMU faculties.
+            </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('my_ideas') }}" class="btn btn-outline-secondary">
+                    📋 My Ideas
+                </a>
+                <a href="{{ url_for('idea_post') }}" class="btn btn-primary">
+                    + Post an Idea
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="btn btn-primary">
+                    Log in to Post Idea
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Search & Academic Filter Bar #}
+    <div class="card mb-4 bg-light">
+        <div class="card-body py-3">
+            <form method="GET" action="{{ url_for('ideas_index') }}" class="row g-2 align-items-end">
+                <div class="col-md-5 col-sm-12">
+                    <label for="q" class="form-label small fw-bold mb-1">Search Keywords / Course</label>
+                    <input type="text" id="q" name="q" value="{{ query_text }}" class="form-control form-control-sm" placeholder="Search by title, description, or course code...">
+                </div>
+
+                <div class="col-md-3 col-sm-6">
+                    <label for="category" class="form-label small fw-bold mb-1">Category</label>
+                    <select id="category" name="category" class="form-select form-select-sm">
+                        <option value="">All Categories</option>
+                        {% for code, label in categories %}
+                            <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2 col-sm-6">
+                    <label for="faculty" class="form-label small fw-bold mb-1">Faculty</label>
+                    <select id="faculty" name="faculty" class="form-select form-select-sm">
+                        <option value="">All Faculties</option>
+                        {% for code, label in faculties %}
+                            <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2 col-sm-12 d-flex gap-1">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Filter</button>
+                    {% if query_text or selected_category or selected_faculty %}
+                        <a href="{{ url_for('ideas_index') }}" class="btn btn-outline-secondary btn-sm" title="Reset Filters">✕</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Ideas Discovery Feed #}
+    {% if ideas %}
+        <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+            {% for idea in ideas %}
+                <div class="col">
+                    <div class="card h-100 shadow-sm border">
+                        <div class="card-body d-flex flex-column">
+                            {# Card Header Badges #}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <span class="badge bg-secondary">{{ idea.category }}</span>
+                                    <span class="badge bg-info text-dark">{{ idea.faculty }}</span>
+                                    {% if idea.course_code %}
+                                        <span class="badge bg-light text-dark border">{{ idea.course_code }}</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    {% if not idea.is_open %}
+                                        <span class="badge bg-warning text-dark">Closed</span>
+                                    {% elif idea.is_group_complete %}
+                                        <span class="badge bg-dark">Group Full</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Open</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {# Title & Description #}
+                            <h5 class="card-title mb-1">
+                                <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="text-decoration-none text-dark fw-bold">
+                                    {{ idea.title }}
+                                </a>
+                            </h5>
+                            <p class="card-text text-muted small flex-grow-1 mt-2">
+                                {{ idea.description[:180] }}{% if idea.description|length > 180 %}...{% endif %}
+                            </p>
+
+                            {# Card Footer Metadata #}
+                            <hr class="my-2">
+                            <div class="d-flex justify-content-between align-items-center small text-muted">
+                                <div>
+                                    👥 <strong>{{ idea.accepted_members_count }}/{{ idea.max_members }}</strong> members
+                                    &bull; by <a href="{{ url_for('public_profile', username=idea.owner.username) }}" class="text-decoration-none">@{{ idea.owner.username }}</a>
+                                </div>
+                                <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="btn btn-outline-primary btn-sm">
+                                    View Details &rarr;
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {# Pagination #}
+        {% if total_pages > 1 %}
+            <nav aria-label="Ideas pagination" class="d-flex justify-content-center my-4">
+                <ul class="pagination pagination-sm">
+                    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ideas_index', page=page-1, q=query_text, category=selected_category, faculty=selected_faculty) }}">Previous</a>
+                    </li>
+                    {% for p in range(1, total_pages + 1) %}
+                        <li class="page-item {% if p == page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('ideas_index', page=p, q=query_text, category=selected_category, faculty=selected_faculty) }}">{{ p }}</a>
+                        </li>
+                    {% endfor %}
+                    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ideas_index', page=page+1, q=query_text, category=selected_category, faculty=selected_faculty) }}">Next</a>
+                    </li>
+                </ul>
+            </nav>
+        {% endif %}
+
+    {% else %}
+        {# Empty State #}
+        <div class="card text-center py-5 my-4 bg-light border-dashed">
+            <div class="card-body">
+                <div class="display-6 mb-2">💡</div>
+                <h4 class="card-title text-muted">No project ideas found</h4>
+                <p class="card-text text-muted">
+                    {% if query_text or selected_category or selected_faculty %}
+                        No ideas matched your current filters. Try resetting the search or broadening your categories.
+                        <br>
+                        <a href="{{ url_for('ideas_index') }}" class="btn btn-outline-secondary btn-sm mt-2">Reset Filters</a>
+                    {% else %}
+                        Be the first student to publish a project idea and recruit teammates!
+                        <br>
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('idea_post') }}" class="btn btn-primary btn-sm mt-3">+ Post an Idea</a>
+                        {% else %}
+                            <a href="{{ url_for('login') }}" class="btn btn-primary btn-sm mt-3">Log in to Post Idea</a>
+                        {% endif %}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

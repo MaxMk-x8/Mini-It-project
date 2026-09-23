@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-3">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            {# Back Link #}
+            <div class="mb-3">
+                <a href="{{ url_for('ideas_index') }}" class="text-decoration-none">&larr; Back to Idea Lab</a>
+            </div>
+
+            <div class="card shadow-sm border">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h3 class="mb-1 text-primary fw-bold">💡 Post a Project Idea</h3>
+                    <p class="text-muted small mb-0">
+                        Share your concept with fellow MMU students, pitch your project vision, and assemble an awesome development team.
+                    </p>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('idea_post') }}">
+                        {{ form.hidden_tag() }}
+
+                        {# Project Title #}
+                        <div class="mb-3">
+                            {{ form.title.label(class="form-label fw-bold small") }}
+                            {{ form.title(class="form-control", placeholder="e.g. AI-Powered Campus Shuttle Tracker") }}
+                            {% if form.title.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.title.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text small">Give your project an engaging, clear title (5–200 characters).</div>
+                        </div>
+
+                        {# Category & Faculty #}
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                {{ form.category.label(class="form-label fw-bold small") }}
+                                {{ form.category(class="form-select") }}
+                                {% if form.category.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.category.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.faculty.label(class="form-label fw-bold small") }}
+                                {{ form.faculty(class="form-select") }}
+                                {% if form.faculty.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.faculty.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {# Course Code & Course Name #}
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                {{ form.course_code.label(class="form-label fw-bold small") }}
+                                {{ form.course_code(class="form-control", placeholder="e.g. CPT111") }}
+                                {% if form.course_code.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.course_code.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-8">
+                                {{ form.course_name.label(class="form-label fw-bold small") }}
+                                {{ form.course_name(class="form-control", placeholder="e.g. Principles of Software Engineering") }}
+                                {% if form.course_name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.course_name.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {# Team Size Capacity #}
+                        <div class="mb-3">
+                            {{ form.max_members.label(class="form-label fw-bold small") }}
+                            {{ form.max_members(class="form-control", min=2, max=10) }}
+                            {% if form.max_members.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.max_members.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text small">
+                                Total team size including yourself (between 2 and 10 members).
+                            </div>
+                        </div>
+
+                        {# Full Description #}
+                        <div class="mb-4">
+                            {{ form.description.label(class="form-label fw-bold small") }}
+                            {{ form.description(class="form-control", rows=6, placeholder="Describe the goal of your project, target problem, intended tech stack, and what teammate skillsets you are looking for...") }}
+                            {% if form.description.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.description.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text small">Minimum 10 characters. Academic guidelines and profanity filters apply.</div>
+                        </div>
+
+                        {# Action Buttons #}
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                            <a href="{{ url_for('ideas_index') }}" class="btn btn-outline-secondary">Cancel</a>
+                            {{ form.submit(class="btn btn-primary px-4") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

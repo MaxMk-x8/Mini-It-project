@@ -1419,6 +1419,112 @@ class ChatBlock(db.Model):
         return f'<ChatBlock User #{self.blocker_id} blocked #{self.blocked_id} scope={self.block_scope}>'
 
 
+# ==========================================================================
+# IDEA LAB MODELS (Feature Owner: Pritiv)
+# ==========================================================================
+
+class Idea(db.Model):
+    __tablename__ = 'ideas'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(50), nullable=False)
+    faculty = db.Column(db.String(10), nullable=False)
+    course_code = db.Column(db.String(20), nullable=True)
+    course_name = db.Column(db.String(150), nullable=True)
+    max_members = db.Column(db.Integer, nullable=False, default=4)
+    is_full = db.Column(db.Boolean, nullable=False, default=False)
+    is_open = db.Column(db.Boolean, nullable=False, default=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_ideas_owner_id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    owner = db.relationship('User', backref=db.backref('ideas', lazy=True, cascade='all, delete-orphan'))
+    interests = db.relationship('IdeaInterest', backref=db.backref('idea', lazy=True), cascade='all, delete-orphan', lazy=True)
+
+    def __init__(self, title=None, description=None, category=None, faculty=None,
+                 course_code=None, course_name=None, max_members=4, is_full=False,
+                 is_open=True, owner_id=None, **kwargs):
+        super().__init__(**kwargs)
+        if title:
+            self.title = title
+        if description:
+            self.description = description
+        if category:
+            self.category = category
+        if faculty:
+            self.faculty = faculty
+        self.course_code = course_code
+        self.course_name = course_name
+        self.max_members = max_members if max_members is not None else 4
+        self.is_full = bool(is_full)
+        self.is_open = bool(is_open)
+        if owner_id:
+            self.owner_id = owner_id
+
+    @property
+    def accepted_members_count(self):
+        """Count accepted teammates + 1 for the project owner."""
+        accepted_count = sum(1 for i in self.interests if i.status == 'accepted')
+        return 1 + accepted_count
+
+    @property
+    def accepted_members(self):
+        """Return list of accepted IdeaInterest records."""
+        return [i for i in self.interests if i.status == 'accepted']
+
+    @property
+    def is_group_complete(self):
+        """Return True if group is marked full or accepted count reaches maximum size."""
+        return self.is_full or (self.accepted_members_count >= self.max_members)
+
+    def get_user_interest(self, user_id):
+        """Find an interest application for a given user id."""
+        for i in self.interests:
+            if i.user_id == user_id:
+                return i
+        return None
+
+    def has_user_applied(self, user_id):
+        """Check whether the user has an active application."""
+        interest = self.get_user_interest(user_id)
+        return interest is not None and interest.status in ('pending', 'accepted', 'rejected')
+
+    def __repr__(self):
+        return f'<Idea #{self.id} "{self.title[:30]}" by User #{self.owner_id}>'
+
+
+class IdeaInterest(db.Model):
+    __tablename__ = 'idea_interests'
+    __table_args__ = (
+        db.UniqueConstraint('idea_id', 'user_id', name='uq_idea_user_interest'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    idea_id = db.Column(db.Integer, db.ForeignKey('ideas.id', name='fk_idea_interests_idea_id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_idea_interests_user_id', ondelete='CASCADE'), nullable=False)
+    message = db.Column(db.String(500), nullable=True)
+    status = db.Column(db.String(20), default='pending', nullable=False)  # 'pending', 'accepted', 'rejected'
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    responded_at = db.Column(db.DateTime, nullable=True)
+
+    user = db.relationship('User', backref=db.backref('idea_interests', lazy=True, cascade='all, delete-orphan'))
+
+    def __init__(self, idea_id=None, user_id=None, message=None, status='pending', responded_at=None, **kwargs):
+        super().__init__(**kwargs)
+        if idea_id:
+            self.idea_id = idea_id
+        if user_id:
+            self.user_id = user_id
+        self.message = message
+        self.status = status or 'pending'
+        self.responded_at = responded_at
+
+    def __repr__(self):
+        return f'<IdeaInterest #{self.id} User #{self.user_id} -> Idea #{self.idea_id} [{self.status}]>'
+
+
 # -------------------------------
 # DATABASE INITIALIZATION & MIGRATION
 # -------------------------------
@@ -1529,6 +1635,42 @@ def migrate_database(db_path=None):
     # 6. CHAT_MESSAGES table columns
     ensure_column('chat_messages', 'is_edited', 'BOOLEAN', 0)
     ensure_column('chat_messages', 'edited_at', 'DATETIME', None)
+
+    # 7. IDEAS table (Idea Lab)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS ideas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title VARCHAR(200) NOT NULL,
+        description TEXT NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        faculty VARCHAR(10) NOT NULL,
+        course_code VARCHAR(20),
+        course_name VARCHAR(150),
+        max_members INTEGER NOT NULL DEFAULT 4,
+        is_full BOOLEAN NOT NULL DEFAULT 0,
+        is_open BOOLEAN NOT NULL DEFAULT 1,
+        owner_id INTEGER NOT NULL,
+        created_at DATETIME,
+        updated_at DATETIME,
+        CONSTRAINT fk_ideas_owner_id FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """)
+
+    # 8. IDEA_INTERESTS table (Idea Lab)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS idea_interests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        idea_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        message VARCHAR(500),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        created_at DATETIME,
+        responded_at DATETIME,
+        CONSTRAINT uq_idea_user_interest UNIQUE (idea_id, user_id),
+        CONSTRAINT fk_idea_interests_idea_id FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
+        CONSTRAINT fk_idea_interests_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """)
 
     conn.commit()
     conn.close()

@@ -482,6 +482,74 @@ class ChatMessageForm(FlaskForm):
     submit = SubmitField('Send Message')
 
 
+# =====================================================================
+# IDEA LAB FORMS (Feature Owner: Pritiv)
+# =====================================================================
+
+IDEA_CATEGORIES = [
+    ('Web App', 'Web App'),
+    ('Mobile App', 'Mobile App'),
+    ('Research', 'Research'),
+    ('Hardware', 'Hardware'),
+    ('Game', 'Game'),
+    ('Other', 'Other')
+]
+
+IDEA_FACULTIES = [
+    ('FCI', 'Faculty of Computer Information (FCI)'),
+    ('FOM', 'Faculty of Management (FOM)'),
+    ('FOE', 'Faculty of Engineering (FOE)'),
+    ('FCM', 'Faculty of Creative Multimedia (FCM)')
+]
+
+
+class IdeaForm(FlaskForm):
+    title = StringField('Project Title', validators=[
+        DataRequired(message='Project title is required.'),
+        Length(min=5, max=200, message='Project title must be between 5 and 200 characters.'),
+        NoProfanity()
+    ])
+    description = TextAreaField('Description', validators=[
+        DataRequired(message='Project description is required.'),
+        Length(min=10, max=2000, message='Description must be between 10 and 2000 characters.'),
+        NoProfanity()
+    ])
+    category = SelectField('Category', choices=IDEA_CATEGORIES, validators=[
+        DataRequired(message='Please select a category.')
+    ])
+    faculty = SelectField('Faculty', choices=IDEA_FACULTIES, validators=[
+        DataRequired(message='Please select a faculty.')
+    ])
+    course_code = StringField('Course Code (Optional)', validators=[
+        Optional(),
+        Length(max=20, message='Course code cannot exceed 20 characters.'),
+        NoProfanity()
+    ])
+    course_name = StringField('Course Name (Optional)', validators=[
+        Optional(),
+        Length(max=150, message='Course name cannot exceed 150 characters.'),
+        NoProfanity()
+    ])
+    max_members = IntegerField('Maximum Members (Total Group Size, including you)', default=4, validators=[
+        DataRequired(message='Please enter maximum team capacity.'),
+        NumberRange(min=2, max=10, message='Total group size must be between 2 and 10 members (including owner).')
+    ])
+    submit = SubmitField('Post Idea')
+
+
+class IdeaEditForm(IdeaForm):
+    submit = SubmitField('Save Changes')
+
+
+class IdeaInterestForm(FlaskForm):
+    message = TextAreaField('Why do you want to join? (Skills / Tech Stack)', validators=[
+        Optional(),
+        Length(max=500, message='Pitch message cannot exceed 500 characters.'),
+        NoProfanity()
+    ])
+    submit = SubmitField('Express Interest')
+
+
 
 
 

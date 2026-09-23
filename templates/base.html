@@ -123,6 +123,7 @@
             <a href="{{ url_for('qa_drafts') }}">Drafts</a> |
         {% endif %}
         <a href="{{ url_for('resources_list') }}">Resources</a> |
+        <a href="{{ url_for('ideas_index') }}">Idea Lab</a> |
         {% if current_user.is_authenticated %}
             <a href="{{ url_for('saved_questions') }}">Bookmarks</a> |
             <a href="{{ url_for('chat_list') }}">Chat{% if current_user.total_unread_chats_count > 0 %} <span style="background: #ED1C24; color: white; border-radius: 9999px; padding: 1px 7px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 1px 4px rgba(237,28,36,0.4);">{{ current_user.total_unread_chats_count }}</span>{% endif %}</a> |
