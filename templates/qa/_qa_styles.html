@@ -62,21 +62,57 @@
         transition: background-color 0.25s ease, color 0.25s ease;
     }
 
+    [data-theme="dark"] body {
+        background: radial-gradient(circle at 15% 15%, rgba(2, 132, 199, 0.12) 0%, transparent 40%),
+                    radial-gradient(circle at 85% 20%, rgba(225, 29, 72, 0.10) 0%, transparent 45%),
+                    radial-gradient(circle at 50% 85%, rgba(2, 132, 199, 0.08) 0%, transparent 50%),
+                    #080d1a !important;
+        background-attachment: fixed !important;
+        color: var(--text-color);
+    }
+
+    /* Polished Glassmorphic Dark Navbar */
     [data-theme="dark"] nav {
-        color: var(--text-muted);
+        background: rgba(10, 16, 30, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+        border-bottom: 1px solid rgba(56, 189, 248, 0.18) !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45) !important;
+        color: rgba(148, 163, 184, 0.35) !important;
     }
     [data-theme="dark"] nav a {
-        color: var(--primary-blue);
+        color: #e2e8f0 !important;
     }
     [data-theme="dark"] nav a:hover {
-        color: var(--primary-red);
+        background: rgba(56, 189, 248, 0.12) !important;
+        color: var(--primary-blue) !important;
     }
-    [data-theme="dark"] nav input[type="text"],
-    [data-theme="dark"] nav button {
-        background-color: var(--surface-card);
-        color: var(--text-color);
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
+    [data-theme="dark"] nav .nav-search-input {
+        background: rgba(15, 23, 42, 0.75) !important;
+        color: #f1f5f9 !important;
+        border: 1px solid rgba(56, 189, 248, 0.25) !important;
+        border-radius: 20px !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+    }
+    [data-theme="dark"] nav .nav-search-input::placeholder {
+        color: #94a3b8 !important;
+    }
+    [data-theme="dark"] nav .nav-search-input:focus {
+        background: rgba(15, 23, 42, 0.95) !important;
+        border-color: var(--primary-blue) !important;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
+    }
+    [data-theme="dark"] nav .nav-search-btn {
+        background: linear-gradient(135deg, #0284c7 0%, #004b93 100%) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+        border-radius: 20px !important;
+        box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3) !important;
+    }
+    [data-theme="dark"] nav .nav-search-btn:hover {
+        background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%) !important;
+        box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4) !important;
     }
     [data-theme="dark"] hr {
         border-color: var(--border-color);
