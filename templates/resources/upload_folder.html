@@ -4,109 +4,127 @@
 {% include "resources/_resource_styles.html" %}
 
 <div class="res-container">
-<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
-    <h2 style="margin: 0;">Upload Folder (Notes Collection)</h2>
-    <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{{ url_for('resources_list') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
+        &larr; Back to Resource Hub
+    </a>
+    <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
 </div>
 
-<p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a> | <a href="{{ url_for('resource_upload') }}">Upload a Single Resource instead</a></p>
+<div class="qa-card" style="max-width: 800px; margin: 0 auto; padding: 28px 32px;">
+    <div class="qa-brand-header">
+        <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.5rem;">📁 Upload Notes Folder Collection</h2>
+        <p style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
+            Upload entire subject directories preserving your folder structure for <span class="qa-glass-mmu">MMU</span> students.
+        </p>
+    </div>
 
-<div class="res-info-box res-info-box--rules res-info-box--wide">
-    <p style="margin: 0 0 6px 0;">ℹ️ Notes Collection & Folder Upload Rules</p>
-    <ul style="margin: 0; padding-left: 20px;">
-        <li>Select an entire folder from your computer. Subfolder structure will be preserved.</li>
-        <li>Allowed file formats: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong>.</li>
-        <li>Limits: Max <strong>30 files</strong>, max <strong>10MB per file</strong>, and max <strong>50MB total</strong> collection size.</li>
-        <li><strong>Browser Note:</strong> Folder upload uses standard HTML5 directory selection (<code>webkitdirectory</code>), supported on desktop Chrome, Edge, Firefox, and Safari. If using a mobile browser, please use the single file upload.</li>
-    </ul>
+    <div class="res-info-box res-info-box--rules" style="margin-bottom: 20px;">
+        <p style="margin: 0 0 6px 0; font-weight: 700; color: var(--primary-blue);">ℹ️ Notes Collection & Folder Upload Rules</p>
+        <ul style="margin: 0; padding-left: 20px; font-size: 0.9rem; color: var(--text-color);">
+            <li>Select an entire folder from your computer. Subfolder structure will be preserved.</li>
+            <li>Allowed file formats: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong>.</li>
+            <li>Limits: Max <strong>30 files</strong>, max <strong>10MB per file</strong>, and max <strong>50MB total</strong> collection size.</li>
+            <li><strong>Browser Note:</strong> Uses standard HTML5 directory selection (<code>webkitdirectory</code>), supported on desktop Chrome, Edge, Firefox, and Safari.</li>
+        </ul>
+    </div>
+
+    <form method="POST" action="{{ url_for('resource_collection_upload') }}" enctype="multipart/form-data" class="res-form" onsubmit="return validateBeforeSubmit();">
+        {{ form.hidden_tag() }}
+
+        <div class="res-form-group">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Collection Title <span style="color: var(--primary-red);">*</span>
+            </label>
+            {{ form.title(class="res-form-field", style="width: 100%;", placeholder="e.g. Week 1-14 Operating Systems Lecture Notes") }}
+            {% for error in form.title.errors %}
+                <span class="res-form-error">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Category <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.category(class="res-form-field", style="width: 100%;") }}
+                {% for error in form.category.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Faculty <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.faculty(class="res-form-field", style="width: 100%;") }}
+                {% for error in form.faculty.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="res-form-group">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Description (Optional)
+            </label>
+            {{ form.description(rows=4, class="res-form-field", style="width: 100%;", placeholder="Optional summary of what this collection covers...") }}
+            {% for error in form.description.errors %}
+                <span class="res-form-error">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Course Code</label>
+                {{ form.course_code(class="res-form-field", style="width: 100%;", placeholder="e.g. CPT111, BCN2023") }}
+                {% for error in form.course_code.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Course Name</label>
+                {{ form.course_name(class="res-form-field", style="width: 100%;", placeholder="e.g. Data Structures & Algorithms") }}
+                {% for error in form.course_name.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Academic Year</label>
+                {{ form.academic_year(class="res-form-field", style="width: 100%;", placeholder="e.g. 2025/2026") }}
+                {% for error in form.academic_year.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Semester / Term</label>
+                {{ form.semester(class="res-form-field", style="width: 100%;") }}
+                {% for error in form.semester.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="res-upload-zone" style="margin-bottom: 18px;">
+            <label for="folder_input" style="font-weight: 600; color: var(--text-color);">Select Local Folder to Upload:</label><br>
+            <input type="file" id="folder_input" name="files" webkitdirectory directory multiple required style="margin-top: 10px;" onchange="handleFolderSelect(this)">
+            <div id="relative_paths_container"></div>
+
+            <div id="folder_preview" class="res-folder-preview" style="display: none; margin-top: 14px; text-align: left;">
+                <p id="folder_summary" style="font-weight: 700; color: var(--primary-blue); margin-bottom: 8px;"></p>
+                <ul id="file_list_preview" style="max-height: 160px; overflow-y: auto; padding-left: 20px; font-size: 0.85rem; color: var(--text-muted);"></ul>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center; margin-top: 24px;">
+            {{ form.submit(id="submit_btn", class="btn btn-primary", style="background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;", value="Upload Collection") }}
+            <a href="{{ url_for('resources_list') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
 </div>
-
-<form method="POST" action="{{ url_for('resource_collection_upload') }}" enctype="multipart/form-data" class="res-form res-form--wide" onsubmit="return validateBeforeSubmit();">
-    {{ form.hidden_tag() }}
-
-    <div class="res-form-group">
-        {{ form.title.label }}<br>
-        {{ form.title(class="res-form-field", placeholder="e.g. Week 1-14 Operating Systems Lecture Notes") }}
-        {% for error in form.title.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="res-form-group">
-        {{ form.category.label }}<br>
-        {{ form.category(class="res-form-field") }}
-        {% for error in form.category.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="res-form-group">
-        {{ form.faculty.label }}<br>
-        {{ form.faculty(class="res-form-field") }}
-        {% for error in form.faculty.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="res-form-group">
-        {{ form.description.label }}<br>
-        {{ form.description(rows=4, class="res-form-field", placeholder="Optional summary of what this collection covers...") }}
-        {% for error in form.description.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="res-form-row">
-        <div style="flex: 1; min-width: 160px;">
-            {{ form.course_code.label }}<br>
-            {{ form.course_code(class="res-form-field", placeholder="e.g. CPT111, BCN2023") }}
-            {% for error in form.course_code.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-        <div style="flex: 2; min-width: 220px;">
-            {{ form.course_name.label }}<br>
-            {{ form.course_name(class="res-form-field", placeholder="e.g. Data Structures & Algorithms") }}
-            {% for error in form.course_name.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-    </div>
-
-    <div class="res-form-row">
-        <div style="flex: 1; min-width: 160px;">
-            {{ form.academic_year.label }}<br>
-            {{ form.academic_year(class="res-form-field", placeholder="e.g. 2025/2026") }}
-            {% for error in form.academic_year.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-        <div style="flex: 1; min-width: 160px;">
-            {{ form.semester.label }}<br>
-            {{ form.semester(class="res-form-field") }}
-            {% for error in form.semester.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-    </div>
-
-    <div class="res-upload-zone" style="margin-bottom: 18px;">
-        <label for="folder_input"><strong>Select Folder:</strong></label><br>
-        <input type="file" id="folder_input" name="files" webkitdirectory directory multiple required style="margin-top: 8px;" onchange="handleFolderSelect(this)">
-        <div id="relative_paths_container"></div>
-
-        <div id="folder_preview" class="res-folder-preview" style="display: none;">
-            <p id="folder_summary" class="res-folder-preview__summary"></p>
-            <ul id="file_list_preview" class="res-folder-preview__list"></ul>
-        </div>
-    </div>
-
-    <div>
-        {{ form.submit(id="submit_btn", class="res-btn res-btn--warning res-btn--submit") }}
-        &nbsp;
-        <a href="{{ url_for('resources_list') }}" class="res-link--muted">Cancel</a>
-    </div>
-</form>
 
 <script>
 function handleFolderSelect(input) {

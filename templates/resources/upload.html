@@ -4,99 +4,119 @@
 {% include "resources/_resource_styles.html" %}
 
 <div class="res-container">
-<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
-    <h2 style="margin: 0;">Upload a Study Resource</h2>
-    <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{{ url_for('resources_list') }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
+        &larr; Back to Resource Hub
+    </a>
+    <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
 </div>
 
-<p><a href="{{ url_for('resources_list') }}">&larr; Back to Resource Hub</a></p>
-
-<form method="POST" action="{{ url_for('resource_upload') }}" enctype="multipart/form-data" class="res-form">
-    {{ form.hidden_tag() }}
-
-    <div class="res-form-group">
-        {{ form.title.label }}<br>
-        {{ form.title(class="res-form-field") }}
-        {% for error in form.title.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="res-form-group">
-        {{ form.category.label }}<br>
-        {{ form.category(class="res-form-field") }}
-        {% for error in form.category.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="res-form-group">
-        {{ form.faculty.label }}<br>
-        {{ form.faculty(class="res-form-field") }}
-        {% for error in form.faculty.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="res-form-group">
-        {{ form.description.label }}<br>
-        {{ form.description(rows=4, class="res-form-field") }}
-        {% for error in form.description.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="res-form-row">
-        <div style="flex: 1; min-width: 160px;">
-            {{ form.course_code.label }}<br>
-            {{ form.course_code(class="res-form-field", placeholder="e.g. CPT111, BCN2023") }}
-            {% for error in form.course_code.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-        <div style="flex: 2; min-width: 220px;">
-            {{ form.course_name.label }}<br>
-            {{ form.course_name(class="res-form-field", placeholder="e.g. Data Structures & Algorithms") }}
-            {% for error in form.course_name.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-    </div>
-
-    <div class="res-form-row">
-        <div style="flex: 1; min-width: 160px;">
-            {{ form.academic_year.label }}<br>
-            {{ form.academic_year(class="res-form-field", placeholder="e.g. 2025/2026") }}
-            {% for error in form.academic_year.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-        <div style="flex: 1; min-width: 160px;">
-            {{ form.semester.label }}<br>
-            {{ form.semester(class="res-form-field") }}
-            {% for error in form.semester.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-    </div>
-
-    <div class="res-form-group">
-        {{ form.file.label }}<br>
-        {{ form.file() }}
-        <p class="res-form-hint">
-            Allowed file types: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong> (Max file size: <strong>10MB</strong>)
+<div class="qa-card" style="max-width: 750px; margin: 0 auto; padding: 28px 32px;">
+    <div class="qa-brand-header">
+        <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.5rem;">📄 Upload a Study Resource</h2>
+        <p style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
+            Share lecture notes, slides, and study guides with the <span class="qa-glass-mmu">MMU</span> community.
         </p>
-        {% for error in form.file.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
     </div>
 
-    <div>
-        {{ form.submit(class="res-btn res-btn--primary res-btn--submit") }}
-        &nbsp;
-        <a href="{{ url_for('resources_list') }}" class="res-link--muted">Cancel</a>
-    </div>
-</form>
+    <form method="POST" action="{{ url_for('resource_upload') }}" enctype="multipart/form-data" class="res-form">
+        {{ form.hidden_tag() }}
+
+        <div class="res-form-group">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Title <span style="color: var(--primary-red);">*</span>
+            </label>
+            {{ form.title(class="res-form-field", style="width: 100%;", placeholder="e.g. Chapter 3 Lecture Slides - Database Normalization") }}
+            {% for error in form.title.errors %}
+                <span class="res-form-error">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Category <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.category(class="res-form-field", style="width: 100%;") }}
+                {% for error in form.category.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Faculty <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.faculty(class="res-form-field", style="width: 100%;") }}
+                {% for error in form.faculty.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="res-form-group">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Description (Optional)
+            </label>
+            {{ form.description(rows=4, class="res-form-field", style="width: 100%;", placeholder="Briefly describe what this file covers...") }}
+            {% for error in form.description.errors %}
+                <span class="res-form-error">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Course Code</label>
+                {{ form.course_code(class="res-form-field", style="width: 100%;", placeholder="e.g. CPT111, BCN2023") }}
+                {% for error in form.course_code.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Course Name</label>
+                {{ form.course_name(class="res-form-field", style="width: 100%;", placeholder="e.g. Data Structures & Algorithms") }}
+                {% for error in form.course_name.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Academic Year</label>
+                {{ form.academic_year(class="res-form-field", style="width: 100%;", placeholder="e.g. 2025/2026") }}
+                {% for error in form.academic_year.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Semester / Term</label>
+                {{ form.semester(class="res-form-field", style="width: 100%;") }}
+                {% for error in form.semester.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="res-form-group">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Attach File <span style="color: var(--primary-red);">*</span>
+            </label>
+            {{ form.file(class="res-form-field", style="width: 100%;") }}
+            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.85rem;">
+                Allowed file types: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong> (Max file size: <strong>10MB</strong>)
+            </p>
+            {% for error in form.file.errors %}
+                <span class="res-form-error">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center; margin-top: 24px;">
+            {{ form.submit(class="btn btn-primary", value="Upload Resource") }}
+            <a href="{{ url_for('resources_list') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
 </div>
 
 {% endblock %}

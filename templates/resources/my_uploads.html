@@ -4,38 +4,38 @@
 {% include "resources/_resource_styles.html" %}
 
 <div class="res-container">
-<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+<div class="qa-brand-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
     <div>
-        <h2 style="margin: 0;">My Uploads</h2>
-        <p style="margin: 4px 0 0 0; color: var(--color-text-secondary); font-size: 0.95rem;">
+        <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.75rem;">My Uploads</h2>
+        <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.95rem;">
             Manage your uploaded academic study materials and complete notes folder collections.
         </p>
     </div>
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
-        <a href="{{ url_for('resource_upload') }}" class="res-btn res-btn--primary">+ Upload Single File</a>
-        <a href="{{ url_for('resource_upload_folder') }}" class="res-btn res-btn--success">📁 + Upload Notes Folder</a>
-        <a href="{{ url_for('resources_list') }}" class="res-btn res-btn--secondary">&larr; Back to Hub</a>
+        <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
+        <a href="{{ url_for('resource_upload') }}" class="btn btn-primary" style="font-size: 0.95rem;">+ Upload Single File</a>
+        <a href="{{ url_for('resource_upload_folder') }}" class="btn btn-primary" style="background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; font-size: 0.95rem;">📁 + Upload Notes Folder</a>
+        <a href="{{ url_for('resources_list') }}" class="btn btn-secondary" style="font-size: 0.95rem;">&larr; Back to Hub</a>
     </div>
 </div>
 
-<!-- Search, Academic Filter & Sort Form -->
-<form method="GET" action="{{ url_for('my_uploads') }}" class="res-filter-bar">
-    <div class="res-filter-bar__row">
-        <div>
-            <label for="q"><strong>Search:</strong></label><br>
-            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in your uploads..." style="width: 200px;">
+<!-- Search, Academic Filter & Sort Form (Matches Q&A Filter Bar) -->
+<form method="GET" action="{{ url_for('my_uploads') }}" class="qa-filter-bar">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+        <div style="flex: 1 1 200px;">
+            <label for="q" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Search</label>
+            <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords in your uploads..." style="width: 100%;">
         </div>
 
-        <div>
-            <label for="course_code"><strong>Course Code:</strong></label><br>
-            <input type="text" id="course_code" name="course_code" value="{{ selected_course_code }}" placeholder="e.g. CPT111" style="width: 110px;">
+        <div style="flex: 0 1 130px;">
+            <label for="course_code" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Course Code</label>
+            <input type="text" id="course_code" name="course_code" value="{{ selected_course_code }}" placeholder="e.g. CPT111" style="width: 100%;">
         </div>
 
-        <div>
-            <label for="semester"><strong>Semester / Term:</strong></label><br>
-            <select id="semester" name="semester">
-                <option value="">-- All Terms --</option>
+        <div style="flex: 0 1 150px;">
+            <label for="semester" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Semester / Term</label>
+            <select id="semester" name="semester" style="width: 100%;">
+                <option value="">All Terms</option>
                 {% for code, label in semesters %}
                     {% if code %}
                         <option value="{{ code }}" {% if selected_semester == code %}selected{% endif %}>{{ label }}</option>
@@ -44,55 +44,62 @@
             </select>
         </div>
 
-        <div>
-            <label for="faculty"><strong>Faculty:</strong></label><br>
-            <select id="faculty" name="faculty">
-                <option value="">-- All Faculties --</option>
+        <div style="flex: 0 1 160px;">
+            <label for="faculty" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Faculty</label>
+            <select id="faculty" name="faculty" style="width: 100%;">
+                <option value="">All Faculties</option>
                 {% for code, name in faculties %}
                     <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }} ({{ name }})</option>
                 {% endfor %}
             </select>
         </div>
 
-        <div>
-            <label for="category"><strong>Category:</strong></label><br>
-            <select id="category" name="category">
-                <option value="">-- All Categories --</option>
+        <div style="flex: 0 1 160px;">
+            <label for="category" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Category</label>
+            <select id="category" name="category" style="width: 100%;">
+                <option value="">All Categories</option>
                 {% for code, label in categories %}
                     <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
 
-        <div>
-            <label for="sort"><strong>Sort By:</strong></label><br>
-            <select id="sort" name="sort">
+        <div style="flex: 0 1 150px;">
+            <label for="sort" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Sort by</label>
+            <select id="sort" name="sort" style="width: 100%;">
                 <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>Newest First</option>
                 <option value="downloads" {% if selected_sort == 'downloads' %}selected{% endif %}>Most Downloaded</option>
                 <option value="rating" {% if selected_sort == 'rating' %}selected{% endif %}>Highest Rated</option>
             </select>
         </div>
 
-        <div style="align-self: flex-end;">
-            <button type="submit" class="res-btn res-btn--dark">Filter</button>
+        <div style="display: flex; align-items: flex-end; gap: 8px; margin-left: auto;">
+            <button type="submit" class="btn btn-primary btn-sm">Filter</button>
             {% if query_text or selected_faculty or selected_category or selected_course_code or selected_semester or selected_sort != 'newest' %}
-                <a href="{{ url_for('my_uploads') }}" class="res-link--muted" style="margin-left: 8px;">Reset</a>
+                <a href="{{ url_for('my_uploads') }}" class="btn btn-secondary btn-sm">Reset</a>
             {% endif %}
         </div>
     </div>
 </form>
 
-<hr>
-
-<div class="res-section-header">
-    <h3>My Uploaded Items ({{ total_items }})</h3>
-    <small>Page {{ page }} of {{ total_pages }}</small>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-color);">
+        My Uploaded Items 
+        <span style="color: var(--text-muted); font-size: 0.95rem; font-weight: normal;">
+            ({{ total_items }})
+        </span>
+    </h3>
+    {% if total_pages > 1 %}
+        <span style="color: var(--text-muted); font-size: 0.85rem;">
+            Page {{ page }} of {{ total_pages }}
+        </span>
+    {% endif %}
 </div>
 
 {% if items %}
-    <ul style="list-style-type: none; padding-left: 0;">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
         {% for item in items %}
-            <li class="res-card">
+            <article class="qa-card" style="border-left: 4px solid {% if item.is_reviewed_by_professor %}#F59E0B{% elif item.is_collection or item.resources is defined %}#10B981{% else %}var(--primary-blue){% endif %};">
                 <div class="res-card-header">
                     <div class="res-card-body">
                         <div class="res-badges">
@@ -231,9 +238,9 @@
                         </form>
                     {% endif %}
                 </div>
-            </li>
+            </article>
         {% endfor %}
-    </ul>
+    </div>
 
     <!-- 10-Item Pagination Controls with Active Filters -->
     {% if total_pages > 1 %}

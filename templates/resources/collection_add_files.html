@@ -4,75 +4,77 @@
 {% include "resources/_resource_styles.html" %}
 
 <div class="res-container">
-<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
-    <div>
-        <h2 style="margin: 0;">➕ Add Files to Notes Collection</h2>
-        <p style="margin: 4px 0 0 0; color: var(--color-text-secondary); font-size: 0.95rem;">Append additional study files or subfolders to your existing notes collection.</p>
-    </div>
-    <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
-</div>
-
-<p>
-    <a href="{{ url_for('collection_detail', collection_id=collection.id) }}">&larr; Back to Collection</a> | 
-    <a href="{{ url_for('resources_list') }}">Resource Hub</a>
-</p>
-
-<!-- Collection Status and Quota Card -->
-<div class="res-quota-card">
-    <h3>{{ collection.title }}</h3>
-    <p>
-        Faculty: <strong>{{ collection.faculty }}</strong> | 
-        Category: <strong>{{ collection.category }}</strong>
-        {% if collection.course_code %}
-            | Course: <strong>{{ collection.course_code }}</strong>
-        {% endif %}
-        {% if collection.semester or collection.academic_year %}
-            | Period: <strong>{{ collection.semester or '' }} {{ collection.academic_year or '' }}</strong>
-        {% endif %}
+<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <p style="margin: 0;">
+        <a href="{{ url_for('collection_detail', collection_id=collection.id) }}" style="color: var(--primary-blue); font-weight: 600; text-decoration: none;">&larr; Back to Collection</a> | 
+        <a href="{{ url_for('resources_list') }}" style="color: var(--text-muted); text-decoration: none;">Resource Hub</a>
     </p>
-
-    <div class="res-quota-badges">
-        <span class="res-stat-badge--quota-files">
-            Current Files: <strong>{{ collection.file_count }}</strong> / 30 max
-        </span>
-        <span class="res-stat-badge--quota-size">
-            Current Size: <strong>{{ collection.formatted_total_size }}</strong> / 50 MB max
-        </span>
-    </div>
+    <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
 </div>
 
-<!-- Upload Rules Box -->
-<div class="res-info-box res-info-box--green res-info-box--wide" style="margin-bottom: 24px;">
-    <strong>📌 Extension & Upload Guidelines:</strong>
-    <ul style="margin: 6px 0 0 0; padding-left: 20px;">
-        <li>Allowed File Types: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong></li>
-        <li>Individual File Limit: <strong>10 MB</strong> per file</li>
-        <li>Total Collection Limit: <strong>50 MB</strong> max total</li>
-        <li>Maximum Collection Files: <strong>30 files</strong></li>
-        <li>Files will automatically inherit this collection's faculty, category, course code, and academic period.</li>
-        <li>Existing files with identical relative paths will be preserved.</li>
-    </ul>
-</div>
-
-<form method="POST" action="{{ url_for('collection_add_files', collection_id=collection.id) }}" enctype="multipart/form-data" style="max-width: 650px;">
-    {{ form.hidden_tag() }}
-
-    <div class="res-upload-zone res-upload-zone--strong" style="margin-bottom: 24px;">
-        <label for="files"><strong>📁 Select Additional Files or Folder:</strong></label><br>
-        <input type="file" id="files" name="files" webkitdirectory directory multiple required style="margin-top: 8px;">
-        <p class="res-form-hint" style="margin: 8px 0 0 0;">
-            You can select individual files or an entire folder. Any subfolder structure will be preserved.
+<div class="qa-card" style="max-width: 750px; margin: 0 auto; padding: 28px 32px;">
+    <div class="qa-brand-header">
+        <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.5rem;">➕ Add Files to Notes Collection</h2>
+        <p style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
+            Append additional study files or subfolders to your existing <span class="qa-glass-mmu">MMU</span> notes collection.
         </p>
-        {% for error in form.files.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
     </div>
 
-    <div>
-        {{ form.submit(class="res-btn res-btn--success res-btn--submit res-btn--lg") }}
-        &nbsp;
-        <a href="{{ url_for('collection_detail', collection_id=collection.id) }}" class="res-link--muted">Cancel</a>
+    <!-- Collection Status and Quota Box -->
+    <div class="res-info-box" style="margin-bottom: 20px;">
+        <h3 style="margin: 0 0 6px 0; color: var(--text-color);">{{ collection.title }}</h3>
+        <p style="margin: 0 0 8px 0; color: var(--text-muted); font-size: 0.88rem;">
+            Faculty: <strong>{{ collection.faculty }}</strong> | 
+            Category: <strong>{{ collection.category }}</strong>
+            {% if collection.course_code %}
+                | Course: <strong>{{ collection.course_code }}</strong>
+            {% endif %}
+            {% if collection.semester or collection.academic_year %}
+                | Period: <strong>{{ collection.semester or '' }} {{ collection.academic_year or '' }}</strong>
+            {% endif %}
+        </p>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <span class="badge badge-faculty">
+                Current Files: <strong>{{ collection.file_count }}</strong> / 30 max
+            </span>
+            <span class="badge badge-category">
+                Current Size: <strong>{{ collection.formatted_total_size }}</strong> / 50 MB max
+            </span>
+        </div>
     </div>
-</form>
+
+    <!-- Upload Rules Box -->
+    <div class="res-info-box res-info-box--rules" style="margin-bottom: 20px;">
+        <strong style="color: var(--primary-blue);">📌 Extension & Upload Guidelines:</strong>
+        <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 0.88rem; color: var(--text-muted);">
+            <li>Allowed File Types: <strong>PDF, DOCX, PPTX, TXT, ZIP</strong></li>
+            <li>Individual File Limit: <strong>10 MB</strong> per file</li>
+            <li>Total Collection Limit: <strong>50 MB</strong> max total</li>
+            <li>Maximum Collection Files: <strong>30 files</strong></li>
+            <li>Files will automatically inherit this collection's faculty, category, course code, and academic period.</li>
+        </ul>
+    </div>
+
+    <form method="POST" action="{{ url_for('collection_add_files', collection_id=collection.id) }}" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+
+        <div class="res-upload-zone" style="margin-bottom: 24px;">
+            <label for="files" style="font-weight: 600; color: var(--text-color);">📁 Select Additional Files or Folder:</label><br>
+            <input type="file" id="files" name="files" webkitdirectory directory multiple required style="margin-top: 10px;">
+            <p style="margin: 8px 0 0 0; color: var(--text-muted); font-size: 0.85rem;">
+                You can select individual files or an entire folder. Subfolder structure will be preserved.
+            </p>
+            {% for error in form.files.errors %}
+                <span class="res-form-error">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center;">
+            {{ form.submit(class="btn btn-primary", style="background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;", value="Add Files to Collection") }}
+            <a href="{{ url_for('collection_detail', collection_id=collection.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
 </div>
 {% endblock %}

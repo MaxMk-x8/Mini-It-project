@@ -4,106 +4,124 @@
 {% include "resources/_resource_styles.html" %}
 
 <div class="res-container">
-<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
-    <h2 style="margin: 0;">Edit Notes Collection</h2>
-    <button type="button" id="res-theme-btn" class="res-theme-toggle" onclick="toggleResourceTheme()">🌙 Dark Mode</button>
+<div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}" style="color: var(--primary-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
+        &larr; Back to Collection
+    </a>
+    <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
 </div>
 
-<p><a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}">&larr; Back to Collection</a></p>
-
-<div class="res-info-box res-info-box--amber">
-    <strong>Collection:</strong> {{ collection.title }} ({{ collection.files_count }} files &bull; {{ collection.formatted_size }})<br>
-    <small>Created on {{ collection.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</small>
-</div>
-
-<form method="POST" action="{{ url_for('resource_collection_edit', collection_id=collection.id) }}" enctype="multipart/form-data" class="res-form">
-    {{ form.hidden_tag() }}
-
-    <div class="res-info-box res-info-box--amber-dashed" style="margin-bottom: 20px;">
-        <label>Replace Files / Folder (Optional)</label>
-        <p style="margin: 4px 0 10px 0;">
-            Want to replace all files or upload a newer folder for this collection? Select a folder or files below. (Leave empty to keep all existing {{ collection.files_count }} files).
+<div class="qa-card" style="max-width: 800px; margin: 0 auto; padding: 28px 32px;">
+    <div class="qa-brand-header">
+        <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.5rem;">📁 Edit Notes Collection</h2>
+        <p style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
+            Update collection title, metadata, or optionally replace existing files.
         </p>
-        <label style="font-size: 0.85rem;">Select Folder:</label><br>
-        <input type="file" id="folder_input" name="replacement_folder" webkitdirectory directory multiple onchange="handleFolderSelect(this)" style="margin-bottom: 8px;"><br>
-        <label style="font-size: 0.85rem;">Or Select Multiple Files:</label><br>
-        <input type="file" name="files" multiple onchange="handleIndividualFilesSelect(this)">
-        <div id="relative_paths_container"></div>
-        <div id="folder_summary" class="res-replacement-summary"></div>
     </div>
 
-    <div class="res-form-group">
-        {{ form.title.label }}<br>
-        {{ form.title(class="res-form-field") }}
-        {% for error in form.title.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
+    <div class="res-info-box" style="margin-bottom: 20px;">
+        <strong>Current Collection:</strong> {{ collection.title }} ({{ collection.files_count }} files &bull; {{ collection.formatted_size }})<br>
+        <small style="color: var(--text-muted);">Created on {{ collection.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</small>
     </div>
 
-    <div class="res-form-group">
-        {{ form.category.label }}<br>
-        {{ form.category(class="res-form-field") }}
-        {% for error in form.category.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
+    <form method="POST" action="{{ url_for('resource_collection_edit', collection_id=collection.id) }}" enctype="multipart/form-data" class="res-form">
+        {{ form.hidden_tag() }}
 
-    <div class="res-form-group">
-        {{ form.faculty.label }}<br>
-        {{ form.faculty(class="res-form-field") }}
-        {% for error in form.faculty.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
+        <div class="res-info-box res-info-box--rules" style="margin-bottom: 20px;">
+            <label style="font-weight: 600; color: var(--primary-blue);">Replace Files / Folder (Optional)</label>
+            <p style="margin: 4px 0 10px 0; font-size: 0.9rem; color: var(--text-muted);">
+                Want to replace all files or upload a newer folder for this collection? Select a folder or files below. (Leave empty to keep all existing {{ collection.files_count }} files).
+            </p>
+            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-color);">Select Folder:</label><br>
+            <input type="file" id="folder_input" name="replacement_folder" webkitdirectory directory multiple onchange="handleFolderSelect(this)" style="margin-bottom: 8px;"><br>
+            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-color);">Or Select Multiple Files:</label><br>
+            <input type="file" name="files" multiple onchange="handleIndividualFilesSelect(this)">
+            <div id="relative_paths_container"></div>
+            <div id="folder_summary" class="res-replacement-summary" style="margin-top: 8px; font-weight: 600; color: var(--primary-blue);"></div>
+        </div>
 
-    <div class="res-form-group">
-        {{ form.description.label }}<br>
-        {{ form.description(rows=4, class="res-form-field") }}
-        {% for error in form.description.errors %}
-            <span class="res-form-error">{{ error }}</span>
-        {% endfor %}
-    </div>
-
-    <div class="res-form-row">
-        <div style="flex: 1; min-width: 160px;">
-            {{ form.course_code.label }}<br>
-            {{ form.course_code(class="res-form-field", placeholder="e.g. CPT111, BCN2023") }}
-            {% for error in form.course_code.errors %}
+        <div class="res-form-group">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Collection Title <span style="color: var(--primary-red);">*</span>
+            </label>
+            {{ form.title(class="res-form-field", style="width: 100%;") }}
+            {% for error in form.title.errors %}
                 <span class="res-form-error">{{ error }}</span>
             {% endfor %}
         </div>
-        <div style="flex: 2; min-width: 220px;">
-            {{ form.course_name.label }}<br>
-            {{ form.course_name(class="res-form-field", placeholder="e.g. Data Structures & Algorithms") }}
-            {% for error in form.course_name.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-    </div>
 
-    <div class="res-form-row">
-        <div style="flex: 1; min-width: 160px;">
-            {{ form.academic_year.label }}<br>
-            {{ form.academic_year(class="res-form-field", placeholder="e.g. 2025/2026") }}
-            {% for error in form.academic_year.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-        <div style="flex: 1; min-width: 160px;">
-            {{ form.semester.label }}<br>
-            {{ form.semester(class="res-form-field") }}
-            {% for error in form.semester.errors %}
-                <span class="res-form-error">{{ error }}</span>
-            {% endfor %}
-        </div>
-    </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Category <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.category(class="res-form-field", style="width: 100%;") }}
+                {% for error in form.category.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
 
-    <div>
-        {{ form.submit(class="res-btn res-btn--warning res-btn--submit") }}
-        &nbsp;
-        <a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}" class="res-link--muted">Cancel</a>
-    </div>
-</form>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                    Faculty <span style="color: var(--primary-red);">*</span>
+                </label>
+                {{ form.faculty(class="res-form-field", style="width: 100%;") }}
+                {% for error in form.faculty.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="res-form-group">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">
+                Description
+            </label>
+            {{ form.description(rows=4, class="res-form-field", style="width: 100%;") }}
+            {% for error in form.description.errors %}
+                <span class="res-form-error">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Course Code</label>
+                {{ form.course_code(class="res-form-field", style="width: 100%;", placeholder="e.g. CPT111, BCN2023") }}
+                {% for error in form.course_code.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Course Name</label>
+                {{ form.course_name(class="res-form-field", style="width: 100%;", placeholder="e.g. Data Structures & Algorithms") }}
+                {% for error in form.course_name.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Academic Year</label>
+                {{ form.academic_year(class="res-form-field", style="width: 100%;", placeholder="e.g. 2025/2026") }}
+                {% for error in form.academic_year.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Semester / Term</label>
+                {{ form.semester(class="res-form-field", style="width: 100%;") }}
+                {% for error in form.semester.errors %}
+                    <span class="res-form-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center; margin-top: 24px;">
+            {{ form.submit(class="btn btn-primary", value="Save Collection Changes") }}
+            <a href="{{ url_for('resource_collection_detail', collection_id=collection.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
 
 <script>
 function handleFolderSelect(input) {
