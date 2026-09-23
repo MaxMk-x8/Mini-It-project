@@ -1329,6 +1329,8 @@ class ChatMessage(db.Model):
     pinned_by_id = db.Column(db.Integer, db.ForeignKey('users.id', name='fk_chat_messages_pinned_by_id', ondelete='SET NULL'), nullable=True)
     pin_duration = db.Column(db.String(20), nullable=True)  # '7d', '30d', 'forever'
     pin_expires_at = db.Column(db.DateTime, nullable=True)
+    deleted_by_sender = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_by_recipient = db.Column(db.Boolean, default=False, nullable=False)
 
     sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_chats', lazy=True))
     recipient = db.relationship('User', foreign_keys=[recipient_id], backref=db.backref('received_chats', lazy=True))
@@ -1367,7 +1369,7 @@ class ChatMessage(db.Model):
         else:
             return "Expires soon"
 
-    def __init__(self, sender_id=None, recipient_id=None, message=None, is_read=False, is_edited=False, edited_at=None, is_pinned=False, pinned_at=None, pinned_by_id=None, pin_duration=None, pin_expires_at=None, **kwargs):
+    def __init__(self, sender_id=None, recipient_id=None, message=None, is_read=False, is_edited=False, edited_at=None, is_pinned=False, pinned_at=None, pinned_by_id=None, pin_duration=None, pin_expires_at=None, deleted_by_sender=False, deleted_by_recipient=False, **kwargs):
         super().__init__(**kwargs)
         if sender_id:
             self.sender_id = sender_id
@@ -1383,6 +1385,8 @@ class ChatMessage(db.Model):
         self.pinned_by_id = pinned_by_id
         self.pin_duration = pin_duration
         self.pin_expires_at = pin_expires_at
+        self.deleted_by_sender = deleted_by_sender
+        self.deleted_by_recipient = deleted_by_recipient
 
     def __repr__(self):
         return f'<ChatMessage #{self.id}: {self.sender_id} -> {self.recipient_id}>'
@@ -1529,6 +1533,8 @@ def migrate_database(db_path=None):
     # 6. CHAT_MESSAGES table columns
     ensure_column('chat_messages', 'is_edited', 'BOOLEAN', 0)
     ensure_column('chat_messages', 'edited_at', 'DATETIME', None)
+    ensure_column('chat_messages', 'deleted_by_sender', 'BOOLEAN', 0)
+    ensure_column('chat_messages', 'deleted_by_recipient', 'BOOLEAN', 0)
 
     conn.commit()
     conn.close()
