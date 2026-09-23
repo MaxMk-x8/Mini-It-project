@@ -1,580 +1,166 @@
 {% extends "base.html" %}
+
 {% block content %}
+{% include "resources/_resource_styles.html" %}
 
-<style>
-/* ==========================================================================
-   CodeNest Bookmarks & Favourites Scoped Theme
-   Sapphire Blue (#003366) & Crimson Red (#ED1C24) Glassmorphism
-   ========================================================================== */
-.bm-page {
-    --bm-blue: #003366;
-    --bm-blue-hover: #002244;
-    --bm-blue-subtle: rgba(0, 51, 102, 0.08);
-    --bm-red: #ED1C24;
-    --bm-red-hover: #C9141B;
-    --bm-red-subtle: rgba(237, 28, 36, 0.08);
-    --bm-gradient: linear-gradient(135deg, #003366 0%, #004b93 65%, #ED1C24 100%);
-    --bm-gradient-hover: linear-gradient(135deg, #004080 0%, #005bb3 60%, #ff2b34 100%);
-    --bm-accent-line: linear-gradient(90deg, #003366 0%, #0056b3 50%, #ED1C24 100%);
-    --bm-surface: #ffffff;
-    --bm-surface-glass: rgba(255, 255, 255, 0.88);
-    --bm-border: #e2e8f0;
-    --bm-border-hover: #cbd5e1;
-    --bm-text: #1e293b;
-    --bm-text-muted: #64748b;
-    --bm-shadow: 0 4px 14px -2px rgba(0, 51, 102, 0.08), 0 2px 6px -1px rgba(237, 28, 36, 0.04);
-    --bm-shadow-lg: 0 12px 28px -4px rgba(0, 51, 102, 0.12), 0 4px 12px -2px rgba(237, 28, 36, 0.06);
-
-    color: var(--bm-text);
-    margin-top: 10px;
-    margin-bottom: 40px;
-}
-
-[data-theme="dark"] .bm-page {
-    --bm-blue: #38bdf8;
-    --bm-blue-hover: #0284c7;
-    --bm-blue-subtle: rgba(56, 189, 248, 0.15);
-    --bm-red: #f43f5e;
-    --bm-red-hover: #e11d48;
-    --bm-red-subtle: rgba(244, 63, 94, 0.15);
-    --bm-gradient: linear-gradient(135deg, #0284c7 0%, #0369a1 60%, #e11d48 100%);
-    --bm-gradient-hover: linear-gradient(135deg, #38bdf8 0%, #0284c7 60%, #f43f5e 100%);
-    --bm-accent-line: linear-gradient(90deg, #38bdf8 0%, #818cf8 50%, #f43f5e 100%);
-    --bm-surface: rgba(15, 23, 42, 0.78);
-    --bm-surface-glass: rgba(15, 23, 42, 0.88);
-    --bm-border: rgba(56, 189, 248, 0.18);
-    --bm-border-hover: rgba(56, 189, 248, 0.35);
-    --bm-text: #f1f5f9;
-    --bm-text-muted: #94a3b8;
-    --bm-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-    --bm-shadow-lg: 0 16px 36px rgba(0, 0, 0, 0.6);
-}
-
-/* Header & Accent Line */
-.bm-header {
-    background: var(--bm-surface-glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--bm-border);
-    border-radius: 12px;
-    padding: 24px 28px;
-    margin-bottom: 24px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--bm-shadow);
-}
-.bm-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--bm-accent-line);
-}
-.bm-header-title {
-    margin: 0 0 6px 0;
-    font-size: 1.75rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    background: var(--bm-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    display: inline-block;
-}
-.bm-header-subtitle {
-    margin: 0 0 18px 0;
-    color: var(--bm-text-muted);
-    font-size: 0.95rem;
-    line-height: 1.5;
-}
-
-/* Navigation Tabs */
-.bm-tabs {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    border-top: 1px solid var(--bm-border);
-    padding-top: 16px;
-    margin-top: 8px;
-}
-.bm-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    text-decoration: none;
-    color: var(--bm-text);
-    background: var(--bm-surface);
-    border: 1px solid var(--bm-border);
-    transition: all 0.2s ease;
-}
-.bm-tab:hover {
-    border-color: var(--bm-blue);
-    color: var(--bm-blue);
-    transform: translateY(-1px);
-}
-.bm-tab--active {
-    background: var(--bm-gradient);
-    color: #ffffff !important;
-    border-color: transparent;
-    box-shadow: 0 4px 12px rgba(0, 51, 102, 0.25);
-}
-.bm-tab-badge {
-    background: rgba(0, 0, 0, 0.08);
-    font-size: 0.78rem;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-weight: 700;
-}
-.bm-tab--active .bm-tab-badge {
-    background: rgba(255, 255, 255, 0.25);
-    color: #ffffff;
-}
-
-/* Layout */
-.bm-layout {
-    display: flex;
-    gap: 24px;
-    align-items: flex-start;
-}
-.bm-sidebar {
-    width: 270px;
-    min-width: 250px;
-    flex-shrink: 0;
-}
-.bm-main {
-    flex-grow: 1;
-    min-width: 0;
-}
-
-/* Cards & Glass Containers */
-.bm-card {
-    background: var(--bm-surface-glass);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--bm-border);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: var(--bm-shadow);
-}
-.bm-card-title {
-    margin: 0 0 16px 0;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--bm-text);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-/* Folder List in Sidebar */
-.bm-folder-list {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 18px 0;
-}
-.bm-folder-item {
-    margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-.bm-folder-link {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    color: var(--bm-text);
-    text-decoration: none;
-    font-size: 0.88rem;
-    font-weight: 500;
-    flex-grow: 1;
-    transition: all 0.15s ease;
-}
-.bm-folder-link:hover {
-    background: var(--bm-blue-subtle);
-    color: var(--bm-blue);
-}
-.bm-folder-link--active {
-    background: var(--bm-blue-subtle);
-    color: var(--bm-blue);
-    font-weight: 700;
-    border-left: 3px solid var(--bm-blue);
-}
-.bm-folder-count {
-    font-size: 0.75rem;
-    color: var(--bm-text-muted);
-    background: rgba(0, 0, 0, 0.05);
-    padding: 1px 6px;
-    border-radius: 10px;
-    margin-left: auto;
-}
-.bm-folder-del-btn {
-    background: none;
-    border: none;
-    color: var(--bm-red);
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-.bm-folder-del-btn:hover {
-    opacity: 1;
-    background: var(--bm-red-subtle);
-}
-
-/* Create Folder Form */
-.bm-folder-create-title {
-    font-size: 0.88rem;
-    font-weight: 700;
-    margin: 16px 0 8px 0;
-    color: var(--bm-text);
-}
-.bm-input {
-    width: 100%;
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--bm-border);
-    background: var(--bm-surface);
-    color: var(--bm-text);
-    font-size: 0.88rem;
-    box-sizing: border-box;
-    transition: border-color 0.2s;
-}
-.bm-input:focus {
-    outline: none;
-    border-color: var(--bm-blue);
-}
-.bm-btn-submit {
-    margin-top: 8px;
-    width: 100%;
-    background: var(--bm-gradient);
-    color: #ffffff;
-    border: none;
-    padding: 7px 12px;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.bm-btn-submit:hover {
-    background: var(--bm-gradient-hover);
-    transform: translateY(-1px);
-}
-
-/* Glassy Tables */
-.bm-table-container {
-    width: 100%;
-    overflow-x: auto;
-    border-radius: 10px;
-    border: 1px solid var(--bm-border);
-    background: var(--bm-surface-glass);
-}
-.bm-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-    text-align: left;
-}
-.bm-table th {
-    background: var(--bm-blue-subtle);
-    color: var(--bm-text);
-    font-weight: 700;
-    padding: 12px 14px;
-    border-bottom: 2px solid var(--bm-border);
-    white-space: nowrap;
-}
-.bm-table td {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--bm-border);
-    vertical-align: middle;
-}
-.bm-table tr:last-child td {
-    border-bottom: none;
-}
-.bm-table tr:hover td {
-    background: rgba(0, 51, 102, 0.025);
-}
-[data-theme="dark"] .bm-table tr:hover td {
-    background: rgba(56, 189, 248, 0.04);
-}
-
-/* Badges */
-.bm-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.78rem;
-    font-weight: 600;
-}
-.bm-badge--course {
-    background: var(--bm-blue-subtle);
-    color: var(--bm-blue);
-    border: 1px solid var(--bm-border);
-}
-.bm-badge--category {
-    background: rgba(100, 116, 139, 0.1);
-    color: var(--bm-text);
-}
-.bm-badge--faculty {
-    background: var(--bm-red-subtle);
-    color: var(--bm-red);
-}
-
-/* Action Buttons */
-.bm-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-}
-.bm-btn-link {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--bm-blue);
-    text-decoration: none;
-    transition: color 0.15s;
-}
-.bm-btn-link:hover {
-    text-decoration: underline;
-}
-.bm-btn-download {
-    background: var(--bm-gradient);
-    color: #ffffff !important;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-decoration: none;
-    display: inline-block;
-    transition: all 0.2s;
-}
-.bm-btn-download:hover {
-    background: var(--bm-gradient-hover);
-    transform: translateY(-1px);
-}
-.bm-btn-remove {
-    background: none;
-    border: none;
-    color: var(--bm-red);
-    cursor: pointer;
-    font-size: 0.84rem;
-    font-weight: 600;
-    padding: 3px 6px;
-    border-radius: 4px;
-    transition: all 0.15s;
-}
-.bm-btn-remove:hover {
-    background: var(--bm-red-subtle);
-    text-decoration: underline;
-}
-.bm-select-move {
-    padding: 3px 6px;
-    border-radius: 4px;
-    border: 1px solid var(--bm-border);
-    background: var(--bm-surface);
-    color: var(--bm-text);
-    font-size: 0.82rem;
-}
-.bm-btn-move {
-    padding: 3px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--bm-border);
-    background: var(--bm-surface);
-    color: var(--bm-text);
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.bm-btn-move:hover {
-    border-color: var(--bm-blue);
-    color: var(--bm-blue);
-}
-
-/* Empty State Card */
-.bm-empty-card {
-    text-align: center;
-    padding: 44px 20px;
-    background: var(--bm-surface-glass);
-    border: 1px dashed var(--bm-border);
-    border-radius: 12px;
-}
-.bm-empty-icon {
-    font-size: 2.8rem;
-    margin-bottom: 12px;
-    opacity: 0.85;
-}
-.bm-empty-text {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: var(--bm-text);
-    margin: 0 0 6px 0;
-}
-.bm-empty-subtext {
-    font-size: 0.9rem;
-    color: var(--bm-text-muted);
-    max-width: 480px;
-    margin: 0 auto;
-    line-height: 1.5;
-}
-.bm-empty-subtext a {
-    color: var(--bm-blue);
-    font-weight: 600;
-    text-decoration: none;
-}
-.bm-empty-subtext a:hover {
-    text-decoration: underline;
-}
-</style>
-
-<div class="bm-page">
-    {# Brand Header #}
-    <div class="bm-header">
-        <h2 class="bm-header-title">Bookmarks &amp; Favourites</h2>
-        <p class="bm-header-subtitle">
-            Organize and manage your bookmarked Q&A discussions, favourite answers, and study resources for quick revision.
-        </p>
-        
-        <div class="bm-tabs">
-            <a href="{{ url_for('saved_questions', tab='questions') }}" class="bm-tab {% if main_tab == 'questions' %}bm-tab--active{% endif %}">
-                📁 Bookmarked Questions
-                <span class="bm-tab-badge">{{ total_saved_count }}</span>
-            </a>
-            <a href="{{ url_for('saved_questions', tab='answers') }}" class="bm-tab {% if main_tab == 'answers' %}bm-tab--active{% endif %}">
-                ⭐ Favourite Answers
-                <span class="bm-tab-badge">{{ total_favourited_answers_count }}</span>
-            </a>
-            <a href="{{ url_for('saved_questions', tab='resources') }}" class="bm-tab {% if main_tab == 'resources' %}bm-tab--active{% endif %}">
-                📚 Bookmarked Resources
-                <span class="bm-tab-badge">{{ total_bookmarked_resources_count }}</span>
-            </a>
+<div class="res-container">
+    {# Brand Header matching Resource & Q&A #}
+    <div class="qa-brand-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 22px;">
+        <div>
+            <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em;">
+                Bookmarks &amp; Favourites
+            </h2>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.95rem;">
+                Organize and manage your bookmarked Q&A discussions, favourite answers, and saved study resources.
+            </p>
         </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
+        </div>
+    </div>
+
+    {# Navigation Tabs using exact Resource / Q&A Button Styles #}
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px;">
+        <a href="{{ url_for('saved_questions', tab='questions') }}"
+           class="btn {% if main_tab == 'questions' %}btn-primary{% else %}btn-secondary{% endif %}"
+           style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.92rem; padding: 8px 16px;">
+            📁 Bookmarked Questions
+            <span style="background: rgba(0, 0, 0, 0.12); padding: 2px 7px; border-radius: 999px; font-size: 0.78rem;">{{ total_saved_count }}</span>
+        </a>
+        <a href="{{ url_for('saved_questions', tab='answers') }}"
+           class="btn {% if main_tab == 'answers' %}btn-primary{% else %}btn-secondary{% endif %}"
+           style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.92rem; padding: 8px 16px;">
+            ⭐ Favourite Answers
+            <span style="background: rgba(0, 0, 0, 0.12); padding: 2px 7px; border-radius: 999px; font-size: 0.78rem;">{{ total_favourited_answers_count }}</span>
+        </a>
+        <a href="{{ url_for('saved_questions', tab='resources') }}"
+           class="btn {% if main_tab == 'resources' %}btn-primary{% else %}btn-secondary{% endif %}"
+           style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.92rem; padding: 8px 16px;">
+            📚 Bookmarked Resources
+            <span style="background: rgba(0, 0, 0, 0.12); padding: 2px 7px; border-radius: 999px; font-size: 0.78rem;">{{ total_bookmarked_resources_count }}</span>
+        </a>
     </div>
 
     {# Tab 1: Bookmarked Questions #}
     {% if main_tab == 'questions' %}
-        <div class="bm-layout">
-            {# Sidebar: Folders List & Folder Creation #}
-            <div class="bm-sidebar">
-                <div class="bm-card">
-                    <h4 class="bm-card-title" style="margin-top: 0;">Bookmark Folders</h4>
+        <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+            {# Sidebar: Folders List & Folder Creation in a qa-card #}
+            <div style="width: 270px; min-width: 240px; flex-shrink: 0;">
+                <div class="qa-card" style="padding: 18px;">
+                    <h4 style="margin: 0 0 14px 0; color: var(--text-color); font-size: 1.05rem; font-weight: 700;">
+                        Bookmark Folders
+                    </h4>
 
-                    <ul class="bm-folder-list">
-                        <li class="bm-folder-item">
-                            <a href="{{ url_for('saved_questions', tab='questions', folder='all') }}" class="bm-folder-link {% if folder_filter == 'all' %}bm-folder-link--active{% endif %}">
+                    <ul style="list-style: none; padding-left: 0; margin-bottom: 18px;">
+                        <li style="margin-bottom: 6px;">
+                            <a href="{{ url_for('saved_questions', tab='questions', folder='all') }}"
+                               style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 6px; text-decoration: none; color: var(--text-color); font-size: 0.88rem; {% if folder_filter == 'all' %}background: var(--primary-blue-subtle); color: var(--primary-blue); font-weight: 700; border-left: 3px solid var(--primary-blue);{% endif %}">
                                 <span>📁 All Bookmarks</span>
-                                <span class="bm-folder-count">{{ total_saved_count }}</span>
+                                <span style="font-size: 0.75rem; color: var(--text-muted); background: rgba(0,0,0,0.05); padding: 1px 6px; border-radius: 10px;">{{ total_saved_count }}</span>
                             </a>
                         </li>
-                        <li class="bm-folder-item">
-                            <a href="{{ url_for('saved_questions', tab='questions', folder='uncategorized') }}" class="bm-folder-link {% if folder_filter == 'uncategorized' %}bm-folder-link--active{% endif %}">
+                        <li style="margin-bottom: 6px;">
+                            <a href="{{ url_for('saved_questions', tab='questions', folder='uncategorized') }}"
+                               style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 6px; text-decoration: none; color: var(--text-color); font-size: 0.88rem; {% if folder_filter == 'uncategorized' %}background: var(--primary-blue-subtle); color: var(--primary-blue); font-weight: 700; border-left: 3px solid var(--primary-blue);{% endif %}">
                                 <span>📂 Uncategorized</span>
-                                <span class="bm-folder-count">{{ uncategorized_count }}</span>
+                                <span style="font-size: 0.75rem; color: var(--text-muted); background: rgba(0,0,0,0.05); padding: 1px 6px; border-radius: 10px;">{{ uncategorized_count }}</span>
                             </a>
                         </li>
 
                         {% for folder in user_folders %}
-                            <li class="bm-folder-item">
-                                <a href="{{ url_for('saved_questions', tab='questions', folder=folder.id) }}" class="bm-folder-link {% if folder_filter == folder.id|string %}bm-folder-link--active{% endif %}">
+                            <li style="margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <a href="{{ url_for('saved_questions', tab='questions', folder=folder.id) }}"
+                                   style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 6px; text-decoration: none; color: var(--text-color); font-size: 0.88rem; flex-grow: 1; {% if folder_filter == folder.id|string %}background: var(--primary-blue-subtle); color: var(--primary-blue); font-weight: 700; border-left: 3px solid var(--primary-blue);{% endif %}">
                                     <span>📁 {{ folder.name }}</span>
-                                    <span class="bm-folder-count">{{ folder.question_count }}</span>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted); background: rgba(0,0,0,0.05); padding: 1px 6px; border-radius: 10px;">{{ folder.question_count }}</span>
                                 </a>
                                 <form method="POST" action="{{ url_for('delete_saved_folder', folder_id=folder.id) }}" style="display: inline; margin-left: 4px;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                    <button type="submit" class="bm-folder-del-btn" title="Delete Folder" onclick="return confirm('Delete folder \'{{ folder.name }}\'? Bookmarked questions will not be lost and will be moved to Uncategorized.');">✕</button>
+                                    <button type="submit" title="Delete Folder" style="background: none; border: none; font-size: 0.8rem; color: var(--primary-red); cursor: pointer; padding: 4px 6px; border-radius: 4px;" onclick="return confirm('Delete folder \'{{ folder.name }}\'? Bookmarked questions will not be lost and will be moved to Uncategorized.');">✕</button>
                                 </form>
                             </li>
                         {% endfor %}
                     </ul>
 
-                    <div class="bm-folder-create-title">Create New Folder</div>
+                    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 14px 0;">
+
+                    <h5 style="margin: 0 0 8px 0; color: var(--text-color); font-size: 0.88rem; font-weight: 700;">Create New Folder</h5>
                     <form method="POST" action="{{ url_for('create_saved_folder') }}">
                         {{ create_folder_form.hidden_tag() }}
                         <div>
-                            {{ create_folder_form.name(placeholder="Folder name...", class="bm-input") }}
+                            {{ create_folder_form.name(placeholder="Folder name...", style="width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-glass); color: var(--text-color); font-size: 0.85rem;") }}
                         </div>
-                        <div>
-                            {{ create_folder_form.submit(class="bm-btn-submit") }}
+                        <div style="margin-top: 8px;">
+                            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.85rem; padding: 6px 12px;">Create Folder</button>
                         </div>
                     </form>
                 </div>
             </div>
 
-            {# Main: Questions List #}
-            <div class="bm-main">
-                <div class="bm-card">
-                    <h3 class="bm-card-title">
-                        <span>
-                            {% if folder_filter == 'all' %}
-                                All Bookmarked Questions ({{ saved_items|length }})
-                            {% elif folder_filter == 'uncategorized' %}
-                                Uncategorized Bookmarks ({{ saved_items|length }})
-                            {% elif active_folder %}
-                                Folder: {{ active_folder.name }} ({{ saved_items|length }})
-                            {% endif %}
-                        </span>
+            {# Main: Questions List in a qa-card #}
+            <div style="flex: 1 1 500px; min-width: 0;">
+                <div class="qa-card" style="padding: 20px;">
+                    <h3 style="margin: 0 0 16px 0; font-size: 1.15rem; font-weight: 700; color: var(--text-color);">
+                        {% if folder_filter == 'all' %}
+                            All Bookmarked Questions ({{ saved_items|length }})
+                        {% elif folder_filter == 'uncategorized' %}
+                            Uncategorized Bookmarks ({{ saved_items|length }})
+                        {% elif active_folder %}
+                            Folder: {{ active_folder.name }} ({{ saved_items|length }})
+                        {% endif %}
                     </h3>
 
                     {% if saved_items %}
-                        <div class="bm-table-container">
-                            <table class="bm-table">
+                        <div style="width: 100%; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: left;">
                                 <thead>
-                                    <tr>
-                                        <th>Question</th>
-                                        <th>Category</th>
-                                        <th>Faculty</th>
-                                        <th>Folder</th>
-                                        <th>Move Folder</th>
-                                        <th>Actions</th>
+                                    <tr style="background: var(--primary-blue-subtle); border-bottom: 2px solid var(--border-color);">
+                                        <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Question</th>
+                                        <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Category</th>
+                                        <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Faculty</th>
+                                        <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Folder</th>
+                                        <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Move Folder</th>
+                                        <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for item in saved_items %}
-                                        <tr>
-                                            <td>
-                                                <a href="{{ url_for('qa_detail', question_id=item.question.id) }}" class="bm-btn-link" style="font-size: 0.95rem; font-weight: 700;">
+                                        <tr style="border-bottom: 1px solid var(--border-color);">
+                                            <td style="padding: 10px 12px;">
+                                                <a href="{{ url_for('qa_detail', question_id=item.question.id) }}" style="text-decoration: none; color: var(--primary-blue); font-weight: 700; font-size: 0.95rem;">
                                                     {{ item.question.title }}
                                                 </a>
                                                 <br>
-                                                <small style="color: var(--bm-text-muted);">
-                                                    by {{ item.question.author.username }} &bull; Bookmarked {{ item.created_at.strftime('%Y-%m-%d') if item.created_at else 'N/A' }}
+                                                <small style="color: var(--text-muted);">
+                                                    by {{ item.question.author.username }} &bull; {{ item.created_at.strftime('%Y-%m-%d') if item.created_at else 'N/A' }}
                                                 </small>
                                             </td>
-                                            <td><span class="bm-badge bm-badge--category">{{ item.question.category }}</span></td>
-                                            <td><span class="bm-badge bm-badge--faculty">{{ item.question.faculty }}</span></td>
-                                            <td>
+                                            <td style="padding: 10px 12px;"><span class="badge" style="background: rgba(100, 116, 139, 0.1); color: var(--text-color);">{{ item.question.category }}</span></td>
+                                            <td style="padding: 10px 12px;"><span class="badge" style="background: var(--primary-red-subtle); color: var(--primary-red);">{{ item.question.faculty }}</span></td>
+                                            <td style="padding: 10px 12px;">
                                                 {% if item.folder %}
-                                                    <span class="bm-badge bm-badge--course">📁 {{ item.folder.name }}</span>
+                                                    <span class="badge" style="background: var(--primary-blue-subtle); color: var(--primary-blue);">📁 {{ item.folder.name }}</span>
                                                 {% else %}
-                                                    <span style="color: var(--bm-text-muted); font-size: 0.85rem;">📂 <em>Uncategorized</em></span>
+                                                    <span style="color: var(--text-muted); font-size: 0.85rem;">📂 <em>Uncategorized</em></span>
                                                 {% endif %}
                                             </td>
-                                            <td>
+                                            <td style="padding: 10px 12px;">
                                                 <form method="POST" action="{{ url_for('move_saved_question', saved_id=item.id, folder=folder_filter) }}" style="display: inline-flex; align-items: center; gap: 4px;">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                                    <select name="folder_id" class="bm-select-move">
+                                                    <select name="folder_id" style="padding: 3px 6px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--surface-glass); color: var(--text-color); font-size: 0.8rem;">
                                                         <option value="0"{% if not item.folder_id %} selected{% endif %}>Uncategorized</option>
                                                         {% for f in user_folders %}
                                                             <option value="{{ f.id }}"{% if item.folder_id == f.id %} selected{% endif %}>{{ f.name }}</option>
                                                         {% endfor %}
                                                     </select>
-                                                    <button type="submit" class="bm-btn-move">Move</button>
+                                                    <button type="submit" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 0.78rem;">Move</button>
                                                 </form>
                                             </td>
-                                            <td>
+                                            <td style="padding: 10px 12px;">
                                                 <form method="POST" action="{{ url_for('toggle_save_question', question_id=item.question.id) }}" style="display: inline;">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <input type="hidden" name="next" value="{{ url_for('saved_questions', tab='questions', folder=folder_filter) }}"/>
-                                                    <button type="submit" class="bm-btn-remove" onclick="return confirm('Remove question from bookmarks?');">Remove</button>
+                                                    <button type="submit" class="res-link--danger" style="background: none; border: none; cursor: pointer; font-size: 0.82rem; font-weight: 600;" onclick="return confirm('Remove question from bookmarks?');">Remove</button>
                                                 </form>
                                             </td>
                                         </tr>
@@ -583,12 +169,12 @@
                             </table>
                         </div>
                     {% else %}
-                        <div class="bm-empty-card">
-                            <div class="bm-empty-icon">📁</div>
-                            <div class="bm-empty-text">No bookmarks found in this folder</div>
-                            <div class="bm-empty-subtext">
-                                Browse the <a href="{{ url_for('qa_list') }}">Q&A Forum</a> and click <strong>Bookmark</strong> on any question detail page to organize and save it here.
-                            </div>
+                        <div style="text-align: center; padding: 36px 16px; border: 1px dashed var(--border-color); border-radius: 8px;">
+                            <div style="font-size: 2rem; margin-bottom: 8px;">📁</div>
+                            <p style="margin: 0; font-weight: 600; color: var(--text-color);">No bookmarks found in this folder.</p>
+                            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.88rem;">
+                                Browse the <a href="{{ url_for('qa_list') }}" style="color: var(--primary-blue); font-weight: 600;">Q&A Forum</a> and click <strong>Bookmark</strong> on any question detail page to save it here.
+                            </p>
                         </div>
                     {% endif %}
                 </div>
@@ -597,57 +183,57 @@
 
     {# Tab 2: Favourite Answers #}
     {% elif main_tab == 'answers' %}
-        <div class="bm-card">
-            <h3 class="bm-card-title">
-                <span>Favourite Answers ({{ saved_answers|length }})</span>
+        <div class="qa-card" style="padding: 20px;">
+            <h3 style="margin: 0 0 16px 0; font-size: 1.15rem; font-weight: 700; color: var(--text-color);">
+                Favourite Answers ({{ saved_answers|length }})
             </h3>
 
             {% if saved_answers %}
-                <div class="bm-table-container">
-                    <table class="bm-table">
+                <div style="width: 100%; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: left;">
                         <thead>
-                            <tr>
-                                <th>Question</th>
-                                <th>Answer Preview</th>
-                                <th>Author</th>
-                                <th>Endorsements</th>
-                                <th>Saved Date</th>
-                                <th>Actions</th>
+                            <tr style="background: var(--primary-blue-subtle); border-bottom: 2px solid var(--border-color);">
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Question</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Answer Preview</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Author</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Endorsements</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Saved Date</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for sa in saved_answers %}
                                 {% set ans = sa.answer %}
-                                <tr>
-                                    <td>
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <td style="padding: 10px 12px;">
                                         {% if ans and ans.question %}
-                                            <a href="{{ url_for('qa_detail', question_id=ans.question.id) }}#answer-{{ ans.id }}" class="bm-btn-link" style="font-weight: 700;">
+                                            <a href="{{ url_for('qa_detail', question_id=ans.question.id) }}#answer-{{ ans.id }}" style="text-decoration: none; color: var(--primary-blue); font-weight: 700;">
                                                 {{ ans.question.title }}
                                             </a>
                                             <br>
-                                            <small style="color: var(--bm-text-muted);">{{ ans.question.category }} &bull; {{ ans.question.faculty }}</small>
+                                            <small style="color: var(--text-muted);">{{ ans.question.category }} &bull; {{ ans.question.faculty }}</small>
                                         {% else %}
-                                            <em>Question deleted</em>
+                                            <em style="color: var(--text-muted);">Question deleted</em>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td style="padding: 10px 12px;">
                                         {% if ans %}
-                                            <a href="{{ url_for('qa_detail', question_id=ans.question_id) }}#answer-{{ ans.id }}" style="text-decoration: none; color: inherit; font-size: 0.88rem;">
+                                            <a href="{{ url_for('qa_detail', question_id=ans.question_id) }}#answer-{{ ans.id }}" style="text-decoration: none; color: inherit;">
                                                 {{ ans.content[:120] }}{% if ans.content|length > 120 %}...{% endif %}
                                             </a>
                                         {% else %}
-                                            <em style="color: var(--bm-text-muted);">Answer removed</em>
+                                            <em style="color: var(--text-muted);">Answer removed</em>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td style="padding: 10px 12px;">
                                         {% if ans and ans.author %}
-                                            <a href="{{ url_for('public_profile', username=ans.author.username) }}" class="bm-btn-link">@{{ ans.author.username }}</a>
-                                            <br><small style="color: var(--bm-text-muted);">{{ ans.author.role }}</small>
+                                            <a href="{{ url_for('public_profile', username=ans.author.username) }}" style="color: var(--primary-blue); text-decoration: none; font-weight: 600;">@{{ ans.author.username }}</a>
+                                            <br><small style="color: var(--text-muted);">{{ ans.author.role }}</small>
                                         {% else %}
-                                            <em style="color: var(--bm-text-muted);">Unknown</em>
+                                            <em style="color: var(--text-muted);">Unknown</em>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td style="padding: 10px 12px;">
                                         {% if ans %}
                                             <strong>{{ ans.total_points }} pts</strong>
                                             {% if ans.professor_marks_count > 0 %}
@@ -657,18 +243,17 @@
                                             -
                                         {% endif %}
                                     </td>
-                                    <td style="color: var(--bm-text-muted); font-size: 0.85rem;">
+                                    <td style="padding: 10px 12px; color: var(--text-muted); font-size: 0.85rem;">
                                         {{ sa.created_at.strftime('%Y-%m-%d') if sa.created_at else 'N/A' }}
                                     </td>
-                                    <td>
+                                    <td style="padding: 10px 12px;">
                                         {% if ans %}
-                                            <div class="bm-actions">
-                                                <a href="{{ url_for('qa_detail', question_id=ans.question_id) }}#answer-{{ ans.id }}" class="bm-btn-link">Jump</a>
-                                                &bull;
+                                            <div style="display: inline-flex; align-items: center; gap: 8px;">
+                                                <a href="{{ url_for('qa_detail', question_id=ans.question_id) }}#answer-{{ ans.id }}" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 0.8rem;">Jump</a>
                                                 <form method="POST" action="{{ url_for('toggle_favourite_answer', answer_id=ans.id) }}" style="display: inline;">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <input type="hidden" name="next" value="{{ url_for('saved_questions', tab='answers') }}"/>
-                                                    <button type="submit" class="bm-btn-remove" onclick="return confirm('Remove answer from favourites?');">Remove</button>
+                                                    <button type="submit" class="res-link--danger" style="background: none; border: none; cursor: pointer; font-size: 0.82rem;" onclick="return confirm('Remove answer from favourites?');">Remove</button>
                                                 </form>
                                             </div>
                                         {% endif %}
@@ -679,79 +264,83 @@
                     </table>
                 </div>
             {% else %}
-                <div class="bm-empty-card">
-                    <div class="bm-empty-icon">⭐</div>
-                    <div class="bm-empty-text">You have no favourited answers yet</div>
-                    <div class="bm-empty-subtext">
-                        Browse the <a href="{{ url_for('qa_list') }}">Q&A Forum</a> and click <strong>⭐ Favourite</strong> on any helpful answer to save it here for reference.
-                    </div>
+                <div style="text-align: center; padding: 36px 16px; border: 1px dashed var(--border-color); border-radius: 8px;">
+                    <div style="font-size: 2rem; margin-bottom: 8px;">⭐</div>
+                    <p style="margin: 0; font-weight: 600; color: var(--text-color);">You have no favourited answers yet.</p>
+                    <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.88rem;">
+                        Browse the <a href="{{ url_for('qa_list') }}" style="color: var(--primary-blue); font-weight: 600;">Q&A Forum</a> and click <strong>⭐ Favourite</strong> on any helpful answer to save it here.
+                    </p>
                 </div>
             {% endif %}
         </div>
 
     {# Tab 3: Bookmarked Resources #}
     {% elif main_tab == 'resources' %}
-        <div class="bm-card">
-            <h3 class="bm-card-title">
-                <span>Bookmarked Resources ({{ saved_resources|length }})</span>
+        <div class="qa-card" style="padding: 20px;">
+            <h3 style="margin: 0 0 16px 0; font-size: 1.15rem; font-weight: 700; color: var(--text-color);">
+                Bookmarked Resources ({{ saved_resources|length }})
             </h3>
 
             {% if saved_resources %}
-                <div class="bm-table-container">
-                    <table class="bm-table">
+                <div style="width: 100%; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: left;">
                         <thead>
-                            <tr>
-                                <th>Resource Title</th>
-                                <th>File / Type</th>
-                                <th>Category</th>
-                                <th>Faculty</th>
-                                <th>Uploader</th>
-                                <th>Date Bookmarked</th>
-                                <th>Actions</th>
+                            <tr style="background: var(--primary-blue-subtle); border-bottom: 2px solid var(--border-color);">
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Resource Title</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">File / Type</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Category</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Faculty</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Uploader</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Date Bookmarked</th>
+                                <th style="padding: 10px 12px; color: var(--text-color); font-weight: 700;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in saved_resources %}
                                 {% set res = item.resource %}
-                                <tr>
-                                    <td>
-                                        <strong style="font-size: 0.95rem; color: var(--bm-text);">{{ res.title }}</strong>
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <td style="padding: 10px 12px;">
+                                        <strong style="color: var(--text-color); font-size: 0.95rem;">{{ res.title }}</strong>
                                         {% if res.course_code %}
-                                            <span class="bm-badge bm-badge--course" style="margin-left: 6px;">{{ res.course_code }}</span>
+                                            <span class="badge" style="background: var(--primary-blue-subtle); color: var(--primary-blue); margin-left: 6px;">{{ res.course_code }}</span>
                                         {% endif %}
                                         {% if res.description %}
-                                            <br><small style="color: var(--bm-text-muted);">{{ res.description[:90] }}{% if res.description|length > 90 %}...{% endif %}</small>
+                                            <br><small style="color: var(--text-muted);">{{ res.description[:90] }}{% if res.description|length > 90 %}...{% endif %}</small>
                                         {% endif %}
                                     </td>
-                                    <td>
-                                        <span style="font-weight: 600;">{{ res.filename }}</span>
-                                        <br><small style="color: var(--bm-text-muted);">{{ res.file_type|upper }} &bull; {{ res.formatted_size }}</small>
+                                    <td style="padding: 10px 12px;">
+                                        <span style="font-weight: 600; color: var(--text-color);">{{ res.filename }}</span>
+                                        <br><small style="color: var(--text-muted);">{{ res.file_type|upper }} &bull; {{ res.formatted_size }}</small>
                                     </td>
-                                    <td><span class="bm-badge bm-badge--category">{{ res.category }}</span></td>
-                                    <td><span class="bm-badge bm-badge--faculty">{{ res.faculty }}</span></td>
-                                    <td>
+                                    <td style="padding: 10px 12px;"><span class="badge" style="background: rgba(100, 116, 139, 0.1); color: var(--text-color);">{{ res.category }}</span></td>
+                                    <td style="padding: 10px 12px;"><span class="badge" style="background: var(--primary-red-subtle); color: var(--primary-red);">{{ res.faculty }}</span></td>
+                                    <td style="padding: 10px 12px;">
                                         {% if res.uploader %}
-                                            <a href="{{ url_for('public_profile', username=res.uploader.username) }}" class="bm-btn-link">@{{ res.uploader.username }}</a>
-                                            <br><small style="color: var(--bm-text-muted);">{{ res.uploader.role }}</small>
+                                            <a href="{{ url_for('public_profile', username=res.uploader.username) }}" style="color: var(--primary-blue); text-decoration: none; font-weight: 600;">@{{ res.uploader.username }}</a>
+                                            <br><small style="color: var(--text-muted);">{{ res.uploader.role }}</small>
                                         {% else %}
-                                            <em style="color: var(--bm-text-muted);">Unknown</em>
+                                            <em style="color: var(--text-muted);">Unknown</em>
                                         {% endif %}
                                     </td>
-                                    <td style="color: var(--bm-text-muted); font-size: 0.85rem;">
+                                    <td style="padding: 10px 12px; color: var(--text-muted); font-size: 0.85rem;">
                                         {{ item.created_at.strftime('%Y-%m-%d') if item.created_at else 'N/A' }}
                                     </td>
-                                    <td>
-                                        <div class="bm-actions">
+                                    <td style="padding: 10px 12px;">
+                                        <div style="display: inline-flex; align-items: center; gap: 8px;">
                                             {% if res.file_type in ['pdf', 'txt'] %}
-                                                <a href="{{ url_for('resource_preview', resource_id=res.id) }}" target="_blank" class="bm-btn-link">Preview</a>
-                                                &bull;
+                                                <a href="{{ url_for('resource_preview', resource_id=res.id) }}" target="_blank" class="res-btn res-btn--secondary res-btn--sm" style="font-size: 0.8rem; padding: 4px 8px;">
+                                                    👁️ Preview
+                                                </a>
                                             {% endif %}
-                                            <a href="{{ url_for('resource_download', resource_id=res.id) }}" class="bm-btn-download">Download</a>
-                                            &bull;
+                                            <a href="{{ url_for('resource_download', resource_id=res.id) }}" class="res-btn res-btn--primary res-btn--sm" style="font-size: 0.8rem; padding: 4px 10px;">
+                                                📥 Download
+                                            </a>
                                             <form method="POST" action="{{ url_for('toggle_resource_bookmark', resource_id=res.id) }}" style="display: inline;">
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                 <input type="hidden" name="next" value="{{ url_for('saved_questions', tab='resources') }}"/>
-                                                <button type="submit" class="bm-btn-remove" onclick="return confirm('Remove resource from bookmarks?');">Remove</button>
+                                                <button type="submit" class="res-link--danger" style="background: none; border: none; cursor: pointer; font-size: 0.82rem;" onclick="return confirm('Remove resource from bookmarks?');">
+                                                    Remove
+                                                </button>
                                             </form>
                                         </div>
                                     </td>
@@ -761,12 +350,12 @@
                     </table>
                 </div>
             {% else %}
-                <div class="bm-empty-card">
-                    <div class="bm-empty-icon">📚</div>
-                    <div class="bm-empty-text">You have no bookmarked resources yet</div>
-                    <div class="bm-empty-subtext">
-                        Browse the <a href="{{ url_for('resources_list') }}">Resource Hub</a> and click <strong>☆ Bookmark</strong> on any useful lecture note, past paper, or cheat sheet to save it here for fast access.
-                    </div>
+                <div style="text-align: center; padding: 36px 16px; border: 1px dashed var(--border-color); border-radius: 8px;">
+                    <div style="font-size: 2rem; margin-bottom: 8px;">📚</div>
+                    <p style="margin: 0; font-weight: 600; color: var(--text-color);">You have no bookmarked resources yet.</p>
+                    <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.88rem;">
+                        Browse the <a href="{{ url_for('resources_list') }}" style="color: var(--primary-blue); font-weight: 600;">Resource Hub</a> and click <strong>☆ Bookmark</strong> on any useful note, past paper, or cheat sheet to save it here.
+                    </p>
                 </div>
             {% endif %}
         </div>
