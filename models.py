@@ -1699,9 +1699,3 @@ if __name__ == '__main__':
     with app.app_context():
         init_db(app, db_path=db_path)
     print(f"[Database] Schema initialized and migrated successfully at {db_path}.")
-
-
-
-
-
-

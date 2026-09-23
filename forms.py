@@ -548,9 +548,3 @@ class IdeaInterestForm(FlaskForm):
         NoProfanity()
     ])
     submit = SubmitField('Express Interest')
-
-
-
-
-
-
