@@ -3125,32 +3125,50 @@ def chat_conversation(username):
     db.session.commit()
 
     messages = ChatMessage.query.filter(
-        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
-        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id) & (ChatMessage.deleted_by_sender == False)) |
+        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id) & (ChatMessage.deleted_by_recipient == False))
     ).order_by(ChatMessage.created_at.asc()).all()
 
-    # Fetch active pinned message for this conversation
-    now = datetime.now(timezone.utc)
-    pinned_message = ChatMessage.query.filter(
-        ChatMessage.is_pinned == True,
-        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
-        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
-    ).order_by(ChatMessage.pinned_at.desc()).first()
+    # Helper to fetch up to 3 active pinned messages for this conversation
+    def _get_active_pinned_messages(user1_id, user2_id, limit=3):
+        now_dt = datetime.now(timezone.utc)
+        candidates = ChatMessage.query.filter(
+            ChatMessage.is_pinned == True,
+            ((ChatMessage.sender_id == user1_id) & (ChatMessage.recipient_id == user2_id)) |
+            ((ChatMessage.sender_id == user2_id) & (ChatMessage.recipient_id == user1_id))
+        ).order_by(ChatMessage.pinned_at.desc()).all()
 
-    if pinned_message and pinned_message.pin_expires_at:
-        exp = pinned_message.pin_expires_at
-        if exp.tzinfo is None:
-            exp = exp.replace(tzinfo=timezone.utc)
-        if exp <= now:
-            pinned_message.is_pinned = False
+        active_list = []
+        has_expired = False
+        for pm in candidates:
+            if pm.pin_expires_at:
+                exp = pm.pin_expires_at
+                if exp.tzinfo is None:
+                    exp = exp.replace(tzinfo=timezone.utc)
+                if exp <= now_dt:
+                    pm.is_pinned = False
+                    pm.pinned_at = None
+                    pm.pinned_by_id = None
+                    pm.pin_duration = None
+                    pm.pin_expires_at = None
+                    has_expired = True
+                    continue
+            active_list.append(pm)
+            if len(active_list) >= limit:
+                break
+
+        if has_expired:
             db.session.commit()
-            pinned_message = None
+        return active_list
+
+    pinned_messages = _get_active_pinned_messages(current_user.id, peer.id, limit=3)
 
     return render_template(
         'chat_conversation.html',
         peer=peer,
         messages=messages,
-        pinned_message=pinned_message,
+        pinned_messages=pinned_messages,
+        pinned_message=pinned_messages[0] if pinned_messages else None,
         form=form,
         is_blocked_by_me=is_blocked_by_me,
         is_blocked_by_peer=is_blocked_by_peer,
@@ -3166,8 +3184,8 @@ def chat_poll(username):
 
     new_messages = ChatMessage.query.filter(
         ChatMessage.id > last_id,
-        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
-        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id) & (ChatMessage.deleted_by_sender == False)) |
+        ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id) & (ChatMessage.deleted_by_recipient == False))
     ).order_by(ChatMessage.created_at.asc()).all()
 
     # Mark incoming new messages as read
@@ -3181,33 +3199,47 @@ def chat_poll(username):
         sender_id=current_user.id, recipient_id=peer.id, is_read=True
     ).scalar() or 0
 
-    now = datetime.now(timezone.utc)
-    active_pinned = ChatMessage.query.filter(
+    # Fetch active pinned messages (max 3)
+    now_dt = datetime.now(timezone.utc)
+    candidates = ChatMessage.query.filter(
         ChatMessage.is_pinned == True,
         ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer.id)) |
         ((ChatMessage.sender_id == peer.id) & (ChatMessage.recipient_id == current_user.id))
-    ).order_by(ChatMessage.pinned_at.desc()).first()
+    ).order_by(ChatMessage.pinned_at.desc()).all()
 
-    if active_pinned and active_pinned.pin_expires_at:
-        exp = active_pinned.pin_expires_at
-        if exp.tzinfo is None:
-            exp = exp.replace(tzinfo=timezone.utc)
-        if exp <= now:
-            active_pinned.is_pinned = False
-            db.session.commit()
-            active_pinned = None
+    active_pinned_list = []
+    has_expired = False
+    for pm in candidates:
+        if pm.pin_expires_at:
+            exp = pm.pin_expires_at
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            if exp <= now_dt:
+                pm.is_pinned = False
+                pm.pinned_at = None
+                pm.pinned_by_id = None
+                pm.pin_duration = None
+                pm.pin_expires_at = None
+                has_expired = True
+                continue
+        active_pinned_list.append(pm)
+        if len(active_pinned_list) >= 3:
+            break
 
-    pinned_data = None
-    if active_pinned:
-        pinned_data = {
-            'id': active_pinned.id,
-            'sender_id': active_pinned.sender_id,
-            'sender_username': active_pinned.sender.username,
-            'message': active_pinned.message,
-            'pin_duration': active_pinned.pin_duration,
-            'expiry_label': active_pinned.pin_expiry_label,
-            'is_mine': (active_pinned.sender_id == current_user.id)
-        }
+    if has_expired:
+        db.session.commit()
+
+    pinned_messages_data = [
+        {
+            'id': p.id,
+            'sender_id': p.sender_id,
+            'sender_username': p.sender.username,
+            'message': p.message,
+            'pin_duration': p.pin_duration,
+            'expiry_label': p.pin_expiry_label,
+            'is_mine': (p.sender_id == current_user.id)
+        } for p in active_pinned_list
+    ]
 
     return jsonify({
         'messages': [
@@ -3223,7 +3255,8 @@ def chat_poll(username):
                 'is_mine': (m.sender_id == current_user.id)
             } for m in new_messages
         ],
-        'pinned_message': pinned_data,
+        'pinned_messages': pinned_messages_data,
+        'pinned_message': pinned_messages_data[0] if pinned_messages_data else None,
         'last_read_id': last_read_id,
         'is_blocked': current_user.has_blocked_chat(peer) or peer.has_blocked_chat(current_user)
     })
@@ -3242,13 +3275,50 @@ def chat_pin_message(message_id):
         return redirect(request.referrer or url_for('chat_list'))
 
     peer_id = msg.recipient_id if msg.sender_id == current_user.id else msg.sender_id
+
+    # Check active pinned messages limit (Max 3)
+    now = datetime.now(timezone.utc)
+    existing_pins = ChatMessage.query.filter(
+        ChatMessage.is_pinned == True,
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer_id)) |
+        ((ChatMessage.sender_id == peer_id) & (ChatMessage.recipient_id == current_user.id))
+    ).order_by(ChatMessage.pinned_at.desc()).all()
+
+    active_existing = []
+    has_expired = False
+    for p in existing_pins:
+        if p.pin_expires_at:
+            exp = p.pin_expires_at
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            if exp <= now:
+                p.is_pinned = False
+                p.pinned_at = None
+                p.pinned_by_id = None
+                p.pin_duration = None
+                p.pin_expires_at = None
+                has_expired = True
+                continue
+        active_existing.append(p)
+
+    if has_expired:
+        db.session.commit()
+
+    # If this message is not yet pinned and we already have 3 active pins, reject
+    if not msg.is_pinned and len(active_existing) >= 3:
+        err_msg = 'You can pin a maximum of 3 messages. Please unpin an older message first.'
+        if request.headers.get('Accept') == 'application/json' or request.is_json:
+            return jsonify({'success': False, 'error': err_msg}), 400
+        flash(err_msg, 'warning')
+        peer_user = db.session.get(User, peer_id)
+        return redirect(url_for('chat_conversation', username=peer_user.username if peer_user else ''))
+
     if request.is_json:
         data = request.get_json() or {}
         duration = data.get('duration', 'forever')
     else:
         duration = request.form.get('duration', 'forever')
 
-    now = datetime.now(timezone.utc)
     expires_at = None
     if duration == '7d':
         expires_at = now + timedelta(days=7)
@@ -3258,19 +3328,6 @@ def chat_pin_message(message_id):
         duration = 'forever'
         expires_at = None
 
-    # Unpin any previous pinned message in this conversation
-    ChatMessage.query.filter(
-        ChatMessage.is_pinned == True,
-        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer_id)) |
-        ((ChatMessage.sender_id == peer_id) & (ChatMessage.recipient_id == current_user.id))
-    ).update({
-        'is_pinned': False,
-        'pinned_at': None,
-        'pinned_by_id': None,
-        'pin_duration': None,
-        'pin_expires_at': None
-    })
-
     msg.is_pinned = True
     msg.pinned_at = now
     msg.pinned_by_id = current_user.id
@@ -3278,9 +3335,29 @@ def chat_pin_message(message_id):
     msg.pin_expires_at = expires_at
     db.session.commit()
 
+    # Re-fetch active pins up to 3
+    updated_pins = ChatMessage.query.filter(
+        ChatMessage.is_pinned == True,
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer_id)) |
+        ((ChatMessage.sender_id == peer_id) & (ChatMessage.recipient_id == current_user.id))
+    ).order_by(ChatMessage.pinned_at.desc()).limit(3).all()
+
+    pinned_messages_data = [
+        {
+            'id': p.id,
+            'sender_id': p.sender_id,
+            'sender_username': p.sender.username,
+            'message': p.message,
+            'pin_duration': p.pin_duration,
+            'expiry_label': p.pin_expiry_label,
+            'is_mine': (p.sender_id == current_user.id)
+        } for p in updated_pins
+    ]
+
     if request.headers.get('Accept') == 'application/json' or request.is_json:
         return jsonify({
             'success': True,
+            'pinned_messages': pinned_messages_data,
             'message': {
                 'id': msg.id,
                 'sender_id': msg.sender_id,
@@ -3318,8 +3395,31 @@ def chat_unpin_message(message_id):
     msg.pin_expires_at = None
     db.session.commit()
 
+    # Re-fetch active pins up to 3
+    updated_pins = ChatMessage.query.filter(
+        ChatMessage.is_pinned == True,
+        ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == peer_id)) |
+        ((ChatMessage.sender_id == peer_id) & (ChatMessage.recipient_id == current_user.id))
+    ).order_by(ChatMessage.pinned_at.desc()).limit(3).all()
+
+    pinned_messages_data = [
+        {
+            'id': p.id,
+            'sender_id': p.sender_id,
+            'sender_username': p.sender.username,
+            'message': p.message,
+            'pin_duration': p.pin_duration,
+            'expiry_label': p.pin_expiry_label,
+            'is_mine': (p.sender_id == current_user.id)
+        } for p in updated_pins
+    ]
+
     if request.headers.get('Accept') == 'application/json' or request.is_json:
-        return jsonify({'success': True, 'unpinned_id': msg.id})
+        return jsonify({
+            'success': True,
+            'unpinned_id': msg.id,
+            'pinned_messages': pinned_messages_data
+        })
 
     flash('Message unpinned.', 'info')
     peer_user = db.session.get(User, peer_id)
@@ -3383,6 +3483,41 @@ def chat_edit_message(message_id):
 
     flash('Message updated successfully.', 'success')
     return redirect(request.referrer or url_for('chat_list'))
+
+
+@app.route('/chat/message/<int:message_id>/delete', methods=['POST'])
+@login_required
+def chat_delete_message(message_id):
+    msg = ChatMessage.query.get_or_404(message_id)
+
+    # Security: User must be a participant in this conversation
+    if msg.sender_id != current_user.id and msg.recipient_id != current_user.id:
+        flash('You are not authorized to delete this message.', 'danger')
+        return redirect(request.referrer or url_for('chat_list'))
+
+    peer_id = msg.recipient_id if msg.sender_id == current_user.id else msg.sender_id
+    peer_user = db.session.get(User, peer_id)
+    delete_type = request.form.get('delete_type', 'for_me')
+
+    if delete_type == 'for_everyone' and msg.sender_id == current_user.id:
+        # Delete for both participants completely
+        db.session.delete(msg)
+        flash('Message deleted for everyone.', 'info')
+    else:
+        # Delete for current user only
+        if current_user.id == msg.sender_id:
+            msg.deleted_by_sender = True
+        if current_user.id == msg.recipient_id:
+            msg.deleted_by_recipient = True
+
+        # If both participants deleted it for themselves, clean up from DB
+        if msg.deleted_by_sender and msg.deleted_by_recipient:
+            db.session.delete(msg)
+
+        flash('Message deleted for you.', 'info')
+
+    db.session.commit()
+    return redirect(url_for('chat_conversation', username=peer_user.username if peer_user else ''))
 
 
 @app.route('/chat/<username>/block', methods=['POST'])
