@@ -1,127 +1,124 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container py-3">
-    <div class="row justify-content-center">
-        <div class="col-lg-8 col-md-10">
-            {# Back Link #}
-            <div class="mb-3">
-                <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="text-decoration-none">&larr; Back to Idea Details</a>
+{% include "ideas/_idea_styles.html" %}
+
+<div class="idea-container">
+    <div style="max-width: 820px; margin: 0 auto;">
+        {# Back Link & Theme Toggle #}
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="idea-back-btn">&larr; Back to Idea Details</a>
+            <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
+        </div>
+
+        <div class="idea-form-card">
+            <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color);">
+                <h3 style="margin: 0 0 6px 0; color: var(--primary-blue); font-size: 1.5rem; font-weight: 800;">✏️ Edit Project Idea</h3>
+                <p style="margin: 0; color: var(--text-muted); font-size: 0.92rem;">
+                    Update specifications, requirements, and capacity for <strong>{{ idea.title }}</strong>.
+                </p>
             </div>
 
-            <div class="card shadow-sm border mb-4">
-                <div class="card-header bg-white py-3 border-bottom">
-                    <h3 class="mb-1 text-primary fw-bold">✏️ Edit Project Idea</h3>
-                    <p class="text-muted small mb-0">
-                        Update specifications, requirements, and capacity for <strong>{{ idea.title }}</strong>.
-                    </p>
+            <form method="POST" action="{{ url_for('idea_edit', idea_id=idea.id) }}">
+                {{ form.hidden_tag() }}
+
+                {# Project Title #}
+                <div class="idea-form-group">
+                    <label for="title" class="idea-form-label">Project Title</label>
+                    {{ form.title(style="width: 100%;") }}
+                    {% if form.title.errors %}
+                        <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                            {% for error in form.title.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
-                <div class="card-body p-4">
-                    <form method="POST" action="{{ url_for('idea_edit', idea_id=idea.id) }}">
-                        {{ form.hidden_tag() }}
 
-                        {# Project Title #}
-                        <div class="mb-3">
-                            {{ form.title.label(class="form-label fw-bold small") }}
-                            {{ form.title(class="form-control") }}
-                            {% if form.title.errors %}
-                                <div class="text-danger small mt-1">
-                                    {% for error in form.title.errors %}{{ error }}{% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        {# Category & Faculty #}
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                {{ form.category.label(class="form-label fw-bold small") }}
-                                {{ form.category(class="form-select") }}
-                                {% if form.category.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.category.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
+                {# Category & Faculty #}
+                <div class="idea-form-row idea-form-group">
+                    <div>
+                        <label for="category" class="idea-form-label">Category</label>
+                        {{ form.category(style="width: 100%;") }}
+                        {% if form.category.errors %}
+                            <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                                {% for error in form.category.errors %}{{ error }}{% endfor %}
                             </div>
-                            <div class="col-md-6">
-                                {{ form.faculty.label(class="form-label fw-bold small") }}
-                                {{ form.faculty(class="form-select") }}
-                                {% if form.faculty.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.faculty.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="faculty" class="idea-form-label">Faculty</label>
+                        {{ form.faculty(style="width: 100%;") }}
+                        {% if form.faculty.errors %}
+                            <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                                {% for error in form.faculty.errors %}{{ error }}{% endfor %}
                             </div>
-                        </div>
-
-                        {# Course Code & Course Name #}
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-4">
-                                {{ form.course_code.label(class="form-label fw-bold small") }}
-                                {{ form.course_code(class="form-control") }}
-                                {% if form.course_code.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.course_code.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            <div class="col-md-8">
-                                {{ form.course_name.label(class="form-label fw-bold small") }}
-                                {{ form.course_name(class="form-control") }}
-                                {% if form.course_name.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.course_name.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        {# Team Size Capacity #}
-                        <div class="mb-3">
-                            {{ form.max_members.label(class="form-label fw-bold small") }}
-                            {{ form.max_members(class="form-control", min=idea.accepted_members_count, max=10) }}
-                            {% if form.max_members.errors %}
-                                <div class="text-danger small mt-1">
-                                    {% for error in form.max_members.errors %}{{ error }}{% endfor %}
-                                </div>
-                            {% endif %}
-                            <div class="form-text small">
-                                Current accepted members: <strong>{{ idea.accepted_members_count }}</strong>. Capacity cannot be set below this value.
-                            </div>
-                        </div>
-
-                        {# Full Description #}
-                        <div class="mb-4">
-                            {{ form.description.label(class="form-label fw-bold small") }}
-                            {{ form.description(class="form-control", rows=6) }}
-                            {% if form.description.errors %}
-                                <div class="text-danger small mt-1">
-                                    {% for error in form.description.errors %}{{ error }}{% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        {# Actions #}
-                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
-                            <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="btn btn-outline-secondary">Cancel</a>
-                            {{ form.submit(class="btn btn-primary px-4") }}
-                        </div>
-                    </form>
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
+
+                {# Course Code & Course Name #}
+                <div class="idea-form-row--3 idea-form-group">
+                    <div>
+                        <label for="course_code" class="idea-form-label">Course Code</label>
+                        {{ form.course_code(style="width: 100%;") }}
+                        {% if form.course_code.errors %}
+                            <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                                {% for error in form.course_code.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="course_name" class="idea-form-label">Course Name</label>
+                        {{ form.course_name(style="width: 100%;") }}
+                        {% if form.course_name.errors %}
+                            <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                                {% for error in form.course_name.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Team Size Capacity #}
+                <div class="idea-form-group">
+                    <label for="max_members" class="idea-form-label">Team Capacity</label>
+                    {{ form.max_members(min=idea.accepted_members_count, max=10, style="width: 100%;") }}
+                    {% if form.max_members.errors %}
+                        <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                            {% for error in form.max_members.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="idea-form-text">
+                        Current accepted members: <strong>{{ idea.accepted_members_count }}</strong>. Capacity cannot be set below this value.
+                    </div>
+                </div>
+
+                {# Full Description #}
+                <div class="idea-form-group">
+                    <label for="description" class="idea-form-label">Description &amp; Requirements</label>
+                    {{ form.description(rows=6, style="width: 100%;") }}
+                    {% if form.description.errors %}
+                        <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                            {% for error in form.description.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# Action Buttons #}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 18px; border-top: 1px solid var(--border-color); margin-top: 24px;">
+                    <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="btn btn-secondary">Cancel</a>
+                    {{ form.submit(class="btn btn-primary", value="Save Changes") }}
+                </div>
+            </form>
 
             {# Danger Zone: Delete Idea #}
-            <div class="card border-danger shadow-sm">
-                <div class="card-header bg-danger text-white py-2">
-                    <strong class="small">⚠️ Danger Zone</strong>
-                </div>
-                <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="idea-danger-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
                     <div>
-                        <strong class="text-dark">Delete Project Idea</strong>
-                        <p class="text-muted small mb-0">
+                        <strong style="color: var(--primary-red); font-size: 0.95rem;">⚠️ Danger Zone: Delete Project Idea</strong>
+                        <p style="margin: 3px 0 0 0; color: var(--text-muted); font-size: 0.85rem;">
                             Permanently removes this project idea and cancels all teammate applications.
                         </p>
                     </div>
-                    <form method="POST" action="{{ url_for('idea_delete', idea_id=idea.id) }}" onsubmit="return confirm('Are you absolutely sure you want to permanently delete this idea?');">
+                    <form method="POST" action="{{ url_for('idea_delete', idea_id=idea.id) }}" onsubmit="return confirm('Are you absolutely sure you want to permanently delete this idea?');" style="margin: 0;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-danger btn-sm">Delete This Idea</button>
                     </form>

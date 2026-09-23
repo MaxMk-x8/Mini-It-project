@@ -383,6 +383,16 @@ class EditProfileForm(FlaskForm):
     profile_photo = FileField('Profile Photo', validators=[
         FileAllowed(['png', 'jpg', 'jpeg', 'webp'], 'Only image files (.png, .jpg, .jpeg, .webp) are allowed.')
     ])
+
+    def validate_profile_photo(self, field):
+        """Strict server-side validation ensuring no document, text, or executable files can be uploaded."""
+        if field.data and getattr(field.data, 'filename', None):
+            filename = field.data.filename.lower().strip()
+            ext = os.path.splitext(filename)[1].lstrip('.')
+            prohibited_exts = {'exe', 'bat', 'cmd', 'sh', 'pdf', 'docx', 'doc', 'txt', 'rtf', 'odt', 'zip', 'rar', '7z', 'py', 'js', 'html', 'bin', 'dll'}
+            if ext in prohibited_exts or ext not in {'png', 'jpg', 'jpeg', 'webp'}:
+                raise ValidationError("Only image files (.png, .jpg, .jpeg, .webp) are allowed.")
+
     contact_email = StringField('Contact Email', validators=[
         Optional(),
         Length(max=120),
@@ -492,14 +502,11 @@ IDEA_CATEGORIES = [
     ('Research', 'Research'),
     ('Hardware', 'Hardware'),
     ('Game', 'Game'),
-    ('Other', 'Other')
 ]
 
 IDEA_FACULTIES = [
     ('FCI', 'Faculty of Computer Information (FCI)'),
     ('FOM', 'Faculty of Management (FOM)'),
-    ('FOE', 'Faculty of Engineering (FOE)'),
-    ('FCM', 'Faculty of Creative Multimedia (FCM)')
 ]
 
 

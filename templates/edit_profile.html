@@ -38,35 +38,68 @@
     </div>
 </fieldset>
 
-<div>
-    <h3>Profile Photo</h3>
-    <div style="margin-bottom: 15px;">
-        {% if current_user.avatar_url %}
-            <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}'s Avatar" width="100" height="100" style="object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 15px;">
-            <form method="POST" action="{{ url_for('remove_profile_photo') }}" style="display: inline-block; vertical-align: middle;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <button type="submit" onclick="return confirm('Remove your custom profile photo and revert to initials?');">Remove Current Photo</button>
-            </form>
-        {% else %}
-            <div style="width: 100px; height: 100px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; color: #475569; vertical-align: middle; margin-right: 15px;">
-                {{ current_user.username[:2]|upper }}
+<form id="remove-photo-form" method="POST" action="{{ url_for('remove_profile_photo') }}" style="display: none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+</form>
+
+<fieldset style="border: 1px solid #cbd5e1; padding: 18px; border-radius: 6px; margin-bottom: 22px; background: rgba(255, 255, 255, 0.7);">
+    <legend><strong>Profile Photo (Upload, Replace &amp; Remove)</strong></legend>
+    
+    <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+        <!-- Current Avatar Status & Remove Action -->
+        <div style="text-align: center; min-width: 140px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.9em; color: #475569;">Current Avatar</label>
+            {% if current_user.avatar_url %}
+                <img id="current-avatar-img" src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}'s Avatar" width="100" height="100" style="object-fit: cover; border-radius: 50%; border: 3px solid #004FB6; display: block; margin: 0 auto 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
+                <span style="display: inline-block; font-size: 0.78em; color: #16a34a; background: #dcfce7; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-bottom: 8px;">Custom Photo</span>
+                <br>
+                <button type="button" onclick="if(confirm('Remove your custom profile photo and revert to default initials avatar?')) document.getElementById('remove-photo-form').submit();" style="background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; padding: 5px 12px; border-radius: 4px; font-size: 0.82em; cursor: pointer; font-weight: 600;">
+                    🗑️ Remove Photo
+                </button>
+            {% else %}
+                <div style="width: 100px; height: 100px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; color: #475569; border: 3px solid #cbd5e1; margin: 0 auto 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.04);">
+                    {{ current_user.username[:2]|upper }}
+                </div>
+                <span style="display: block; font-size: 0.78em; color: #64748b;">Default Initials</span>
+            {% endif %}
+        </div>
+
+        <!-- Upload & Replace Action -->
+        <div style="flex: 1; min-width: 280px;">
+            <label for="profile_photo" style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 0.95em;">
+                {% if current_user.avatar_url %}
+                    Replace Existing Photo:
+                {% else %}
+                    Upload New Profile Photo:
+                {% endif %}
+            </label>
+
+            <!-- accept attribute triggers browser's 'Custom Files' filter instead of 'All Files' -->
+            {{ form.profile_photo(id="profile_photo", accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp", style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; width: 100%; max-width: 420px; background: #ffffff;") }}
+            
+            <small style="display: block; color: #64748b; margin-top: 5px; font-size: 0.82em;">
+                Accepted formats: PNG, JPG, JPEG, WEBP (Max 5MB).
+            </small>
+
+            <!-- Instant client-side error notification for prohibited files -->
+            <div id="file-error-alert" style="display: none; background: #fef2f2; border: 1px solid #f87171; color: #991b1b; padding: 8px 12px; border-radius: 6px; margin-top: 10px; font-size: 0.86em;"></div>
+
+            <!-- Instant live preview of selected replacement image -->
+            <div id="new-photo-preview-container" style="display: none; margin-top: 12px; align-items: center; gap: 14px; background: #f0fdf4; border: 1px solid #86efac; padding: 10px 14px; border-radius: 8px; max-width: 420px;">
+                <img id="new-photo-preview-img" src="" alt="New Avatar Preview" width="60" height="60" style="object-fit: cover; border-radius: 50%; border: 2px solid #16a34a; flex-shrink: 0;">
+                <div style="flex: 1; min-width: 0;">
+                    <strong style="display: block; color: #166534; font-size: 0.86em;">Ready to upload &amp; replace</strong>
+                    <span id="preview-file-name" style="display: block; font-size: 0.78em; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                </div>
+                <button type="button" id="cancel-preview-btn" style="background: #ffffff; border: 1px solid #cbd5e1; color: #475569; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">Cancel</button>
             </div>
-            <span style="color: #64748b;">(Currently using default initials avatar)</span>
-        {% endif %}
-    </div>
-</div>
 
-<form method="POST" action="{{ url_for('edit_profile') }}" enctype="multipart/form-data">
-    {{ form.hidden_tag() }}
-
-    <div>
-        <label for="profile_photo"><strong>Upload New Photo:</strong></label><br>
-        {{ form.profile_photo(id="profile_photo") }}
-        <small style="display: block; color: #64748b;">Accepted formats: PNG, JPG, JPEG, WEBP. Old photo will be automatically replaced.</small>
-        {% for error in form.profile_photo.errors %}
-            <p style="color: red; margin: 2px 0;">{{ error }}</p>
-        {% endfor %}
+            {% for error in form.profile_photo.errors %}
+                <p style="color: #dc2626; font-size: 0.86em; margin: 4px 0 0 0;">{{ error }}</p>
+            {% endfor %}
+        </div>
     </div>
+</fieldset>
 
     <br>
 
@@ -164,4 +197,86 @@
     </div>
 </form>
 
+<script>
+(function() {
+    const photoInput = document.getElementById('profile_photo');
+    const errorAlert = document.getElementById('file-error-alert');
+    const previewContainer = document.getElementById('new-photo-preview-container');
+    const previewImg = document.getElementById('new-photo-preview-img');
+    const previewName = document.getElementById('preview-file-name');
+    const cancelBtn = document.getElementById('cancel-preview-btn');
+
+    if (!photoInput) return;
+
+    const allowedExtensions = ['png', 'jpg', 'jpeg', 'webp'];
+    const prohibitedExtensions = [
+        'exe', 'bat', 'cmd', 'sh', 'pdf', 'docx', 'doc', 'txt', 'rtf', 
+        'odt', 'zip', 'rar', '7z', 'py', 'js', 'html', 'bin', 'dll', 'msi', 'com'
+    ];
+
+    function showError(msg) {
+        if (errorAlert) {
+            errorAlert.textContent = msg;
+            errorAlert.style.display = 'block';
+        }
+        if (previewContainer) {
+            previewContainer.style.display = 'none';
+        }
+        photoInput.value = '';
+    }
+
+    function clearError() {
+        if (errorAlert) {
+            errorAlert.textContent = '';
+            errorAlert.style.display = 'none';
+        }
+    }
+
+    photoInput.addEventListener('change', function() {
+        clearError();
+        const file = this.files && this.files[0];
+        if (!file) {
+            if (previewContainer) previewContainer.style.display = 'none';
+            return;
+        }
+
+        const fileName = file.name || '';
+        const ext = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+
+        // Check for prohibited or non-image file types
+        if (prohibitedExtensions.includes(ext) || !allowedExtensions.includes(ext) || (file.type && !file.type.startsWith('image/'))) {
+            showError("Only image files (.png, .jpg, .jpeg, .webp) are allowed.");
+            return;
+        }
+
+        // 4. Check file size (5MB maximum)
+        const maxBytes = 5 * 1024 * 1024;
+        if (file.size > maxBytes) {
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+            showError(`⚠️ File size exceeds limit: ${sizeMb}MB. Maximum allowed photo size is 5MB.`);
+            return;
+        }
+
+        // 5. Valid file: render instant live preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            if (previewImg) previewImg.src = e.target.result;
+            if (previewName) {
+                const kb = Math.round(file.size / 1024);
+                previewName.textContent = `${fileName} (${kb} KB)`;
+            }
+            if (previewContainer) previewContainer.style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+    });
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            photoInput.value = '';
+            clearError();
+            if (previewContainer) previewContainer.style.display = 'none';
+        });
+    }
+})();
+</script>
 {% endblock %}

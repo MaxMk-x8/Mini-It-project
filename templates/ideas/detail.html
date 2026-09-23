@@ -1,303 +1,304 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid py-3">
-    {# Breadcrumb Navigation #}
-    <div class="mb-3">
-        <a href="{{ url_for('ideas_index') }}" class="text-decoration-none">&larr; Back to Idea Lab</a>
+{% include "ideas/_idea_styles.html" %}
+
+<div class="idea-container">
+    {# Breadcrumb Navigation & Theme Toggle #}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+        <a href="{{ url_for('ideas_index') }}" class="idea-back-btn">&larr; Back to Idea Lab</a>
+        <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
     </div>
 
-    <div class="row g-4">
+    <div class="idea-detail-grid">
         {# Left Column: Project Overview & Description #}
-        <div class="col-lg-8 col-md-7">
-            <div class="card mb-4 shadow-sm border">
-                <div class="card-body">
-                    {# Title & Badges #}
-                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-                        <div class="d-flex gap-1 flex-wrap">
-                            <span class="badge bg-secondary">{{ idea.category }}</span>
-                            <span class="badge bg-info text-dark">{{ idea.faculty }}</span>
-                            {% if idea.course_code %}
-                                <span class="badge bg-light text-dark border">{{ idea.course_code }}</span>
-                            {% endif %}
-                        </div>
-                        <div>
-                            {% if not idea.is_open %}
-                                <span class="badge bg-warning text-dark fs-6">Closed</span>
-                            {% elif idea.is_group_complete %}
-                                <span class="badge bg-dark fs-6">Group Full</span>
-                            {% else %}
-                                <span class="badge bg-success fs-6">Open for Applicants</span>
-                            {% endif %}
-                        </div>
+        <div>
+            <article class="idea-card" style="border-left: 4px solid {% if not idea.is_open %}#F59E0B{% elif idea.is_group_complete %}#64748B{% else %}#10B981{% endif %};">
+                {# Badges & Status #}
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <div class="idea-badges">
+                        <span class="idea-badge idea-badge--category">{{ idea.category }}</span>
+                        <span class="idea-badge idea-badge--faculty">{{ idea.faculty }}</span>
+                        {% if idea.course_code %}
+                            <span class="idea-badge idea-badge--course">{{ idea.course_code }}</span>
+                        {% endif %}
                     </div>
-
-                    <h2 class="card-title fw-bold text-dark mb-2">{{ idea.title }}</h2>
-
-                    {% if idea.course_name %}
-                        <p class="text-muted small mb-3">
-                            Course: <strong>{{ idea.course_name }}</strong> {% if idea.course_code %}({{ idea.course_code }}){% endif %}
-                        </p>
-                    {% endif %}
-
-                    <div class="d-flex align-items-center gap-2 small text-muted mb-3 pb-2 border-bottom">
-                        <span>Project Lead: <a href="{{ url_for('public_profile', username=idea.owner.username) }}" class="fw-bold text-decoration-none">@{{ idea.owner.username }}</a></span>
-                        <span>&bull;</span>
-                        <span>Faculty: {{ idea.owner.faculty }}</span>
-                        <span>&bull;</span>
-                        <span>Posted: {{ idea.created_at.strftime('%Y-%m-%d') if idea.created_at else 'N/A' }}</span>
+                    <div>
+                        {% if not idea.is_open %}
+                            <span class="idea-stat-badge--closed">🔒 Closed</span>
+                        {% elif idea.is_group_complete %}
+                            <span class="idea-stat-badge--full">👥 Group Full</span>
+                        {% else %}
+                            <span class="idea-stat-badge--open">🟢 Open for Applicants</span>
+                        {% endif %}
                     </div>
-
-                    {# Full Description #}
-                    <h5 class="fw-bold mb-2">Project Overview</h5>
-                    <div class="p-3 bg-light rounded border text-break mb-4" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6;">{{ idea.description }}</div>
-
-                    {# Owner Action Bar #}
-                    {% if current_user.is_authenticated and (current_user.id == idea.owner_id or current_user.is_admin()) %}
-                        <div class="card bg-light border-primary p-3">
-                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                <div>
-                                    <strong class="text-primary">Project Management</strong>
-                                    <span class="small text-muted d-block">Manage team status or update project specifications.</span>
-                                </div>
-                                <div class="d-flex gap-2">
-                                    {# Toggle Group Full / Open #}
-                                    <form method="POST" action="{{ url_for('idea_toggle_full', idea_id=idea.id) }}" style="display: inline;">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        {% if idea.is_full %}
-                                            <button type="submit" class="btn btn-outline-success btn-sm">Reopen Group</button>
-                                        {% else %}
-                                            <button type="submit" class="btn btn-outline-dark btn-sm">Mark Group Full</button>
-                                        {% endif %}
-                                    </form>
-
-                                    <a href="{{ url_for('idea_edit', idea_id=idea.id) }}" class="btn btn-primary btn-sm">Edit Idea</a>
-
-                                    <form method="POST" action="{{ url_for('idea_delete', idea_id=idea.id) }}" style="display: inline;" onsubmit="return confirm('Permanently delete this project idea and all its applications?');">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
                 </div>
-            </div>
+
+                <h2 style="margin: 8px 0 6px 0; font-size: 1.6rem; color: var(--text-color); font-weight: 800; line-height: 1.3;">
+                    {{ idea.title }}
+                </h2>
+
+                {% if idea.course_name %}
+                    <p style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.92rem;">
+                        Course: <strong>{{ idea.course_name }}</strong> {% if idea.course_code %}({{ idea.course_code }}){% endif %}
+                    </p>
+                {% endif %}
+
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--text-muted); padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap;">
+                    <span>Project Lead: <a href="{{ url_for('public_profile', username=idea.owner.username) }}" style="color: var(--primary-blue); font-weight: 600; text-decoration: none;">@{{ idea.owner.username }}</a></span>
+                    <span>&bull;</span>
+                    <span>Faculty: {{ idea.owner.faculty }}</span>
+                    <span>&bull;</span>
+                    <span>Posted: {{ idea.created_at.strftime('%Y-%m-%d') if idea.created_at else 'N/A' }}</span>
+                </div>
+
+                {# Full Description #}
+                <h4 style="margin: 18px 0 10px 0; font-size: 1.1rem; color: var(--text-color); font-weight: 700;">Project Overview</h4>
+                <div class="idea-description-box">{{ idea.description }}</div>
+
+                {# Owner Action Bar #}
+                {% if current_user.is_authenticated and (current_user.id == idea.owner_id or current_user.is_admin()) %}
+                    <div style="margin-top: 24px; padding: 16px 20px; background: var(--surface-glass); border: 1px solid var(--border-color); border-radius: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <strong style="color: var(--primary-blue); font-size: 0.95rem;">Project Management</strong>
+                            <span style="font-size: 0.82rem; color: var(--text-muted); display: block;">Manage recruitment status or update project specifications.</span>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            {# Toggle Group Full / Open #}
+                            <form method="POST" action="{{ url_for('idea_toggle_full', idea_id=idea.id) }}" style="display: inline; margin: 0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                {% if idea.is_full %}
+                                    <button type="submit" class="btn btn-secondary btn-sm" style="color: #059669;">Reopen Group</button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-secondary btn-sm">Mark Group Full</button>
+                                {% endif %}
+                            </form>
+
+                            <a href="{{ url_for('idea_edit', idea_id=idea.id) }}" class="btn btn-primary btn-sm">Edit Idea</a>
+
+                            <form method="POST" action="{{ url_for('idea_delete', idea_id=idea.id) }}" style="display: inline; margin: 0;" onsubmit="return confirm('Permanently delete this project idea and all its applications?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
+            </article>
 
             {# Owner Section: Pending Applications #}
             {% if current_user.is_authenticated and (current_user.id == idea.owner_id or current_user.is_admin()) %}
-                <div class="card mb-4 shadow-sm border">
-                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 fw-bold">
+                <div class="idea-card" style="margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                        <h4 style="margin: 0; font-size: 1.15rem; color: var(--text-color); font-weight: 700;">
                             📥 Pending Applications ({{ pending_interests|length }})
-                        </h5>
-                        <span class="small text-muted">
+                        </h4>
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">
                             {{ idea.accepted_members_count }} of {{ idea.max_members }} slots filled
                         </span>
                     </div>
-                    <div class="card-body">
-                        {% if pending_interests %}
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
+
+                    {% if pending_interests %}
+                        <div style="overflow-x: auto;">
+                            <table class="idea-table">
+                                <thead>
+                                    <tr>
+                                        <th>Applicant</th>
+                                        <th>Pitch / Motivation</th>
+                                        <th>Date</th>
+                                        <th style="text-align: right;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for interest in pending_interests %}
                                         <tr>
-                                            <th>Applicant</th>
-                                            <th>Pitch / Motivation</th>
-                                            <th>Date</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for interest in pending_interests %}
-                                            <tr>
-                                                <td>
-                                                    <a href="{{ url_for('public_profile', username=interest.user.username) }}" class="fw-bold text-decoration-none">
-                                                        @{{ interest.user.username }}
-                                                    </a>
-                                                    <br>
-                                                    <small class="text-muted">{{ interest.user.faculty }} &bull; {{ interest.user.role }}</small>
-                                                </td>
-                                                <td>
-                                                    <span class="small text-break">
-                                                        {{ interest.message or 'No pitch message provided.' }}
-                                                    </span>
-                                                </td>
-                                                <td class="small text-muted">
-                                                    {{ interest.created_at.strftime('%Y-%m-%d') if interest.created_at else 'N/A' }}
-                                                </td>
-                                                <td>
-                                                    <div class="d-flex gap-1">
-                                                        {% if idea.accepted_members_count < idea.max_members %}
-                                                            <form method="POST" action="{{ url_for('idea_respond_interest', idea_id=idea.id, interest_id=interest.id) }}" style="display: inline;">
-                                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                                <input type="hidden" name="action" value="accept">
-                                                                <button type="submit" class="btn btn-success btn-sm">Accept</button>
-                                                            </form>
-                                                        {% else %}
-                                                            <span class="badge bg-secondary">Team Full</span>
-                                                        {% endif %}
-                                                        <form method="POST" action="{{ url_for('idea_respond_interest', idea_id=idea.id, interest_id=interest.id) }}" style="display: inline;">
+                                            <td>
+                                                <a href="{{ url_for('public_profile', username=interest.user.username) }}" style="font-weight: 700; color: var(--text-color); text-decoration: none;">
+                                                    @{{ interest.user.username }}
+                                                </a>
+                                                <br>
+                                                <small style="color: var(--text-muted);">{{ interest.user.faculty }} &bull; {{ interest.user.role }}</small>
+                                            </td>
+                                            <td>
+                                                <span style="font-size: 0.88rem; color: var(--text-color); word-break: break-word;">
+                                                    {{ interest.message or 'No pitch message provided.' }}
+                                                </span>
+                                            </td>
+                                            <td style="font-size: 0.85rem; color: var(--text-muted);">
+                                                {{ interest.created_at.strftime('%Y-%m-%d') if interest.created_at else 'N/A' }}
+                                            </td>
+                                            <td style="text-align: right;">
+                                                <div style="display: inline-flex; gap: 6px;">
+                                                    {% if idea.accepted_members_count < idea.max_members %}
+                                                        <form method="POST" action="{{ url_for('idea_respond_interest', idea_id=idea.id, interest_id=interest.id) }}" style="display: inline; margin: 0;">
                                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                            <input type="hidden" name="action" value="reject">
-                                                            <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Reject application from @{{ interest.user.username }}?');">Reject</button>
+                                                            <input type="hidden" name="action" value="accept">
+                                                            <button type="submit" class="btn btn-primary btn-sm">Accept</button>
                                                         </form>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        {% else %}
-                            <p class="text-muted small mb-0 py-2 text-center">
-                                No pending applicant requests at this time.
-                            </p>
-                        {% endif %}
-                    </div>
+                                                    {% else %}
+                                                        <span class="idea-stat-badge--full">Team Full</span>
+                                                    {% endif %}
+                                                    <form method="POST" action="{{ url_for('idea_respond_interest', idea_id=idea.id, interest_id=interest.id) }}" style="display: inline; margin: 0;">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                        <input type="hidden" name="action" value="reject">
+                                                        <button type="submit" class="btn btn-secondary btn-sm" onclick="return confirm('Reject application from @{{ interest.user.username }}?');">Reject</button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p style="color: var(--text-muted); font-size: 0.92rem; margin: 0; text-align: center; padding: 16px 0;">
+                            No pending applicant requests at this time.
+                        </p>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>
 
         {# Right Column: Team Capacity & Express Interest #}
-        <div class="col-lg-4 col-md-5">
+        <div>
             {# Team Capacity & Current Members Card #}
-            <div class="card mb-4 shadow-sm border">
-                <div class="card-header bg-white py-3">
-                    <h5 class="mb-0 fw-bold">👥 Project Team</h5>
+            <div class="idea-card">
+                <h4 style="margin: 0 0 14px 0; font-size: 1.15rem; color: var(--text-color); font-weight: 700;">
+                    👥 Project Team
+                </h4>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-color);">Team Capacity:</span>
+                    <span class="idea-stat-badge"><strong>{{ idea.accepted_members_count }}</strong> / {{ idea.max_members }} slots</span>
                 </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="small fw-bold">Team Capacity:</span>
-                        <span class="badge bg-primary fs-6">{{ idea.accepted_members_count }} / {{ idea.max_members }}</span>
-                    </div>
-                    <div class="progress mb-3" style="height: 8px;">
-                        {% set pct = (idea.accepted_members_count / idea.max_members) * 100 %}
-                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ pct }}%;" aria-valuenow="{{ idea.accepted_members_count }}" aria-valuemin="0" aria-valuemax="{{ idea.max_members }}"></div>
+
+                {% set pct = (idea.accepted_members_count / idea.max_members) * 100 %}
+                <div style="height: 8px; border-radius: 9999px; background: rgba(148, 163, 184, 0.2); overflow: hidden; margin-bottom: 18px;">
+                    <div style="height: 100%; width: {{ pct }}%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); border-radius: 9999px; transition: width 0.3s ease;"></div>
+                </div>
+
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.03em;">
+                    Confirmed Teammates:
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    {# Project Owner #}
+                    <div class="idea-member-card" style="justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <a href="{{ url_for('public_profile', username=idea.owner.username) }}" style="font-weight: 700; color: var(--text-color); text-decoration: none;">
+                                @{{ idea.owner.username }}
+                            </a>
+                            <span style="background: var(--brand-gradient); color: white; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">Lead</span>
+                        </div>
+                        <span style="font-size: 0.82rem; color: var(--text-muted);">{{ idea.owner.faculty }}</span>
                     </div>
 
-                    <h6 class="small fw-bold text-muted mb-2">Confirmed Team Members:</h6>
-                    <ul class="list-group list-group-flush small mb-0">
-                        {# Project Owner #}
-                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
-                            <div>
-                                <a href="{{ url_for('public_profile', username=idea.owner.username) }}" class="text-decoration-none fw-bold">
-                                    @{{ idea.owner.username }}
+                    {# Accepted Teammates #}
+                    {% for accepted in idea.accepted_members %}
+                        <div class="idea-member-card" style="justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <a href="{{ url_for('public_profile', username=accepted.user.username) }}" style="font-weight: 700; color: var(--text-color); text-decoration: none;">
+                                    @{{ accepted.user.username }}
                                 </a>
-                                <span class="badge bg-primary text-white ms-1">Lead</span>
+                                <span style="background: rgba(16, 185, 129, 0.15); color: #059669; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">Member</span>
                             </div>
-                            <span class="text-muted">{{ idea.owner.faculty }}</span>
-                        </li>
+                            <span style="font-size: 0.82rem; color: var(--text-muted);">{{ accepted.user.faculty }}</span>
+                        </div>
+                    {% endfor %}
 
-                        {# Accepted Teammates #}
-                        {% for accepted in idea.accepted_members %}
-                            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
-                                <div>
-                                    <a href="{{ url_for('public_profile', username=accepted.user.username) }}" class="text-decoration-none fw-bold">
-                                        @{{ accepted.user.username }}
-                                    </a>
-                                    <span class="badge bg-success ms-1">Member</span>
-                                </div>
-                                <span class="text-muted">{{ accepted.user.faculty }}</span>
-                            </li>
+                    {# Available Slots #}
+                    {% set open_slots = idea.max_members - idea.accepted_members_count %}
+                    {% if open_slots > 0 %}
+                        {% for slot in range(open_slots) %}
+                            <div style="padding: 10px 14px; border: 1px dashed var(--border-color); border-radius: 8px; font-size: 0.85rem; color: var(--text-muted); font-style: italic; text-align: center;">
+                                + Available Teammate Slot
+                            </div>
                         {% endfor %}
-
-                        {# Available Slots #}
-                        {% set open_slots = idea.max_members - idea.accepted_members_count %}
-                        {% if open_slots > 0 %}
-                            {% for slot in range(open_slots) %}
-                                <li class="list-group-item px-0 text-muted fst-italic">
-                                    + Available Teammate Slot
-                                </li>
-                            {% endfor %}
-                        {% endif %}
-                    </ul>
+                    {% endif %}
                 </div>
             </div>
 
             {# Express Interest Card for Visitors #}
             {% if not current_user.is_authenticated or current_user.id != idea.owner_id %}
-                <div class="card shadow-sm border">
-                    <div class="card-header bg-white py-3">
-                        <h5 class="mb-0 fw-bold">🤝 Join This Project</h5>
-                    </div>
-                    <div class="card-body">
-                        {% if not current_user.is_authenticated %}
-                            <p class="text-muted small mb-3">
-                                Interested in joining this project team? Log in to your CodeNest account to submit a pitch describing your skills.
-                            </p>
-                            <a href="{{ url_for('login') }}" class="btn btn-primary w-100">
-                                Log in to Express Interest
-                            </a>
+                <div class="idea-card" style="margin-top: 20px;">
+                    <h4 style="margin: 0 0 12px 0; font-size: 1.15rem; color: var(--text-color); font-weight: 700;">
+                        🤝 Join This Project
+                    </h4>
 
-                        {% elif user_interest %}
-                            {# User has already submitted an interest application #}
-                            {% if user_interest.status == 'pending' %}
-                                <div class="alert alert-info py-2 small mb-3">
-                                    ⏳ <strong>Application Submitted!</strong>
-                                    <br>
-                                    Your request is currently awaiting review by @{{ idea.owner.username }}.
-                                </div>
-                                {% if user_interest.message %}
-                                    <div class="p-2 bg-light rounded small mb-3 border">
-                                        <strong>Your Pitch:</strong>
-                                        <br>
-                                        {{ user_interest.message }}
-                                    </div>
-                                {% endif %}
-                                <form method="POST" action="{{ url_for('idea_withdraw_interest', idea_id=idea.id) }}" onsubmit="return confirm('Withdraw your application?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
-                                        Withdraw Application
-                                    </button>
-                                </form>
+                    {% if not current_user.is_authenticated %}
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 16px; line-height: 1.5;">
+                            Interested in joining this project team? Log in to your CodeNest account to submit a pitch describing your skills.
+                        </p>
+                        <a href="{{ url_for('login') }}" class="btn btn-primary" style="width: 100%; text-align: center;">
+                            Log in to Express Interest
+                        </a>
 
-                            {% elif user_interest.status == 'accepted' %}
-                                <div class="alert alert-success py-2 small mb-0">
-                                    🎉 <strong>Congratulations!</strong>
-                                    <br>
-                                    You have been accepted into this project group. Coordinate with @{{ idea.owner.username }} to get started!
-                                </div>
-
-                            {% elif user_interest.status == 'rejected' %}
-                                <div class="alert alert-secondary py-2 small mb-0">
-                                    ℹ️ <strong>Application Update</strong>
-                                    <br>
-                                    Your application for this project was not accepted by the project owner. Check out other projects in the Idea Lab!
+                    {% elif user_interest %}
+                        {# Already Submitted Application #}
+                        {% if user_interest.status == 'pending' %}
+                            <div style="padding: 12px 14px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); color: var(--text-color); font-size: 0.9rem; margin-bottom: 14px;">
+                                ⏳ <strong>Application Submitted!</strong>
+                                <br>
+                                Your request is currently awaiting review by @{{ idea.owner.username }}.
+                            </div>
+                            {% if user_interest.message %}
+                                <div class="idea-description-box" style="padding: 12px; font-size: 0.88rem; margin-bottom: 14px;">
+                                    <strong>Your Pitch:</strong><br>
+                                    {{ user_interest.message }}
                                 </div>
                             {% endif %}
-
-                        {% elif not idea.is_open %}
-                            <div class="alert alert-warning py-2 small mb-0">
-                                🔒 This project idea is closed to new applicants.
-                            </div>
-
-                        {% elif idea.is_group_complete %}
-                            <div class="alert alert-secondary py-2 small mb-0">
-                                👥 This project team has reached its maximum capacity.
-                            </div>
-
-                        {% else %}
-                            {# Application Pitch Form #}
-                            <p class="text-muted small mb-3">
-                                Pitch yourself to @{{ idea.owner.username }}! Highlight your relevant skills, past projects, or preferred tech stack.
-                            </p>
-                            <form method="POST" action="{{ url_for('idea_express_interest', idea_id=idea.id) }}">
-                                {{ interest_form.hidden_tag() }}
-                                <div class="mb-3">
-                                    {{ interest_form.message.label(class="form-label small fw-bold") }}
-                                    {{ interest_form.message(class="form-control form-control-sm", rows=4, placeholder="e.g. I am proficient with Flask and React. I can handle backend API routes and database schema...") }}
-                                    {% if interest_form.message.errors %}
-                                        <div class="text-danger small mt-1">
-                                            {% for error in interest_form.message.errors %}{{ error }}{% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                <button type="submit" class="btn btn-primary w-100">
-                                    Express Interest &rarr;
+                            <form method="POST" action="{{ url_for('idea_withdraw_interest', idea_id=idea.id) }}" onsubmit="return confirm('Withdraw your application?');" style="margin: 0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-secondary btn-sm" style="width: 100%; color: var(--primary-red);">
+                                    Withdraw Application
                                 </button>
                             </form>
+
+                        {% elif user_interest.status == 'accepted' %}
+                            <div style="padding: 12px 14px; border-radius: 8px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); color: #059669; font-size: 0.9rem;">
+                                🎉 <strong>Congratulations!</strong>
+                                <br>
+                                You have been accepted into this project group. Coordinate with @{{ idea.owner.username }} to get started!
+                            </div>
+
+                        {% elif user_interest.status == 'rejected' %}
+                            <div style="padding: 12px 14px; border-radius: 8px; background: rgba(100, 116, 139, 0.1); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.9rem;">
+                                ℹ️ <strong>Application Update</strong>
+                                <br>
+                                Your application was not accepted by the project lead. Check out other projects in the Idea Lab!
+                            </div>
                         {% endif %}
-                    </div>
+
+                    {% elif not idea.is_open %}
+                        <div style="padding: 12px 14px; border-radius: 8px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #d97706; font-size: 0.9rem;">
+                            🔒 This project idea is closed to new applicants.
+                        </div>
+
+                    {% elif idea.is_group_complete %}
+                        <div style="padding: 12px 14px; border-radius: 8px; background: rgba(100, 116, 139, 0.1); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.9rem;">
+                            👥 This project team has reached its maximum capacity.
+                        </div>
+
+                    {% else %}
+                        {# Application Pitch Form #}
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 14px; line-height: 1.5;">
+                            Pitch yourself to @{{ idea.owner.username }}! Highlight your relevant skills, past projects, or preferred tech stack.
+                        </p>
+                        <form method="POST" action="{{ url_for('idea_express_interest', idea_id=idea.id) }}">
+                            {{ interest_form.hidden_tag() }}
+                            <div class="idea-form-group">
+                                <label for="message" class="idea-form-label">Your Pitch</label>
+                                {{ interest_form.message(rows=4, placeholder="e.g. I am proficient with Flask and React. I can handle backend API routes and database schema...", style="width: 100%;") }}
+                                {% if interest_form.message.errors %}
+                                    <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                                        {% for error in interest_form.message.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                                Express Interest &rarr;
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>

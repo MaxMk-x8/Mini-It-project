@@ -1,165 +1,218 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid py-3">
-    {# Page Header #}
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 pb-2 border-bottom">
+{% include "ideas/_idea_styles.html" %}
+
+<div class="idea-container">
+    {# Brand Header (Matches Resource Hub) #}
+    <div class="idea-brand-header">
         <div>
-            <h2 class="mb-1 text-primary">💡 Idea Lab</h2>
-            <p class="text-muted mb-0">
-                Discover student project ideas, pitch your skills, and form collaborative teams across MMU faculties.
+            <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.75rem; font-weight: 800;">💡 Idea Lab</h2>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.95rem;">
+                Discover student project ideas, pitch your skills, and form collaborative teams across <span class="idea-mmu-badge">MMU</span> faculties.
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('my_ideas') }}" class="btn btn-outline-secondary">
-                    📋 My Ideas
-                </a>
-                <a href="{{ url_for('idea_post') }}" class="btn btn-primary">
+                <a href="{{ url_for('idea_post') }}" class="btn btn-primary" style="font-size: 0.95rem;">
                     + Post an Idea
                 </a>
+                <a href="{{ url_for('my_ideas') }}" class="btn btn-secondary" style="font-size: 0.95rem;">
+                    📋 My Ideas &amp; Applications
+                </a>
             {% else %}
-                <a href="{{ url_for('login') }}" class="btn btn-primary">
+                <a href="{{ url_for('login') }}" class="btn btn-primary" style="font-size: 0.95rem;">
                     Log in to Post Idea
                 </a>
             {% endif %}
         </div>
     </div>
 
-    {# Search & Academic Filter Bar #}
-    <div class="card mb-4 bg-light">
-        <div class="card-body py-3">
-            <form method="GET" action="{{ url_for('ideas_index') }}" class="row g-2 align-items-end">
-                <div class="col-md-5 col-sm-12">
-                    <label for="q" class="form-label small fw-bold mb-1">Search Keywords / Course</label>
-                    <input type="text" id="q" name="q" value="{{ query_text }}" class="form-control form-control-sm" placeholder="Search by title, description, or course code...">
-                </div>
+    {% if not current_user.is_authenticated %}
+        <p style="color: var(--text-muted); margin-bottom: 20px;">
+            <a href="{{ url_for('login') }}" style="color: var(--primary-blue); font-weight: 600;">Log in</a> to publish project ideas, assemble teammates, or apply to join campus projects.
+        </p>
+    {% endif %}
 
-                <div class="col-md-3 col-sm-6">
-                    <label for="category" class="form-label small fw-bold mb-1">Category</label>
-                    <select id="category" name="category" class="form-select form-select-sm">
-                        <option value="">All Categories</option>
-                        {% for code, label in categories %}
-                            <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+    {# Search & Academic Filter Bar (Matches Resource Hub Filter Bar) #}
+    <form method="GET" action="{{ url_for('ideas_index') }}" class="idea-filter-bar">
+        <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;">
+            <div style="flex: 1 1 240px;">
+                <label for="q" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Search</label>
+                <input type="text" id="q" name="q" value="{{ query_text }}" placeholder="Keywords, title, course, tech stack..." style="width: 100%;">
+            </div>
 
-                <div class="col-md-2 col-sm-6">
-                    <label for="faculty" class="form-label small fw-bold mb-1">Faculty</label>
-                    <select id="faculty" name="faculty" class="form-select form-select-sm">
-                        <option value="">All Faculties</option>
-                        {% for code, label in faculties %}
-                            <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <div style="flex: 0 1 190px;">
+                <label for="category" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Category</label>
+                <select id="category" name="category" style="width: 100%;">
+                    <option value="">All Categories</option>
+                    {% for code, label in categories %}
+                        <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
-                <div class="col-md-2 col-sm-12 d-flex gap-1">
-                    <button type="submit" class="btn btn-primary btn-sm w-100">Filter</button>
-                    {% if query_text or selected_category or selected_faculty %}
-                        <a href="{{ url_for('ideas_index') }}" class="btn btn-outline-secondary btn-sm" title="Reset Filters">✕</a>
-                    {% endif %}
-                </div>
-            </form>
+            <div style="flex: 0 1 190px;">
+                <label for="faculty" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Faculty</label>
+                <select id="faculty" name="faculty" style="width: 100%;">
+                    <option value="">All Faculties</option>
+                    {% for code, label in faculties %}
+                        <option value="{{ code }}" {% if selected_faculty == code %}selected{% endif %}>{{ code }} ({{ label }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: flex; align-items: flex-end; gap: 8px; margin-left: auto;">
+                <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+                {% if query_text or selected_category or selected_faculty %}
+                    <a href="{{ url_for('ideas_index') }}" class="btn btn-secondary btn-sm">Reset</a>
+                {% endif %}
+            </div>
         </div>
+    </form>
+
+    {# Feed Header (Matches Resource Hub) #}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-color); font-weight: 700;">
+            Available Project Ideas 
+            <span style="color: var(--text-muted); font-size: 0.95rem; font-weight: normal;">
+                ({{ total_items }})
+            </span>
+        </h3>
+        {% if total_pages > 1 %}
+            <span style="color: var(--text-muted); font-size: 0.85rem;">
+                Page {{ page }} of {{ total_pages }}
+            </span>
+        {% endif %}
     </div>
 
     {# Ideas Discovery Feed #}
     {% if ideas %}
-        <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
             {% for idea in ideas %}
-                <div class="col">
-                    <div class="card h-100 shadow-sm border">
-                        <div class="card-body d-flex flex-column">
-                            {# Card Header Badges #}
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <div class="d-flex gap-1 flex-wrap">
-                                    <span class="badge bg-secondary">{{ idea.category }}</span>
-                                    <span class="badge bg-info text-dark">{{ idea.faculty }}</span>
-                                    {% if idea.course_code %}
-                                        <span class="badge bg-light text-dark border">{{ idea.course_code }}</span>
-                                    {% endif %}
-                                </div>
-                                <div>
-                                    {% if not idea.is_open %}
-                                        <span class="badge bg-warning text-dark">Closed</span>
-                                    {% elif idea.is_group_complete %}
-                                        <span class="badge bg-dark">Group Full</span>
-                                    {% else %}
-                                        <span class="badge bg-success">Open</span>
-                                    {% endif %}
-                                </div>
-                            </div>
+                <article class="idea-card" style="border-left: 4px solid {% if not idea.is_open %}#F59E0B{% elif idea.is_group_complete %}#64748B{% else %}#10B981{% endif %};">
+                    {# Top Row: Badges on left, Capacity & Status on right #}
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 8px;">
+                        <div class="idea-badges">
+                            <span class="idea-badge idea-badge--category">
+                                🏷️ {{ idea.category }}
+                            </span>
+                            <span class="idea-badge idea-badge--faculty">
+                                🏛️ {{ idea.faculty }}
+                            </span>
+                            {% if idea.course_code %}
+                                <span class="idea-badge idea-badge--course">
+                                    📚 {{ idea.course_code }}
+                                </span>
+                            {% endif %}
+                        </div>
 
-                            {# Title & Description #}
-                            <h5 class="card-title mb-1">
-                                <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="text-decoration-none text-dark fw-bold">
-                                    {{ idea.title }}
-                                </a>
-                            </h5>
-                            <p class="card-text text-muted small flex-grow-1 mt-2">
-                                {{ idea.description[:180] }}{% if idea.description|length > 180 %}...{% endif %}
-                            </p>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span class="idea-stat-badge">
+                                👥 <strong>{{ idea.accepted_members_count }}</strong> / {{ idea.max_members }} members
+                            </span>
 
-                            {# Card Footer Metadata #}
-                            <hr class="my-2">
-                            <div class="d-flex justify-content-between align-items-center small text-muted">
-                                <div>
-                                    👥 <strong>{{ idea.accepted_members_count }}/{{ idea.max_members }}</strong> members
-                                    &bull; by <a href="{{ url_for('public_profile', username=idea.owner.username) }}" class="text-decoration-none">@{{ idea.owner.username }}</a>
-                                </div>
-                                <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="btn btn-outline-primary btn-sm">
-                                    View Details &rarr;
-                                </a>
-                            </div>
+                            {% if not idea.is_open %}
+                                <span class="idea-stat-badge--closed">
+                                    🔒 Closed
+                                </span>
+                            {% elif idea.is_group_complete %}
+                                <span class="idea-stat-badge--full">
+                                    👥 Team Full
+                                </span>
+                            {% else %}
+                                <span class="idea-stat-badge--open">
+                                    🟢 Open for Teammates
+                                </span>
+                            {% endif %}
                         </div>
                     </div>
-                </div>
+
+                    {# Project Title #}
+                    <h4 class="idea-card-title">
+                        <a href="{{ url_for('idea_detail', idea_id=idea.id) }}">
+                            {{ idea.title }}
+                        </a>
+                    </h4>
+
+                    {% if idea.course_name %}
+                        <p style="margin: 0 0 6px 0; font-size: 0.9rem; color: var(--text-muted);">
+                            Course: <em>{{ idea.course_name }}</em>
+                        </p>
+                    {% endif %}
+
+                    {# Project Description Snippet #}
+                    <p class="idea-card-desc">
+                        {{ idea.description[:240] }}{% if idea.description|length > 240 %}...{% endif %}
+                    </p>
+
+                    {# Card Footer Metadata & Actions #}
+                    <div class="idea-card-footer-meta">
+                        <div>
+                            Project Lead: 
+                            <a href="{{ url_for('public_profile', username=idea.owner.username) }}" style="color: var(--primary-blue); font-weight: 600; text-decoration: none;">
+                                @{{ idea.owner.username }}
+                            </a>
+                            <span style="opacity: 0.75;">({{ idea.owner.faculty }} &bull; {{ idea.owner.role }})</span>
+                            &bull;
+                            <span>Posted: {{ idea.created_at.strftime('%Y-%m-%d') if idea.created_at else 'N/A' }}</span>
+                        </div>
+
+                        <div>
+                            <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="btn btn-secondary btn-sm" style="font-weight: 600;">
+                                View Details &rarr;
+                            </a>
+                        </div>
+                    </div>
+                </article>
             {% endfor %}
         </div>
 
-        {# Pagination #}
+        {# Pagination (Matches Resource Hub) #}
         {% if total_pages > 1 %}
-            <nav aria-label="Ideas pagination" class="d-flex justify-content-center my-4">
-                <ul class="pagination pagination-sm">
-                    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('ideas_index', page=page-1, q=query_text, category=selected_category, faculty=selected_faculty) }}">Previous</a>
-                    </li>
-                    {% for p in range(1, total_pages + 1) %}
-                        <li class="page-item {% if p == page %}active{% endif %}">
-                            <a class="page-link" href="{{ url_for('ideas_index', page=p, q=query_text, category=selected_category, faculty=selected_faculty) }}">{{ p }}</a>
-                        </li>
-                    {% endfor %}
-                    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('ideas_index', page=page+1, q=query_text, category=selected_category, faculty=selected_faculty) }}">Next</a>
-                    </li>
-                </ul>
-            </nav>
+            <div style="display: flex; justify-content: center; gap: 6px; margin-top: 24px; flex-wrap: wrap;">
+                {% if page > 1 %}
+                    <a href="{{ url_for('ideas_index', page=page-1, q=query_text, category=selected_category, faculty=selected_faculty) }}" class="btn btn-secondary btn-sm">&larr; Previous</a>
+                {% endif %}
+
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                        <span class="btn btn-primary btn-sm" style="pointer-events: none;">{{ p }}</span>
+                    {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                        <a href="{{ url_for('ideas_index', page=p, q=query_text, category=selected_category, faculty=selected_faculty) }}" class="btn btn-secondary btn-sm">{{ p }}</a>
+                    {% elif p == page - 3 or p == page + 3 %}
+                        <span style="padding: 4px 8px; color: var(--text-muted);">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %}
+                    <a href="{{ url_for('ideas_index', page=page+1, q=query_text, category=selected_category, faculty=selected_faculty) }}" class="btn btn-secondary btn-sm">Next &rarr;</a>
+                {% endif %}
+            </div>
         {% endif %}
 
     {% else %}
         {# Empty State #}
-        <div class="card text-center py-5 my-4 bg-light border-dashed">
-            <div class="card-body">
-                <div class="display-6 mb-2">💡</div>
-                <h4 class="card-title text-muted">No project ideas found</h4>
-                <p class="card-text text-muted">
-                    {% if query_text or selected_category or selected_faculty %}
-                        No ideas matched your current filters. Try resetting the search or broadening your categories.
-                        <br>
-                        <a href="{{ url_for('ideas_index') }}" class="btn btn-outline-secondary btn-sm mt-2">Reset Filters</a>
-                    {% else %}
-                        Be the first student to publish a project idea and recruit teammates!
-                        <br>
-                        {% if current_user.is_authenticated %}
-                            <a href="{{ url_for('idea_post') }}" class="btn btn-primary btn-sm mt-3">+ Post an Idea</a>
-                        {% else %}
-                            <a href="{{ url_for('login') }}" class="btn btn-primary btn-sm mt-3">Log in to Post Idea</a>
-                        {% endif %}
-                    {% endif %}
-                </p>
-            </div>
+        <div class="idea-card" style="text-align: center; padding: 48px 24px; border: 2px dashed var(--border-color); border-radius: 12px;">
+            <div style="font-size: 2.5rem; margin-bottom: 12px;">💡</div>
+            <h4 style="margin: 0 0 8px 0; color: var(--text-color); font-weight: 700;">No project ideas found</h4>
+            <p style="margin: 0 0 18px 0; color: var(--text-muted); font-size: 0.95rem;">
+                {% if query_text or selected_category or selected_faculty %}
+                    No ideas matched your current filters. Try resetting the search or broadening your categories.
+                {% else %}
+                    Be the first student to publish a project idea and recruit teammates across MMU faculties!
+                {% endif %}
+            </p>
+            {% if query_text or selected_category or selected_faculty %}
+                <a href="{{ url_for('ideas_index') }}" class="btn btn-secondary btn-sm">Reset Filters</a>
+            {% else %}
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('idea_post') }}" class="btn btn-primary btn-sm">+ Post a Project Idea</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="btn btn-primary btn-sm">Log in to Post Idea</a>
+                {% endif %}
+            {% endif %}
         </div>
     {% endif %}
 </div>

@@ -1,0 +1,509 @@
+{% include "qa/_qa_styles.html" %}
+
+<style>
+    /* ==========================================================================
+       CodeNest Idea Lab MMU Dual-Brand Theme (Light Mode & Dark Mode)
+       Inherits 100% of Q&A & Resource Glassmorphic Design Engine
+       ========================================================================== */
+
+    /* Container */
+    .idea-container {
+        color: var(--text-color);
+        transition: background-color 0.3s ease, color 0.3s ease;
+        padding: 4px 0 32px 0;
+        min-height: 80vh;
+    }
+    [data-theme="dark"] .idea-container {
+        background: radial-gradient(circle at 5% 15%, rgba(2, 132, 199, 0.12) 0%, transparent 45%),
+                    radial-gradient(circle at 95% 85%, rgba(225, 29, 72, 0.1) 0%, transparent 45%);
+    }
+
+    /* Brand Header with Full Width Accent Line (Matches Resource Hub) */
+    .idea-brand-header {
+        position: relative;
+        padding-bottom: 14px;
+        margin-bottom: 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+    .idea-brand-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: var(--brand-accent-line);
+        border-radius: 9999px;
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+    }
+
+    /* MMU Glass Badge */
+    .idea-mmu-badge {
+        display: inline-block;
+        background: rgba(0, 51, 102, 0.1);
+        color: var(--primary-blue);
+        padding: 1px 7px;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 0.85em;
+        border: 1px solid rgba(0, 51, 102, 0.2);
+    }
+    [data-theme="dark"] .idea-mmu-badge {
+        background: rgba(56, 189, 248, 0.15);
+        color: #38bdf8;
+        border-color: rgba(56, 189, 248, 0.3);
+    }
+
+    /* Filter Bar (100% Matches Resource Hub & Q&A Filter Bar) */
+    .idea-filter-bar {
+        background: var(--surface-glass) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 12px !important;
+        padding: 16px 20px !important;
+        margin-bottom: 24px !important;
+        box-shadow: var(--shadow-sm) !important;
+        position: relative !important;
+    }
+    .idea-filter-bar::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--brand-accent-line);
+        border-radius: 12px 12px 0 0;
+    }
+
+    /* Inputs, Selects, and Textareas */
+    .idea-container input[type="text"],
+    .idea-container input[type="number"],
+    .idea-container select,
+    .idea-container textarea,
+    .idea-filter-bar input[type="text"],
+    .idea-filter-bar select,
+    .idea-form-field {
+        box-sizing: border-box;
+        padding: 10px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background-color: var(--surface-card);
+        color: var(--text-color);
+        font-size: 0.95rem;
+        font-family: inherit;
+        outline: none;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        transition: all 0.2s ease;
+    }
+    .idea-container input[type="text"]:focus,
+    .idea-container input[type="number"]:focus,
+    .idea-container select:focus,
+    .idea-container textarea:focus,
+    .idea-filter-bar input[type="text"]:focus,
+    .idea-filter-bar select:focus,
+    .idea-form-field:focus {
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 3px var(--primary-blue-subtle), 0 0 0 1px var(--primary-red-subtle);
+    }
+    .idea-container input::placeholder,
+    .idea-filter-bar input::placeholder {
+        color: var(--text-muted);
+        opacity: 0.8;
+    }
+
+    /* Idea Card (Matches .qa-card & .res-card) */
+    .idea-card {
+        background-color: var(--surface-card);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--border-card);
+        border-radius: 12px;
+        padding: 22px 26px;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.25s ease;
+        position: relative;
+        margin-bottom: 16px;
+        display: block;
+    }
+    .idea-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: rgba(56, 189, 248, 0.35);
+        transform: translateY(-2px);
+    }
+    .idea-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--brand-accent-line);
+        opacity: 0.7;
+        border-radius: 12px 12px 0 0;
+    }
+
+    /* Badges (Category, Faculty, Course) */
+    .idea-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+    }
+    .idea-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+    .idea-badge--category {
+        background-color: var(--primary-blue-subtle);
+        color: var(--primary-blue);
+        border: 1px solid rgba(0, 51, 102, 0.25);
+    }
+    [data-theme="dark"] .idea-badge--category {
+        background-color: rgba(56, 189, 248, 0.14);
+        border-color: rgba(56, 189, 248, 0.35);
+        color: #38bdf8;
+    }
+    .idea-badge--faculty {
+        background-color: rgba(237, 28, 36, 0.08);
+        color: var(--primary-red);
+        border: 1px solid rgba(237, 28, 36, 0.25);
+    }
+    [data-theme="dark"] .idea-badge--faculty {
+        background-color: rgba(244, 63, 94, 0.14);
+        color: #f43f5e;
+        border-color: rgba(244, 63, 94, 0.35);
+    }
+    .idea-badge--course {
+        background-color: rgba(100, 116, 139, 0.1);
+        color: var(--text-muted);
+        border: 1px solid var(--border-color);
+    }
+    [data-theme="dark"] .idea-badge--course {
+        background-color: rgba(255, 255, 255, 0.06);
+        color: #e2e8f0;
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Stats & Status Badges (Matches Resource Hub Pills) */
+    .idea-stat-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        background: var(--surface-glass);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        font-weight: 500;
+    }
+    .idea-stat-badge--open {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: rgba(16, 185, 129, 0.12);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    [data-theme="dark"] .idea-stat-badge--open {
+        background: rgba(16, 185, 129, 0.22);
+        color: #34d399;
+        border-color: rgba(52, 211, 153, 0.4);
+    }
+    .idea-stat-badge--full {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: rgba(100, 116, 139, 0.14);
+        color: #475569;
+        border: 1px solid rgba(100, 116, 139, 0.3);
+    }
+    [data-theme="dark"] .idea-stat-badge--full {
+        background: rgba(100, 116, 139, 0.25);
+        color: #cbd5e1;
+        border-color: rgba(148, 163, 184, 0.35);
+    }
+    .idea-stat-badge--closed {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: rgba(245, 158, 11, 0.14);
+        color: #d97706;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    [data-theme="dark"] .idea-stat-badge--closed {
+        background: rgba(245, 158, 11, 0.25);
+        color: #fbbf24;
+        border-color: rgba(251, 191, 36, 0.4);
+    }
+
+    /* Links and Headers */
+    .idea-card-title {
+        margin: 6px 0 8px 0;
+        font-size: 1.22rem;
+        font-weight: 700;
+    }
+    .idea-card-title a {
+        color: var(--text-color);
+        text-decoration: none;
+        transition: color 0.15s ease;
+    }
+    .idea-card-title a:hover {
+        color: var(--primary-blue);
+    }
+    .idea-card-desc {
+        margin: 0 0 14px 0;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.6;
+        word-break: break-word;
+    }
+    .idea-card-footer-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-color);
+        font-size: 0.88rem;
+        color: var(--text-muted);
+    }
+
+    /* Two-Column Responsive Grid (Detail Page) */
+    .idea-detail-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+    @media (max-width: 860px) {
+        .idea-detail-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Form Container (Post & Edit) */
+    .idea-form-card {
+        max-width: 840px;
+        margin: 0 auto;
+        background: var(--surface-card);
+        border: 1px solid var(--border-card);
+        border-radius: 14px;
+        padding: 30px 34px;
+        box-shadow: var(--shadow-sm);
+        position: relative;
+    }
+    .idea-form-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--brand-accent-line);
+        border-radius: 14px 14px 0 0;
+    }
+    .idea-form-group {
+        margin-bottom: 20px;
+    }
+    .idea-form-label {
+        display: block;
+        font-size: 0.88rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: var(--text-color);
+    }
+    .idea-form-text {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        margin-top: 4px;
+    }
+    .idea-form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    .idea-form-row--3 {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 16px;
+    }
+    @media (max-width: 650px) {
+        .idea-form-row, .idea-form-row--3 {
+            grid-template-columns: 1fr;
+        }
+        .idea-form-card {
+            padding: 20px 18px;
+        }
+    }
+
+    /* Tabs (My Ideas Dashboard) */
+    .idea-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 2px;
+        flex-wrap: wrap;
+    }
+    .idea-tab-link {
+        padding: 8px 18px;
+        border-radius: 8px 8px 0 0;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--text-muted);
+        transition: all 0.2s ease;
+        border-bottom: 3px solid transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .idea-tab-link:hover {
+        color: var(--primary-blue);
+    }
+    .idea-tab-link.active {
+        color: var(--primary-blue);
+        border-bottom: 3px solid var(--primary-blue);
+    }
+    [data-theme="dark"] .idea-tab-link.active {
+        color: #38bdf8;
+        border-bottom: 3px solid #38bdf8;
+    }
+
+    /* Dashboard Data Table */
+    .idea-table-card {
+        border-radius: 12px;
+        overflow-x: auto;
+        background: var(--surface-card);
+        border: 1px solid var(--border-card);
+        box-shadow: var(--shadow-sm);
+        position: relative;
+    }
+    .idea-table-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--brand-accent-line);
+        border-radius: 12px 12px 0 0;
+    }
+    .idea-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+    }
+    .idea-table th {
+        background: var(--surface-glass);
+        padding: 12px 16px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .idea-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+        color: var(--text-color);
+    }
+    .idea-table tr:hover {
+        background-color: var(--primary-blue-subtle);
+    }
+    [data-theme="dark"] .idea-table th {
+        background: rgba(30, 41, 59, 0.6);
+        color: #94a3b8;
+    }
+
+    /* Teammate List Cards (Detail Page) */
+    .idea-member-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: var(--surface-glass);
+        border: 1px solid var(--border-color);
+        transition: transform 0.18s ease;
+        margin-bottom: 8px;
+    }
+    .idea-member-card:hover {
+        transform: translateX(3px);
+    }
+    [data-theme="dark"] .idea-member-card {
+        background: rgba(30, 41, 59, 0.5) !important;
+        border-color: rgba(56, 189, 248, 0.15) !important;
+    }
+
+    /* Description Box (Detail Page) */
+    .idea-description-box {
+        background: var(--surface-glass);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 18px 20px;
+        font-size: 0.96rem;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        color: var(--text-color);
+    }
+
+    /* Danger Zone Card */
+    .idea-danger-card {
+        border: 1px solid rgba(239, 68, 68, 0.4) !important;
+        background: rgba(239, 68, 68, 0.04) !important;
+        border-radius: 12px;
+        padding: 18px 22px;
+        margin-top: 24px;
+    }
+    [data-theme="dark"] .idea-danger-card {
+        background: rgba(239, 68, 68, 0.08) !important;
+        border-color: rgba(239, 68, 68, 0.3) !important;
+    }
+
+    /* Back Button */
+    .idea-back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-muted);
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.9rem;
+        transition: color 0.2s ease, transform 0.2s ease;
+    }
+    .idea-back-btn:hover {
+        color: var(--primary-blue);
+        transform: translateX(-2px);
+    }
+</style>

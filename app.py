@@ -800,29 +800,46 @@ def edit_profile():
     form = EditProfileForm(obj=current_user)
 
     if form.validate_on_submit():
-        # Handle avatar file upload if provided
+        # Handle avatar file upload if provided (Upload & Replace)
         photo_file = form.profile_photo.data
         if photo_file and getattr(photo_file, 'filename', None):
             filename_raw = secure_filename(photo_file.filename)
             ext = os.path.splitext(filename_raw)[1].lower().lstrip('.')
-            if ext not in ['png', 'jpg', 'jpeg', 'webp']:
-                flash('Invalid image format. Allowed formats: PNG, JPG, JPEG, WEBP.', 'danger')
+            prohibited_exts = {'exe', 'bat', 'cmd', 'sh', 'pdf', 'docx', 'doc', 'txt', 'rtf', 'odt', 'zip', 'rar', '7z', 'py', 'js', 'html', 'bin', 'dll'}
+            if ext in prohibited_exts or ext not in ['png', 'jpg', 'jpeg', 'webp']:
+                flash('Invalid file format. Only image files (.png, .jpg, .jpeg, .webp) are allowed.', 'danger')
                 return render_template('edit_profile.html', form=form)
 
+            # Check file size (Max 5MB)
+            try:
+                photo_file.seek(0, os.SEEK_END)
+                file_size = photo_file.tell()
+                photo_file.seek(0)
+                if file_size > 5 * 1024 * 1024:
+                    flash('Profile photo size exceeds 5MB limit. Please upload a smaller image.', 'danger')
+                    return render_template('edit_profile.html', form=form)
+            except Exception:
+                pass
+
+            # Deep verification with Pillow to prevent renamed executable/text files
             try:
                 photo_file.seek(0)
                 img = Image.open(photo_file)
                 img.verify()
+                img_format = getattr(img, 'format', '').upper()
+                if img_format not in ['PNG', 'JPEG', 'WEBP']:
+                    flash('The uploaded file is not a genuine image file. Disguised documents, text files, or executable files are rejected.', 'danger')
+                    return render_template('edit_profile.html', form=form)
                 photo_file.seek(0)
             except Exception:
-                flash('The uploaded file is not a valid or readable image.', 'danger')
+                flash('The uploaded file is not a valid or readable image. Documents, text files, and executables cannot be used as profile photos.', 'danger')
                 return render_template('edit_profile.html', form=form)
 
             unique_name = f"{int(datetime.now(timezone.utc).timestamp())}_{uuid.uuid4().hex[:8]}_{filename_raw}"
             save_path = os.path.join(app.config['AVATARS_FOLDER'], unique_name)
             photo_file.save(save_path)
 
-            # Remove previous custom avatar if exists
+            # Remove previous custom avatar if exists (Replace)
             if current_user.profile_pic:
                 old_path = os.path.join(app.config['AVATARS_FOLDER'], current_user.profile_pic)
                 if os.path.exists(old_path):

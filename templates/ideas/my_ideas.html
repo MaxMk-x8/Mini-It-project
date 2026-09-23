@@ -1,194 +1,194 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid py-3">
-    {# Page Header #}
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 pb-2 border-bottom">
+{% include "ideas/_idea_styles.html" %}
+
+<div class="idea-container">
+    {# Brand Header #}
+    <div class="idea-brand-header">
         <div>
-            <h2 class="mb-1 text-primary">📋 My Ideas &amp; Applications</h2>
-            <p class="text-muted small mb-0">
+            <h2 style="margin: 0; color: var(--primary-blue); font-size: 1.75rem; font-weight: 800;">📋 My Ideas &amp; Applications</h2>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.95rem;">
                 Manage project ideas you created and track the status of your teammate applications.
             </p>
         </div>
-        <div>
-            <a href="{{ url_for('idea_post') }}" class="btn btn-primary btn-sm">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <button type="button" class="qa-theme-toggle" onclick="toggleQATheme()">🌙 Dark Mode</button>
+            <a href="{{ url_for('idea_post') }}" class="btn btn-primary" style="font-size: 0.95rem;">
                 + Post an Idea
             </a>
-            <a href="{{ url_for('ideas_index') }}" class="btn btn-outline-secondary btn-sm">
+            <a href="{{ url_for('ideas_index') }}" class="btn btn-secondary" style="font-size: 0.95rem;">
                 Browse Idea Lab
             </a>
         </div>
     </div>
 
     {# Tab Navigation #}
-    <ul class="nav nav-tabs mb-4">
-        <li class="nav-item">
-            <a class="nav-link {% if active_tab == 'posted' %}active fw-bold{% endif %}" href="{{ url_for('my_ideas', tab='posted') }}">
-                💡 Ideas I Posted ({{ posted_ideas|length }})
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if active_tab == 'applied' %}active fw-bold{% endif %}" href="{{ url_for('my_ideas', tab='applied') }}">
-                🤝 Ideas I Applied To ({{ applied_interests|length }})
-            </a>
-        </li>
-    </ul>
+    <div class="idea-tabs">
+        <a class="idea-tab-link {% if active_tab == 'posted' %}active{% endif %}" href="{{ url_for('my_ideas', tab='posted') }}">
+            💡 Ideas I Posted ({{ posted_ideas|length }})
+        </a>
+        <a class="idea-tab-link {% if active_tab == 'applied' %}active{% endif %}" href="{{ url_for('my_ideas', tab='applied') }}">
+            🤝 Ideas I Applied To ({{ applied_interests|length }})
+        </a>
+    </div>
 
     {# Tab 1: Ideas I Posted #}
     {% if active_tab == 'posted' %}
         {% if posted_ideas %}
-            <div class="card shadow-sm border">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+            <div class="idea-table-card">
+                <table class="idea-table">
+                    <thead>
+                        <tr>
+                            <th>Project Idea</th>
+                            <th>Category / Faculty</th>
+                            <th>Team Capacity</th>
+                            <th>Pending Applicants</th>
+                            <th>Status</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for idea in posted_ideas %}
                             <tr>
-                                <th>Project Idea</th>
-                                <th>Category / Faculty</th>
-                                <th>Team Capacity</th>
-                                <th>Pending Applicants</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for idea in posted_ideas %}
-                                <tr>
-                                    <td>
-                                        <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="fw-bold text-decoration-none">
-                                            {{ idea.title }}
-                                        </a>
-                                        <br>
-                                        <small class="text-muted">
-                                            Created: {{ idea.created_at.strftime('%Y-%m-%d') if idea.created_at else 'N/A' }}
-                                            {% if idea.course_code %} &bull; {{ idea.course_code }}{% endif %}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">{{ idea.category }}</span>
-                                        <span class="badge bg-info text-dark">{{ idea.faculty }}</span>
-                                    </td>
-                                    <td>
+                                <td>
+                                    <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" style="font-weight: 700; color: var(--text-color); text-decoration: none;">
+                                        {{ idea.title }}
+                                    </a>
+                                    <br>
+                                    <small style="color: var(--text-muted);">
+                                        Created: {{ idea.created_at.strftime('%Y-%m-%d') if idea.created_at else 'N/A' }}
+                                        {% if idea.course_code %} &bull; {{ idea.course_code }}{% endif %}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="idea-badges">
+                                        <span class="idea-badge idea-badge--category">{{ idea.category }}</span>
+                                        <span class="idea-badge idea-badge--faculty">{{ idea.faculty }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="idea-stat-badge">
                                         👥 <strong>{{ idea.accepted_members_count }}</strong> / {{ idea.max_members }}
-                                    </td>
-                                    <td>
-                                        {% set pending_count = idea.interests|selectattr('status', 'equalto', 'pending')|list|length %}
-                                        {% if pending_count > 0 %}
-                                            <span class="badge bg-danger rounded-pill">{{ pending_count }} pending</span>
-                                        {% else %}
-                                            <span class="text-muted small">0 pending</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if not idea.is_open %}
-                                            <span class="badge bg-warning text-dark">Closed</span>
-                                        {% elif idea.is_group_complete %}
-                                            <span class="badge bg-dark">Full</span>
-                                        {% else %}
-                                            <span class="badge bg-success">Open</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="d-flex gap-1">
-                                            <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="btn btn-outline-primary btn-sm">View</a>
-                                            <a href="{{ url_for('idea_edit', idea_id=idea.id) }}" class="btn btn-outline-secondary btn-sm">Edit</a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                    </span>
+                                </td>
+                                <td>
+                                    {% set pending_count = idea.interests|selectattr('status', 'equalto', 'pending')|list|length %}
+                                    {% if pending_count > 0 %}
+                                        <span style="background: rgba(237, 28, 36, 0.15); color: var(--primary-red); border: 1px solid rgba(237, 28, 36, 0.3); border-radius: 9999px; padding: 2px 9px; font-size: 0.8rem; font-weight: 700;">
+                                            {{ pending_count }} pending
+                                        </span>
+                                    {% else %}
+                                        <span style="color: var(--text-muted); font-size: 0.85rem;">0 pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not idea.is_open %}
+                                        <span class="idea-stat-badge--closed">Closed</span>
+                                    {% elif idea.is_group_complete %}
+                                        <span class="idea-stat-badge--full">Team Full</span>
+                                    {% else %}
+                                        <span class="idea-stat-badge--open">Open</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">
+                                    <div style="display: inline-flex; gap: 6px;">
+                                        <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="btn btn-secondary btn-sm">View</a>
+                                        <a href="{{ url_for('idea_edit', idea_id=idea.id) }}" class="btn btn-secondary btn-sm">Edit</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         {% else %}
-            <div class="card text-center py-5 bg-light border-dashed">
-                <div class="card-body">
-                    <div class="display-6 mb-2">💡</div>
-                    <h5 class="text-muted">You haven't posted any project ideas yet</h5>
-                    <p class="text-muted small">
-                        Share your project concept and start recruiting teammates across campus!
-                    </p>
-                    <a href="{{ url_for('idea_post') }}" class="btn btn-primary btn-sm mt-2">+ Post Your First Idea</a>
-                </div>
+            <div class="idea-card" style="text-align: center; padding: 48px 24px; border: 2px dashed var(--border-color); border-radius: 12px;">
+                <div style="font-size: 2.5rem; margin-bottom: 12px;">💡</div>
+                <h4 style="margin: 0 0 8px 0; color: var(--text-color); font-weight: 700;">You haven't posted any project ideas yet</h4>
+                <p style="margin: 0 0 18px 0; color: var(--text-muted); font-size: 0.95rem;">
+                    Share your project concept and start recruiting teammates across campus!
+                </p>
+                <a href="{{ url_for('idea_post') }}" class="btn btn-primary btn-sm">+ Post Your First Idea</a>
             </div>
         {% endif %}
 
     {# Tab 2: Ideas I Applied To #}
     {% elif active_tab == 'applied' %}
         {% if applied_interests %}
-            <div class="card shadow-sm border">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+            <div class="idea-table-card">
+                <table class="idea-table">
+                    <thead>
+                        <tr>
+                            <th>Project Idea</th>
+                            <th>Project Lead</th>
+                            <th>Date Applied</th>
+                            <th>Your Pitch</th>
+                            <th>Application Status</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for interest in applied_interests %}
+                            {% set idea = interest.idea %}
                             <tr>
-                                <th>Project Idea</th>
-                                <th>Project Lead</th>
-                                <th>Date Applied</th>
-                                <th>Your Pitch</th>
-                                <th>Application Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for interest in applied_interests %}
-                                {% set idea = interest.idea %}
-                                <tr>
-                                    <td>
-                                        <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="fw-bold text-decoration-none">
-                                            {{ idea.title }}
-                                        </a>
-                                        <br>
-                                        <small class="text-muted">{{ idea.category }} &bull; {{ idea.faculty }}</small>
-                                    </td>
-                                    <td>
-                                        <a href="{{ url_for('public_profile', username=idea.owner.username) }}" class="text-decoration-none">
-                                            @{{ idea.owner.username }}
-                                        </a>
-                                    </td>
-                                    <td class="small text-muted">
-                                        {{ interest.created_at.strftime('%Y-%m-%d') if interest.created_at else 'N/A' }}
-                                    </td>
-                                    <td>
-                                        <span class="small text-muted text-break">
-                                            {{ interest.message[:80] if interest.message else 'No pitch provided.' }}{% if interest.message and interest.message|length > 80 %}...{% endif %}
-                                        </span>
-                                    </td>
-                                    <td>
+                                <td>
+                                    <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" style="font-weight: 700; color: var(--text-color); text-decoration: none;">
+                                        {{ idea.title }}
+                                    </a>
+                                    <br>
+                                    <small style="color: var(--text-muted);">
+                                        <span class="idea-badge idea-badge--category">{{ idea.category }}</span>
+                                        <span class="idea-badge idea-badge--faculty">{{ idea.faculty }}</span>
+                                    </small>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('public_profile', username=idea.owner.username) }}" style="color: var(--primary-blue); font-weight: 600; text-decoration: none;">
+                                        @{{ idea.owner.username }}
+                                    </a>
+                                </td>
+                                <td style="font-size: 0.88rem; color: var(--text-muted);">
+                                    {{ interest.created_at.strftime('%Y-%m-%d') if interest.created_at else 'N/A' }}
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.88rem; color: var(--text-muted); max-width: 250px; display: inline-block; word-break: break-word;">
+                                        {{ interest.message[:80] if interest.message else 'No pitch provided.' }}{% if interest.message and interest.message|length > 80 %}...{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if interest.status == 'pending' %}
+                                        <span class="idea-stat-badge--closed">⏳ Pending Review</span>
+                                    {% elif interest.status == 'accepted' %}
+                                        <span class="idea-stat-badge--open">🎉 Accepted</span>
+                                    {% elif interest.status == 'rejected' %}
+                                        <span class="idea-stat-badge--full">Not Accepted</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">
+                                    <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end;">
+                                        <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="btn btn-secondary btn-sm">View</a>
                                         {% if interest.status == 'pending' %}
-                                            <span class="badge bg-warning text-dark">⏳ Pending Review</span>
-                                        {% elif interest.status == 'accepted' %}
-                                            <span class="badge bg-success">🎉 Accepted</span>
-                                        {% elif interest.status == 'rejected' %}
-                                            <span class="badge bg-secondary">Not Accepted</span>
+                                            <form method="POST" action="{{ url_for('idea_withdraw_interest', idea_id=idea.id) }}" onsubmit="return confirm('Withdraw your application?');" style="display: inline; margin: 0;">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <input type="hidden" name="next" value="{{ url_for('my_ideas', tab='applied') }}">
+                                                <button type="submit" class="btn btn-danger btn-sm">Withdraw</button>
+                                            </form>
                                         {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="d-flex align-items-center gap-1">
-                                            <a href="{{ url_for('idea_detail', idea_id=idea.id) }}" class="btn btn-outline-primary btn-sm">View</a>
-                                            {% if interest.status == 'pending' %}
-                                                <form method="POST" action="{{ url_for('idea_withdraw_interest', idea_id=idea.id) }}" onsubmit="return confirm('Withdraw your application?');">
-                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <input type="hidden" name="next" value="{{ url_for('my_ideas', tab='applied') }}">
-                                                    <button type="submit" class="btn btn-outline-danger btn-sm">Withdraw</button>
-                                                </form>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         {% else %}
-            <div class="card text-center py-5 bg-light border-dashed">
-                <div class="card-body">
-                    <div class="display-6 mb-2">🤝</div>
-                    <h5 class="text-muted">You haven't applied to any projects yet</h5>
-                    <p class="text-muted small">
-                        Explore projects posted by other students and pitch your skills to join a team!
-                    </p>
-                    <a href="{{ url_for('ideas_index') }}" class="btn btn-primary btn-sm mt-2">Browse Project Ideas</a>
-                </div>
+            <div class="idea-card" style="text-align: center; padding: 48px 24px; border: 2px dashed var(--border-color); border-radius: 12px;">
+                <div style="font-size: 2.5rem; margin-bottom: 12px;">🤝</div>
+                <h4 style="margin: 0 0 8px 0; color: var(--text-color); font-weight: 700;">You haven't applied to any projects yet</h4>
+                <p style="margin: 0 0 18px 0; color: var(--text-muted); font-size: 0.95rem;">
+                    Explore projects posted by other students and pitch your skills to join a team!
+                </p>
+                <a href="{{ url_for('ideas_index') }}" class="btn btn-primary btn-sm">+ Browse Project Ideas</a>
             </div>
         {% endif %}
     {% endif %}
