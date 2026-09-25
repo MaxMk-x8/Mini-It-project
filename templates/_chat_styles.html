@@ -215,6 +215,8 @@
     }
 
     .chat-card-header {
+        position: relative;
+        z-index: 500;
         padding: 16px 20px;
         background: rgba(255, 255, 255, 0.88);
         backdrop-filter: blur(10px);
@@ -893,7 +895,7 @@
         border-radius: 12px;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
         padding: 6px;
-        z-index: 1050;
+        z-index: 9999;
         display: none;
         animation: chatDropdownFade 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
