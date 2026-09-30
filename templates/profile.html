@@ -1,281 +1,1008 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% if is_platform_blocked_by_me %}
-    <div style="background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-        <div>
-            <h4 style="margin: 0 0 4px 0; color: #991B1B;">🚫 You have blocked @{{ user.username }} across CodeNest.</h4>
-            <p style="margin: 0; font-size: 0.88rem; color: #7F1D1D;">They cannot view your profile, send messages, or interact with your posts.</p>
-        </div>
-        <form method="POST" action="{{ url_for('chat_unblock_user', username=user.username) }}" style="margin: 0;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            <button type="submit" style="background: #FFFFFF; color: #059669; border: 1.5px solid #10B981; font-weight: bold; padding: 6px 14px; border-radius: 6px; cursor: pointer;">
-                ✓ Unblock User
-            </button>
-        </form>
-    </div>
-{% endif %}
+<style>
+    /* Profile Container */
+    .profile-container {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
 
-<div>
-    <div>
-        {% if user.avatar_url %}
-            <img src="{{ user.avatar_url }}" alt="{{ user.username }}'s Avatar" width="100" height="100" style="object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 15px;">
-        {% else %}
-            <div style="width: 100px; height: 100px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; color: #475569; vertical-align: middle; margin-right: 15px;">
-                {{ user.username[:2]|upper }}
+    /* Blocked User Alert Banner */
+    .blocked-banner {
+        background: rgba(254, 242, 242, 0.9);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(248, 113, 113, 0.4);
+        border-left: 4px solid #ED1C24;
+        border-radius: 14px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        box-shadow: 0 4px 20px rgba(237, 28, 36, 0.06);
+    }
+    .blocked-banner h4 {
+        margin: 0 0 4px 0;
+        color: #991b1b;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+    .blocked-banner p {
+        margin: 0;
+        font-size: 0.86rem;
+        color: #7f1d1d;
+    }
+
+    /* Glassmorphic Profile Header Card */
+    .profile-hero-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        padding: 28px 28px 24px;
+        box-shadow: 0 12px 35px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+        position: relative;
+        overflow: visible;
+    }
+    .profile-hero-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 10%; right: 10%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.25), rgba(237, 28, 36, 0.25), transparent);
+    }
+
+    .profile-hero-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 22px;
+    }
+
+    .profile-user-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    /* Avatar Styling */
+    .profile-avatar-img {
+        width: 96px;
+        height: 96px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 3px solid #ffffff;
+        box-shadow: 0 8px 24px rgba(0, 51, 102, 0.15);
+        transition: transform 0.25s ease;
+    }
+    .profile-avatar-img:hover {
+        transform: scale(1.03);
+    }
+    .profile-avatar-placeholder {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 800;
+        border: 3px solid #ffffff;
+        box-shadow: 0 8px 24px rgba(0, 51, 102, 0.15);
+        letter-spacing: 1px;
+    }
+
+    .profile-meta-details h2 {
+        margin: 0 0 6px 0;
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Badges & Chips */
+    .profile-chips-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    .meta-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+    .meta-chip-role {
+        background: rgba(224, 242, 254, 0.85);
+        color: #0369a1;
+        border: 1px solid rgba(186, 230, 253, 0.8);
+    }
+    .meta-chip-faculty {
+        background: rgba(241, 245, 249, 0.85);
+        color: #475569;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    .meta-chip-date {
+        color: #64748b;
+        font-size: 0.82rem;
+    }
+
+    /* Reputation & Stats Badges */
+    .profile-stats-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .stat-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 9999px;
+        font-size: 0.84rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    .stat-pill-rep {
+        background: rgba(236, 253, 245, 0.85);
+        color: #047857;
+        border: 1px solid rgba(167, 243, 208, 0.8);
+    }
+    .stat-pill-super {
+        background: rgba(254, 243, 199, 0.85);
+        color: #b45309;
+        border: 1px solid rgba(253, 230, 138, 0.8);
+    }
+    .stat-pill-link {
+        background: rgba(255, 255, 255, 0.7);
+        color: #334155;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+    }
+    .stat-pill-link:hover {
+        background: #ffffff;
+        color: #004FB6;
+        border-color: rgba(0, 79, 182, 0.3);
+        transform: translateY(-1px);
+    }
+    .stat-pill-link strong {
+        color: #003366;
+    }
+
+    /* Modern Professional Buttons */
+    .profile-actions-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(0, 51, 102, 0.07);
+    }
+
+    .btn-profile {
+        padding: 9px 18px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 0.88rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        border: none;
+        outline: none;
+        line-height: 1.2;
+    }
+
+    /* Primary Button (Home Page Blue Gradient) */
+    .btn-profile-primary {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff !important;
+        box-shadow: 0 4px 14px rgba(0, 51, 102, 0.22);
+    }
+    .btn-profile-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 22px rgba(0, 51, 102, 0.32);
+        color: #ffffff !important;
+    }
+
+    /* Secondary Button (Frosted Minimal Clean) */
+    .btn-profile-secondary {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(8px);
+        color: #003366 !important;
+        border: 1px solid rgba(203, 213, 225, 0.8);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+    .btn-profile-secondary:hover {
+        background: #ffffff;
+        color: #004FB6 !important;
+        border-color: rgba(0, 79, 182, 0.35);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 51, 102, 0.08);
+    }
+
+    /* Accent Button (Red Gradient) */
+    .btn-profile-accent {
+        background: linear-gradient(135deg, #ED1C24, #c9141b);
+        color: #ffffff !important;
+        box-shadow: 0 4px 14px rgba(237, 28, 36, 0.22);
+    }
+    .btn-profile-accent:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(237, 28, 36, 0.32);
+        color: #ffffff !important;
+    }
+
+    /* Unfollow / Danger Subtle Button */
+    .btn-profile-danger-outline {
+        background: rgba(254, 242, 242, 0.8);
+        color: #b91c1c !important;
+        border: 1px solid rgba(252, 165, 165, 0.8);
+    }
+    .btn-profile-danger-outline:hover {
+        background: #fee2e2;
+        color: #991b1b !important;
+        transform: translateY(-2px);
+    }
+
+    .badge-count {
+        background: #ED1C24;
+        color: #ffffff;
+        border-radius: 9999px;
+        padding: 1px 7px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        box-shadow: 0 1px 4px rgba(237, 28, 36, 0.3);
+    }
+
+    /* 3-Row / Hamburger Dropdown Menu Component */
+    .profile-menu-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .btn-menu-trigger {
+        padding: 9px 12px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(8px);
+        color: #003366;
+        border: 1px solid rgba(203, 213, 225, 0.8);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        outline: none;
+        line-height: 1;
+        height: 38px;
+    }
+    .btn-menu-trigger:hover, .btn-menu-trigger.active {
+        background: #ffffff;
+        color: #004FB6;
+        border-color: rgba(0, 79, 182, 0.35);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 51, 102, 0.08);
+    }
+
+    /* Three horizontal rows/bars icon */
+    .hamburger-icon {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 3.5px;
+        width: 16px;
+        height: 14px;
+    }
+    .hamburger-bar {
+        height: 2px;
+        background-color: #003366;
+        border-radius: 2px;
+        width: 100%;
+        transition: background-color 0.2s ease;
+    }
+    .btn-menu-trigger:hover .hamburger-bar,
+    .btn-menu-trigger.active .hamburger-bar {
+        background-color: #004FB6;
+    }
+
+    .profile-dropdown-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        min-width: 190px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(18px) saturate(180%);
+        -webkit-backdrop-filter: blur(18px) saturate(180%);
+        border: 1px solid rgba(226, 232, 240, 0.95);
+        border-radius: 14px;
+        padding: 6px;
+        box-shadow: 0 14px 35px -8px rgba(0, 51, 102, 0.14), 0 4px 12px rgba(0, 0, 0, 0.03);
+        z-index: 1000;
+        display: none;
+        flex-direction: column;
+        gap: 3px;
+        animation: dropMenuAnim 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .profile-dropdown-menu.show {
+        display: flex;
+    }
+
+    @keyframes dropMenuAnim {
+        from {
+            opacity: 0;
+            transform: translateY(-6px) scale(0.97);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .profile-dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: #1e293b;
+        text-decoration: none;
+        font-size: 0.88rem;
+        font-weight: 600;
+        transition: all 0.15s ease;
+    }
+    .profile-dropdown-item:hover {
+        background: rgba(0, 51, 102, 0.06);
+        color: #004FB6;
+        transform: translateX(2px);
+    }
+
+    /* 2-Column Grid for Details (About & Contact) */
+    .profile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+    }
+
+    .profile-card {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 18px;
+        padding: 22px 24px;
+        box-shadow: 0 8px 24px -6px rgba(0, 51, 102, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .profile-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    .profile-card-header h3 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .profile-card-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(0, 51, 102, 0.06);
+        color: #003366;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+
+    .profile-card-body {
+        color: #334155;
+        font-size: 0.92rem;
+        line-height: 1.6;
+        flex-grow: 1;
+    }
+    .profile-card-body p {
+        margin: 0 0 10px 0;
+    }
+    .profile-card-body p:last-child {
+        margin-bottom: 0;
+    }
+
+    /* Contact Links Pills */
+    .contact-link-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+        word-break: break-all;
+    }
+    .contact-link-row:last-child {
+        margin-bottom: 0;
+    }
+    .contact-label {
+        font-weight: 600;
+        color: #475569;
+        min-width: 100px;
+    }
+    .contact-pill {
+        color: #004FB6;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.15s ease;
+    }
+    .contact-pill:hover {
+        color: #003366;
+        text-decoration: underline;
+    }
+
+    /* Contributions Section */
+    .contributions-card {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 8px 24px -6px rgba(0, 51, 102, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+    }
+
+    /* Modern Tabs Nav with minimal lines */
+    .profile-tabs-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        padding-bottom: 14px;
+        margin-bottom: 20px;
+        overflow-x: auto;
+    }
+    .profile-tab-item {
+        padding: 8px 16px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        background: transparent;
+        white-space: nowrap;
+    }
+    .profile-tab-item:hover {
+        color: #003366;
+        background: rgba(0, 51, 102, 0.04);
+    }
+    .profile-tab-item.active {
+        background: #003366;
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.18);
+    }
+    .tab-counter {
+        display: inline-block;
+        padding: 1px 7px;
+        border-radius: 9999px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        background: rgba(0, 51, 102, 0.08);
+        color: #003366;
+    }
+    .profile-tab-item.active .tab-counter {
+        background: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+    }
+
+    /* Minimal Line Modern Table */
+    .modern-table-container {
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        background: rgba(255, 255, 255, 0.6);
+    }
+    .modern-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.88rem;
+    }
+    .modern-table th {
+        background: rgba(241, 245, 249, 0.85);
+        color: #334155;
+        font-weight: 700;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(203, 213, 225, 0.8);
+    }
+    .modern-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+        color: #1e293b;
+        vertical-align: middle;
+    }
+    .modern-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .modern-table tbody tr {
+        transition: background 0.15s ease;
+    }
+    .modern-table tbody tr:hover {
+        background: rgba(248, 250, 252, 0.85);
+    }
+
+    .table-link {
+        color: #004FB6;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.15s ease;
+    }
+    .table-link:hover {
+        color: #003366;
+        text-decoration: underline;
+    }
+
+    .tag-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+    .tag-visibility {
+        background: rgba(241, 245, 249, 0.9);
+        color: #475569;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+    }
+
+    .empty-state-box {
+        text-align: center;
+        padding: 36px 20px;
+        color: #64748b;
+        font-size: 0.92rem;
+    }
+    .empty-state-icon {
+        font-size: 2rem;
+        margin-bottom: 8px;
+        display: block;
+        opacity: 0.7;
+    }
+</style>
+
+<div class="profile-container">
+
+    {# Blocked user notice #}
+    {% if is_platform_blocked_by_me %}
+        <div class="blocked-banner">
+            <div>
+                <h4>🚫 You have blocked @{{ user.username }} across CodeNest</h4>
+                <p>They cannot view your profile, send messages, or interact with your posts.</p>
             </div>
-        {% endif %}
-        
-        <div style="display: inline-block; vertical-align: middle;">
-            <h2 style="margin-bottom: 5px;">{{ user.username }}</h2>
-            <p style="margin: 0 0 5px 0;">
-                <strong>Role:</strong> {{ user.role }} &nbsp;|&nbsp; 
-                <strong>Faculty:</strong> {{ user.faculty }} &nbsp;|&nbsp; 
-                <strong>Joined:</strong> {{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A' }}
-            </p>
-            <p style="margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <span><strong>Reputation:</strong> <span style="background: #e8f5e9; color: #2e7d32; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid #a5d6a7;">⭐ {{ user.reputation_points }} pts</span></span>
-                <span>&bull;</span>
-                <span><strong>Super Endorsements:</strong> <span style="background: #fff3cd; color: #856404; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid #ffeeba;">🎓 {{ user.professor_endorsements_count }}</span></span>
-                <span>&bull;</span>
-                <span><strong>Followers:</strong> <a href="{{ url_for('user_followers', username=user.username) }}"><strong>{{ user.follower_count }}</strong></a></span>
-                <span>&bull;</span>
-                <span><strong>Following:</strong> <a href="{{ url_for('user_following', username=user.username) }}"><strong>{{ user.following_count }}</strong></a></span>
-            </p>
+            <form method="POST" action="{{ url_for('chat_unblock_user', username=user.username) }}" style="margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn-profile" style="background: #ffffff; color: #059669; border: 1px solid #10b981; font-weight: 700;">
+                    ✓ Unblock User
+                </button>
+            </form>
+        </div>
+    {% endif %}
+
+    {# Hero Profile Card #}
+    <div class="profile-hero-card">
+        <div class="profile-hero-inner">
+            <div class="profile-user-info">
+                {% if user.avatar_url %}
+                    <img src="{{ user.avatar_url }}" alt="{{ user.username }}'s Avatar" class="profile-avatar-img">
+                {% else %}
+                    <div class="profile-avatar-placeholder">
+                        {{ user.username[:2]|upper }}
+                    </div>
+                {% endif %}
+                
+                <div class="profile-meta-details">
+                    <h2>@{{ user.username }}</h2>
+                    
+                    <div class="profile-chips-row">
+                        <span class="meta-chip meta-chip-role">🛡️ {{ user.role }}</span>
+                        <span class="meta-chip meta-chip-faculty">🏛️ {{ user.faculty }}</span>
+                        <span class="meta-chip-date">📅 Joined {{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A' }}</span>
+                    </div>
+
+                    <div class="profile-stats-row">
+                        <span class="stat-pill stat-pill-rep" title="Reputation Points">
+                            ⭐ <strong>{{ user.reputation_points }}</strong> pts
+                        </span>
+                        <span class="stat-pill stat-pill-super" title="Super Endorsements">
+                            🎓 <strong>{{ user.professor_endorsements_count }}</strong> endorsements
+                        </span>
+                        <a href="{{ url_for('user_followers', username=user.username) }}" class="stat-pill stat-pill-link">
+                            👥 <strong>{{ user.follower_count }}</strong> Followers
+                        </a>
+                        <a href="{{ url_for('user_following', username=user.username) }}" class="stat-pill stat-pill-link">
+                            🔗 <strong>{{ user.following_count }}</strong> Following
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Action Buttons Row #}
+        <div class="profile-actions-row">
+            {% if is_own_profile %}
+                <a href="{{ url_for('edit_profile') }}" class="btn-profile btn-profile-primary">
+                    ✏️ Edit Profile
+                </a>
+                <a href="{{ url_for('follow_requests') }}" class="btn-profile btn-profile-secondary">
+                    📬 Follow Requests
+                    {% if current_user.pending_follow_requests_count > 0 %}
+                        <span class="badge-count">{{ current_user.pending_follow_requests_count }}</span>
+                    {% endif %}
+                </a>
+
+                {# Three-row / Hamburger Menu Dropdown beside Follow Requests #}
+                <div class="profile-menu-dropdown" id="profileMoreDropdown">
+                    <button type="button" class="btn-menu-trigger" id="profileMenuTrigger" aria-label="More Options" title="More Options" onclick="toggleProfileDropdown(event)">
+                        <div class="hamburger-icon">
+                            <span class="hamburger-bar"></span>
+                            <span class="hamburger-bar"></span>
+                            <span class="hamburger-bar"></span>
+                        </div>
+                    </button>
+                    <div class="profile-dropdown-menu" id="profileDropdownMenu">
+                        <a href="{{ url_for('saved_questions') }}" class="profile-dropdown-item">
+                            <span>🔖</span>
+                            <span>Bookmarks</span>
+                        </a>
+                        <a href="{{ url_for('qa_drafts') }}" class="profile-dropdown-item">
+                            <span>📝</span>
+                            <span>My Drafts</span>
+                        </a>
+                    </div>
+                </div>
+
+            {% else %}
+                {% if is_following %}
+                    <form method="POST" action="{{ url_for('unfollow_user', username=user.username) }}" style="display: inline; margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn-profile btn-profile-danger-outline" onclick="return confirm('Unfollow @{{ user.username }}?');">
+                            ✓ Following (Unfollow)
+                        </button>
+                    </form>
+                {% elif has_pending_follow %}
+                    <form method="POST" action="{{ url_for('unfollow_user', username=user.username) }}" style="display: inline; margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn-profile btn-profile-secondary">
+                            ⏳ Requested (Cancel)
+                        </button>
+                    </form>
+                {% else %}
+                    <form method="POST" action="{{ url_for('follow_user', username=user.username) }}" style="display: inline; margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn-profile btn-profile-primary">
+                            {% if user.is_following(current_user) %}➕ Follow Back{% else %}➕ Follow{% endif %}
+                        </button>
+                    </form>
+                {% endif %}
+                
+                <a href="{{ url_for('chat_conversation', username=user.username) }}" class="btn-profile btn-profile-accent">
+                    💬 Message / Chat
+                </a>
+            {% endif %}
         </div>
     </div>
 
-    <div style="margin-top: 15px;">
-        {% if is_own_profile %}
-            <a href="{{ url_for('edit_profile') }}">Edit Profile</a> |
-            <a href="{{ url_for('follow_requests') }}">
-                Follow Requests
-                {% if current_user.pending_follow_requests_count > 0 %}
-                    (<strong>{{ current_user.pending_follow_requests_count }}</strong> pending)
+    {# 2-Column Info Grid: About & Contact Details #}
+    <div class="profile-grid">
+        <div class="profile-card">
+            <div class="profile-card-header">
+                <div class="profile-card-icon">📖</div>
+                <h3>About</h3>
+            </div>
+            <div class="profile-card-body">
+                {% if user.bio %}
+                    <p style="white-space: pre-wrap; margin: 0;">{{ user.bio }}</p>
+                {% else %}
+                    <p style="color: #94a3b8; font-style: italic;">No bio provided yet.</p>
                 {% endif %}
-            </a> |
-            <a href="{{ url_for('saved_questions') }}">Bookmarks</a> |
-            <a href="{{ url_for('qa_drafts') }}">My Drafts</a>
-        {% else %}
-            {% if is_following %}
-                <form method="POST" action="{{ url_for('unfollow_user', username=user.username) }}" style="display: inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button type="submit" onclick="return confirm('Unfollow @{{ user.username }}?');">Following (Unfollow)</button>
-                </form>
-            {% elif has_pending_follow %}
-                <form method="POST" action="{{ url_for('unfollow_user', username=user.username) }}" style="display: inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button type="submit">Requested (Cancel Request)</button>
-                </form>
-            {% else %}
-                <form method="POST" action="{{ url_for('follow_user', username=user.username) }}" style="display: inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button type="submit">{% if user.is_following(current_user) %}Follow Back{% else %}Follow{% endif %}</button>
-                </form>
-            {% endif %}
-            &nbsp;|&nbsp;
-            <a href="{{ url_for('chat_conversation', username=user.username) }}" style="font-weight: bold;">💬 Message / Chat</a>
-        {% endif %}
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <div class="profile-card-header">
+                <div class="profile-card-icon">🌐</div>
+                <h3>Contact &amp; Social Links</h3>
+            </div>
+            <div class="profile-card-body">
+                {# Contact Email Privacy Enforcement #}
+                {% if can_see_contact %}
+                    <div class="contact-link-row">
+                        <span class="contact-label">✉️ Email:</span>
+                        <a href="mailto:{{ user.contact_email }}" class="contact-pill">{{ user.contact_email }}</a>
+                    </div>
+                {% elif contact_restricted %}
+                    <p style="color: #64748b; font-size: 0.86rem;">
+                        <em>🔒 Contact email is visible to accepted followers only.</em>
+                    </p>
+                {% elif is_own_profile and not user.contact_email %}
+                    <p style="color: #94a3b8; font-size: 0.86rem;">
+                        <em>No contact email added yet. <a href="{{ url_for('edit_profile') }}" class="table-link">Add in Edit Profile</a>.</em>
+                    </p>
+                {% endif %}
+
+                {# Social Links Privacy Enforcement #}
+                {% if can_see_social %}
+                    {% if user.github_url %}
+                        <div class="contact-link-row">
+                            <span class="contact-label">🐙 GitHub:</span>
+                            <a href="{{ user.github_url }}" target="_blank" rel="noopener noreferrer" class="contact-pill">{{ user.github_url }}</a>
+                        </div>
+                    {% endif %}
+                    {% if user.linkedin_url %}
+                        <div class="contact-link-row">
+                            <span class="contact-label">💼 LinkedIn:</span>
+                            <a href="{{ user.linkedin_url }}" target="_blank" rel="noopener noreferrer" class="contact-pill">{{ user.linkedin_url }}</a>
+                        </div>
+                    {% endif %}
+                    {% if user.website_url %}
+                        <div class="contact-link-row">
+                            <span class="contact-label">🔗 Website:</span>
+                            <a href="{{ user.website_url }}" target="_blank" rel="noopener noreferrer" class="contact-pill">{{ user.website_url }}</a>
+                        </div>
+                    {% endif %}
+                {% elif social_restricted %}
+                    <p style="color: #64748b; font-size: 0.86rem;">
+                        <em>🔒 Social links are visible to accepted followers only.</em>
+                    </p>
+                {% elif is_own_profile and not user.github_url and not user.linkedin_url and not user.website_url %}
+                    <p style="color: #94a3b8; font-size: 0.86rem;">
+                        <em>No social links added yet. <a href="{{ url_for('edit_profile') }}" class="table-link">Add in Edit Profile</a>.</em>
+                    </p>
+                {% endif %}
+
+                {% if not can_see_contact and not contact_restricted and not can_see_social and not social_restricted and not is_own_profile %}
+                    <p style="color: #94a3b8; font-style: italic;">No public contact details available.</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
-</div>
 
-<hr>
+    {# Contributions Section #}
+    <div class="contributions-card">
+        <div class="profile-tabs-nav">
+            <a href="{{ url_for('public_profile', username=user.username, tab='questions') }}" class="profile-tab-item {% if active_tab == 'questions' %}active{% endif %}">
+                💬 Questions <span class="tab-counter">{{ questions|length }}</span>
+            </a>
+            <a href="{{ url_for('public_profile', username=user.username, tab='answers') }}" class="profile-tab-item {% if active_tab == 'answers' %}active{% endif %}">
+                💡 Answers <span class="tab-counter">{{ answers|length }}</span>
+            </a>
+            <a href="{{ url_for('public_profile', username=user.username, tab='resources') }}" class="profile-tab-item {% if active_tab == 'resources' %}active{% endif %}">
+                📚 Resources <span class="tab-counter">{{ resources|length }}</span>
+            </a>
+        </div>
 
-<div>
-    <h3>About</h3>
-    {% if user.bio %}
-        <p style="white-space: pre-wrap;">{{ user.bio }}</p>
-    {% else %}
-        <p><em>No bio provided.</em></p>
-    {% endif %}
-</div>
+        <div>
+            {% if active_tab == 'questions' %}
+                {% if questions %}
+                    <div class="modern-table-container">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Visibility</th>
+                                    <th>Category</th>
+                                    <th>Faculty</th>
+                                    <th>Views</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for q in questions %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('qa_detail', question_id=q.id) }}" class="table-link">{{ q.title }}</a>
+                                        </td>
+                                        <td>
+                                            <span class="tag-pill tag-visibility">
+                                                {% if q.visibility == 'friends' %}👥 Friends Only{% else %}🌐 Public{% endif %}
+                                            </span>
+                                        </td>
+                                        <td>{{ q.category }}</td>
+                                        <td>{{ q.faculty }}</td>
+                                        <td>{{ q.views }}</td>
+                                        <td>{{ q.created_at.strftime('%Y-%m-%d') if q.created_at else 'N/A' }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state-box">
+                        <span class="empty-state-icon">💬</span>
+                        <p>No questions asked yet.</p>
+                    </div>
+                {% endif %}
 
-<div>
-    <h3>Contact & Social Links</h3>
-    
-    {# Contact Email Privacy Enforcement #}
-    {% if can_see_contact %}
-        <p><strong>Contact Email:</strong> <a href="mailto:{{ user.contact_email }}">{{ user.contact_email }}</a></p>
-    {% elif contact_restricted %}
-        <p><em>🔒 Contact email is visible to accepted followers only. Follow @{{ user.username }} to view contact details.</em></p>
-    {% elif is_own_profile and not user.contact_email %}
-        <p><em>No contact email added yet. <a href="{{ url_for('edit_profile') }}">Add one in Edit Profile</a>.</em></p>
-    {% endif %}
+            {% elif active_tab == 'answers' %}
+                {% if answers %}
+                    <div class="modern-table-container">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Question</th>
+                                    <th>Answer Preview</th>
+                                    <th>Visibility</th>
+                                    <th>Reputation</th>
+                                    <th>Endorsement &amp; Status</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for a in answers %}
+                                    <tr>
+                                        <td>
+                                            {% if a.question %}
+                                                <a href="{{ url_for('qa_detail', question_id=a.question.id) }}#answer-{{ a.id }}" class="table-link">{{ a.question.title }}</a>
+                                            {% else %}
+                                                <em style="color: #94a3b8;">Question deleted</em>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ a.content[:100] }}{% if a.content|length > 100 %}...{% endif %}</td>
+                                        <td>
+                                            <span class="tag-pill tag-visibility">
+                                                {% if a.visibility == 'friends' %}👥 Friends Only{% else %}🌐 Public{% endif %}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style="font-weight: 700; color: #0284c7;">⭐ {{ a.total_points }} pts</span>
+                                        </td>
+                                        <td>
+                                            {% if a.has_professor_endorsement %}
+                                                <span class="tag-pill" style="background: rgba(254, 243, 199, 0.9); color: #b45309; border: 1px solid rgba(253, 230, 138, 0.8);">
+                                                    🎓 Super Excellent (+{{ a.professor_marks_count * 50 }} pts)
+                                                </span>
+                                            {% elif a.best_marks_count > 0 %}
+                                                <span class="tag-pill" style="background: rgba(224, 242, 254, 0.9); color: #0369a1; border: 1px solid rgba(186, 230, 253, 0.8);">
+                                                    ⭐ Best Answer (+{{ a.student_marks_count * 5 }} pts)
+                                                </span>
+                                            {% else %}
+                                                <span style="color: #94a3b8; font-size: 0.82rem;">Standard (0 pts)</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else 'N/A' }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state-box">
+                        <span class="empty-state-icon">💡</span>
+                        <p>No answers posted yet.</p>
+                    </div>
+                {% endif %}
 
-    {# Social Links Privacy Enforcement #}
-    {% if can_see_social %}
-        {% if user.github_url %}
-            <p><strong>GitHub:</strong> <a href="{{ user.github_url }}" target="_blank" rel="noopener noreferrer">{{ user.github_url }}</a></p>
-        {% endif %}
-        {% if user.linkedin_url %}
-            <p><strong>LinkedIn:</strong> <a href="{{ user.linkedin_url }}" target="_blank" rel="noopener noreferrer">{{ user.linkedin_url }}</a></p>
-        {% endif %}
-        {% if user.website_url %}
-            <p><strong>Website:</strong> <a href="{{ user.website_url }}" target="_blank" rel="noopener noreferrer">{{ user.website_url }}</a></p>
-        {% endif %}
-    {% elif social_restricted %}
-        <p><em>🔒 Social links are visible to accepted followers only. Follow @{{ user.username }} to view social profiles.</em></p>
-    {% elif is_own_profile and not user.github_url and not user.linkedin_url and not user.website_url %}
-        <p><em>No social links added yet. <a href="{{ url_for('edit_profile') }}">Add links in Edit Profile</a>.</em></p>
-    {% endif %}
-
-    {% if not can_see_contact and not contact_restricted and not can_see_social and not social_restricted and not is_own_profile %}
-        <p><em>No public contact details available.</em></p>
-    {% endif %}
-</div>
-
-<hr>
-
-<div>
-    <h3>Contributions</h3>
-    <nav>
-        <a href="{{ url_for('public_profile', username=user.username, tab='questions') }}">
-            {% if active_tab == 'questions' %}<strong>Questions ({{ questions|length }})</strong>{% else %}Questions ({{ questions|length }}){% endif %}
-        </a> |
-        <a href="{{ url_for('public_profile', username=user.username, tab='answers') }}">
-            {% if active_tab == 'answers' %}<strong>Answers ({{ answers|length }})</strong>{% else %}Answers ({{ answers|length }}){% endif %}
-        </a> |
-        <a href="{{ url_for('public_profile', username=user.username, tab='resources') }}">
-            {% if active_tab == 'resources' %}<strong>Resources ({{ resources|length }})</strong>{% else %}Resources ({{ resources|length }}){% endif %}
-        </a>
-    </nav>
-
-    <div style="margin-top: 15px;">
-        {% if active_tab == 'questions' %}
-            {% if questions %}
-                <table class="table-bordered">
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Visibility</th>
-                            <th>Category</th>
-                            <th>Faculty</th>
-                            <th>Views</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for q in questions %}
-                            <tr>
-                                <td><a href="{{ url_for('qa_detail', question_id=q.id) }}">{{ q.title }}</a></td>
-                                <td>
-                                    {% if q.visibility == 'friends' %}
-                                        👥 Friends Only
-                                    {% else %}
-                                        🌐 Public
-                                    {% endif %}
-                                </td>
-                                <td>{{ q.category }}</td>
-                                <td>{{ q.faculty }}</td>
-                                <td>{{ q.views }}</td>
-                                <td>{{ q.created_at.strftime('%Y-%m-%d') if q.created_at else 'N/A' }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>No questions asked yet.</p>
+            {% elif active_tab == 'resources' %}
+                {% if resources %}
+                    <div class="modern-table-container">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Category</th>
+                                    <th>Faculty</th>
+                                    <th>File Type</th>
+                                    <th>Downloads</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in resources %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('resource_detail', resource_id=r.id) }}" class="table-link"><strong>{{ r.title }}</strong></a>
+                                            {% if r.collection_id %}
+                                                <br><small><a href="{{ url_for('collection_detail', collection_id=r.collection_id) }}" style="color: #059669; text-decoration: none; font-weight: 600;">📁 View Collection</a></small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ r.category }}</td>
+                                        <td>{{ r.faculty }}</td>
+                                        <td>
+                                            <span class="tag-pill" style="background: rgba(241, 245, 249, 0.9); color: #334155; font-weight: 700;">{{ r.file_type|upper }}</span>
+                                        </td>
+                                        <td>{{ r.download_count }}</td>
+                                        <td>{{ r.created_at.strftime('%Y-%m-%d') if r.created_at else 'N/A' }}</td>
+                                        <td>
+                                            <div style="display: inline-flex; align-items: center; gap: 6px;">
+                                                {% if (r.file_type or '')|lower in ['pdf', 'txt'] %}
+                                                    <a href="{{ url_for('resource_preview', resource_id=r.id) }}" target="_blank" class="table-link">Preview</a> &bull;
+                                                {% endif %}
+                                                <a href="{{ url_for('resource_download', resource_id=r.id) }}" class="table-link">Download</a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state-box">
+                        <span class="empty-state-icon">📚</span>
+                        <p>No resources uploaded yet.</p>
+                    </div>
+                {% endif %}
             {% endif %}
-
-        {% elif active_tab == 'answers' %}
-            {% if answers %}
-                <table class="table-bordered">
-                    <thead>
-                        <tr>
-                            <th>Question</th>
-                            <th>Answer Preview</th>
-                            <th>Visibility</th>
-                            <th>Reputation</th>
-                            <th>Endorsement & Status</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for a in answers %}
-                            <tr>
-                                <td>
-                                    {% if a.question %}
-                                        <a href="{{ url_for('qa_detail', question_id=a.question.id) }}#answer-{{ a.id }}">{{ a.question.title }}</a>
-                                    {% else %}
-                                        <em>Question deleted</em>
-                                    {% endif %}
-                                </td>
-                                <td>{{ a.content[:100] }}{% if a.content|length > 100 %}...{% endif %}</td>
-                                <td>
-                                    {% if a.visibility == 'friends' %}
-                                        👥 Friends Only
-                                    {% else %}
-                                        🌐 Public
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span style="font-weight: 600; color: #0284c7;">⭐ {{ a.total_points }} pts</span>
-                                </td>
-                                <td>
-                                    {% if a.has_professor_endorsement %}
-                                        <span style="background: #fff3cd; color: #856404; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid #ffeeba; display: inline-block;">
-                                            🎓 Super Excellent (+{{ a.professor_marks_count * 50 }} pts)
-                                        </span>
-                                    {% elif a.best_marks_count > 0 %}
-                                        <span style="background: #e0f2fe; color: #0369a1; font-weight: 600; padding: 2px 8px; border-radius: 4px; border: 1px solid #bae6fd; display: inline-block;">
-                                            ⭐ Best Answer (+{{ a.student_marks_count * 5 }} pts)
-                                        </span>
-                                    {% else %}
-                                        <span style="color: #94a3b8;">Standard (0 pts)</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else 'N/A' }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>No answers posted yet.</p>
-            {% endif %}
-
-        {% elif active_tab == 'resources' %}
-            {% if resources %}
-                <table class="table-bordered">
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Category</th>
-                            <th>Faculty</th>
-                            <th>File Type</th>
-                            <th>Downloads</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for r in resources %}
-                            <tr>
-                                <td>
-                                    <a href="{{ url_for('resource_detail', resource_id=r.id) }}"><strong>{{ r.title }}</strong></a>
-                                    {% if r.collection_id %}
-                                        <br><small><a href="{{ url_for('collection_detail', collection_id=r.collection_id) }}" style="color: #059669;">📁 View Collection</a></small>
-                                    {% endif %}
-                                </td>
-                                <td>{{ r.category }}</td>
-                                <td>{{ r.faculty }}</td>
-                                <td>{{ r.file_type|upper }}</td>
-                                <td>{{ r.download_count }}</td>
-                                <td>{{ r.created_at.strftime('%Y-%m-%d') if r.created_at else 'N/A' }}</td>
-                                <td>
-                                    {% if (r.file_type or '')|lower in ['pdf', 'txt'] %}
-                                        <a href="{{ url_for('resource_preview', resource_id=r.id) }}" target="_blank">Preview</a> &bull;
-                                    {% endif %}
-                                    <a href="{{ url_for('resource_download', resource_id=r.id) }}">Download</a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>No resources uploaded yet.</p>
-            {% endif %}
-        {% endif %}
+        </div>
     </div>
+
 </div>
+
+<script>
+    function toggleProfileDropdown(e) {
+        e.stopPropagation();
+        var menu = document.getElementById('profileDropdownMenu');
+        var trigger = document.getElementById('profileMenuTrigger');
+        if (menu) {
+            var isShown = menu.classList.toggle('show');
+            if (trigger) {
+                trigger.classList.toggle('active', isShown);
+            }
+        }
+    }
+
+    // Close dropdown on outside click
+    document.addEventListener('click', function(e) {
+        var dropdown = document.getElementById('profileMoreDropdown');
+        var menu = document.getElementById('profileDropdownMenu');
+        var trigger = document.getElementById('profileMenuTrigger');
+        if (dropdown && !dropdown.contains(e.target)) {
+            if (menu) menu.classList.remove('show');
+            if (trigger) trigger.classList.remove('active');
+        }
+    });
+
+    // Close dropdown on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var menu = document.getElementById('profileDropdownMenu');
+            var trigger = document.getElementById('profileMenuTrigger');
+            if (menu) menu.classList.remove('show');
+            if (trigger) trigger.classList.remove('active');
+        }
+    });
+</script>
 
 {% endblock %}
+

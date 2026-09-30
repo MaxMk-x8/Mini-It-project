@@ -1,94 +1,253 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div>
-    <p><a href="{{ url_for('public_profile', username=user.username) }}">&larr; Back to @{{ user.username }}'s Profile</a></p>
-    <h2>Users Followed by @{{ user.username }} ({{ user.following_count }})</h2>
-</div>
+<style>
+    .following-container {
+        max-width: 900px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    .following-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(18px) saturate(180%);
+        -webkit-backdrop-filter: blur(18px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        padding: 24px 28px;
+        box-shadow: 0 12px 35px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+    }
+    .following-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+    }
+    .following-header h2 {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #004FB6;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.88rem;
+        transition: color 0.15s ease;
+    }
+    .back-btn:hover {
+        color: #003366;
+        text-decoration: underline;
+    }
 
-<hr>
+    /* Minimal Line Table */
+    .table-card {
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        background: rgba(255, 255, 255, 0.6);
+    }
+    .custom-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    .custom-table th {
+        background: rgba(241, 245, 249, 0.85);
+        color: #334155;
+        font-weight: 700;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(203, 213, 225, 0.8);
+        text-align: left;
+    }
+    .custom-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+        vertical-align: middle;
+        color: #1e293b;
+    }
+    .custom-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .custom-table tbody tr:hover {
+        background: rgba(248, 250, 252, 0.85);
+    }
 
-<div>
-    {% if following_users %}
-        <table class="table-bordered">
-            <thead>
-                <tr>
-                    <th>Avatar</th>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Faculty</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for f in following_users %}
-                    {% set followed = f.followed %}
-                    {% if followed %}
+    /* Modern Buttons */
+    .btn-action {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+    .btn-action-primary {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff !important;
+        box-shadow: 0 2px 8px rgba(0, 51, 102, 0.18);
+    }
+    .btn-action-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.28);
+    }
+    .btn-action-secondary {
+        background: rgba(255, 255, 255, 0.8);
+        color: #003366 !important;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+    }
+    .btn-action-secondary:hover {
+        background: #ffffff;
+        color: #004FB6 !important;
+        border-color: rgba(0, 79, 182, 0.35);
+    }
+    .btn-action-danger {
+        background: rgba(254, 242, 242, 0.85);
+        color: #b91c1c !important;
+        border: 1px solid rgba(252, 165, 165, 0.8);
+    }
+    .btn-action-danger:hover {
+        background: #fee2e2;
+        color: #991b1b !important;
+    }
+
+    .chip-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+</style>
+
+<div class="following-container">
+    <div class="following-card">
+        <div class="following-header">
+            <div>
+                <h2>Users Followed by @{{ user.username }} <span style="font-size: 1rem; color: #64748b; font-weight: normal;">({{ user.following_count }})</span></h2>
+            </div>
+            <a href="{{ url_for('public_profile', username=user.username) }}" class="back-btn">&larr; Back to Profile</a>
+        </div>
+
+        {% if following_users %}
+            <div class="table-card">
+                <table class="custom-table">
+                    <thead>
                         <tr>
-                            <td style="width: 50px; text-align: center;">
-                                {% if followed.avatar_url %}
-                                    <img src="{{ followed.avatar_url }}" alt="{{ followed.username }}" width="40" height="40" style="border-radius: 50%; object-fit: cover;">
-                                {% else %}
-                                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; color: #475569;">
-                                        {{ followed.username[:2]|upper }}
-                                    </div>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <a href="{{ url_for('public_profile', username=followed.username) }}">
-                                    <strong>@{{ followed.username }}</strong>
-                                </a>
-                                {% if followed.bio %}
-                                    <br>
-                                    <small style="color: #64748b;">{{ followed.bio[:80] }}{% if followed.bio|length > 80 %}...{% endif %}</small>
-                                {% endif %}
-                            </td>
-                            <td>{{ followed.role }}</td>
-                            <td>{{ followed.faculty }}</td>
-                            <td>
-                                <a href="{{ url_for('public_profile', username=followed.username) }}">View Profile</a>
-                                {% if current_user.is_authenticated and current_user.id != followed.id %}
-                                    &nbsp;|&nbsp;
-                                    {% if current_user.is_following(followed) %}
-                                        <form method="POST" action="{{ url_for('unfollow_user', username=followed.username) }}" style="display: inline;">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                            <button type="submit" onclick="return confirm('Unfollow @{{ followed.username }}?');">Following (Unfollow)</button>
-                                        </form>
-                                    {% elif current_user.has_pending_follow(followed) %}
-                                        <form method="POST" action="{{ url_for('unfollow_user', username=followed.username) }}" style="display: inline;">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                            <button type="submit">Requested</button>
-                                        </form>
-                                    {% else %}
-                                        <form method="POST" action="{{ url_for('follow_user', username=followed.username) }}" style="display: inline;">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                            <button type="submit">Follow</button>
-                                        </form>
-                                    {% endif %}
-                                    &nbsp;|&nbsp;
-                                    <a href="{{ url_for('chat_conversation', username=followed.username) }}">Chat</a>
-                                {% endif %}
-                            </td>
+                            <th style="width: 60px; text-align: center;">Avatar</th>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Faculty</th>
+                            <th style="text-align: right;">Actions</th>
                         </tr>
-                    {% endif %}
-                {% endfor %}
-            </tbody>
-        </table>
+                    </thead>
+                    <tbody>
+                        {% for f in following_users %}
+                            {% set followed = f.followed %}
+                            {% if followed %}
+                                <tr>
+                                    <td style="text-align: center;">
+                                        {% if followed.avatar_url %}
+                                            <img src="{{ followed.avatar_url }}" alt="{{ followed.username }}" width="42" height="42" style="border-radius: 50%; object-fit: cover; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                                        {% else %}
+                                            <div style="width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #003366, #004FB6); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #ffffff; font-size: 0.95rem; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                                                {{ followed.username[:2]|upper }}
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('public_profile', username=followed.username) }}" style="color: #003366; text-decoration: none; font-weight: 700;">
+                                            @{{ followed.username }}
+                                        </a>
+                                        {% if followed.bio %}
+                                            <div style="color: #64748b; font-size: 0.8rem; margin-top: 2px;">{{ followed.bio[:80] }}{% if followed.bio|length > 80 %}...{% endif %}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="chip-tag" style="background: rgba(224, 242, 254, 0.85); color: #0369a1; border: 1px solid rgba(186, 230, 253, 0.8);">
+                                            {{ followed.role }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="chip-tag" style="background: rgba(241, 245, 249, 0.85); color: #475569;">
+                                            {{ followed.faculty }}
+                                        </span>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap;">
+                                            <a href="{{ url_for('public_profile', username=followed.username) }}" class="btn-action btn-action-secondary">
+                                                Profile
+                                            </a>
+                                            {% if current_user.is_authenticated and current_user.id != followed.id %}
+                                                {% if current_user.is_following(followed) %}
+                                                    <form method="POST" action="{{ url_for('unfollow_user', username=followed.username) }}" style="display: inline; margin: 0;">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                        <button type="submit" class="btn-action btn-action-danger" onclick="return confirm('Unfollow @{{ followed.username }}?');">
+                                                            Unfollow
+                                                        </button>
+                                                    </form>
+                                                {% elif current_user.has_pending_follow(followed) %}
+                                                    <form method="POST" action="{{ url_for('unfollow_user', username=followed.username) }}" style="display: inline; margin: 0;">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                        <button type="submit" class="btn-action btn-action-secondary">
+                                                            Requested
+                                                        </button>
+                                                    </form>
+                                                {% else %}
+                                                    <form method="POST" action="{{ url_for('follow_user', username=followed.username) }}" style="display: inline; margin: 0;">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                        <button type="submit" class="btn-action btn-action-primary">
+                                                            Follow
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                                <a href="{{ url_for('chat_conversation', username=followed.username) }}" class="btn-action btn-action-primary" style="background: linear-gradient(135deg, #ED1C24, #c9141b);">
+                                                    💬 Chat
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
-        {% if pagination and pagination.pages > 1 %}
-            <div style="margin-top: 15px;">
-                {% if pagination.has_prev %}
-                    <a href="{{ url_for('user_following', username=user.username, page=pagination.prev_num) }}">&laquo; Previous</a>
-                {% endif %}
-                <span> Page {{ pagination.page }} of {{ pagination.pages }} </span>
-                {% if pagination.has_next %}
-                    <a href="{{ url_for('user_following', username=user.username, page=pagination.next_num) }}">Next &raquo;</a>
-                {% endif %}
+            {% if pagination and pagination.pages > 1 %}
+                <div style="margin-top: 18px; display: flex; justify-content: center; align-items: center; gap: 12px;">
+                    {% if pagination.has_prev %}
+                        <a href="{{ url_for('user_following', username=user.username, page=pagination.prev_num) }}" class="btn-action btn-action-secondary">&laquo; Previous</a>
+                    {% endif %}
+                    <span style="font-size: 0.88rem; color: #64748b; font-weight: 600;">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+                    {% if pagination.has_next %}
+                        <a href="{{ url_for('user_following', username=user.username, page=pagination.next_num) }}" class="btn-action btn-action-secondary">Next &raquo;</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div style="text-align: center; padding: 36px 20px; color: #64748b;">
+                <p style="margin: 0;">@{{ user.username }} is not following anyone yet.</p>
             </div>
         {% endif %}
-    {% else %}
-        <p>@{{ user.username }} is not following anyone yet.</p>
-    {% endif %}
+    </div>
 </div>
 
 {% endblock %}
