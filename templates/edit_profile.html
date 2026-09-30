@@ -1,282 +1,612 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div>
-    <h2>Edit Profile</h2>
-    <p>
-        <a href="{{ url_for('public_profile', username=current_user.username) }}">← View Public Profile</a> |
-        <a href="{{ url_for('settings') }}">Settings</a>
-    </p>
-</div>
+<style>
+    .profile-edit-wrap {
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 8px 0 40px;
+    }
 
-<hr>
+    .glass-card {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(18px) saturate(180%);
+        -webkit-backdrop-filter: blur(18px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 20px;
+        padding: 26px 30px;
+        box-shadow: 0 14px 34px -8px rgba(0, 51, 102, 0.07), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        margin-bottom: 22px;
+        position: relative;
+        overflow: hidden;
+    }
 
-<fieldset style="border: 1px solid #cbd5e1; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
-    <legend><strong>Account Credentials &amp; Identity</strong></legend>
-    <div style="margin-bottom: 12px;">
-        <label><strong>Student / University Email:</strong></label><br>
-        <input type="text" value="{{ current_user.email }}" disabled readonly style="background-color: #f1f5f9; color: #475569; width: 350px; cursor: not-allowed;">
-        <span style="display: inline-block; margin-left: 8px; font-size: 0.85em; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 4px;">Permanent</span>
-        <small style="display: block; color: #b91c1c; margin-top: 4px;">Student email cannot be changed. It is permanently tied to your academic verification.</small>
-    </div>
-    <div>
-        <label><strong>Username:</strong></label><br>
-        <input type="text" value="{{ current_user.username }}" disabled readonly style="background-color: #f1f5f9; color: #475569; width: 250px; cursor: not-allowed;">
-        {% if current_user.is_admin() %}
-            <a href="{{ url_for('request_username_change') }}" style="margin-left: 10px; font-weight: bold; color: #16a34a;">Change Username (Admin Direct) &rarr;</a>
-            <small style="display: block; color: #16a34a; margin-top: 4px;">⚡ Admin Privilege: As an Administrator, your username changes take effect immediately without review.</small>
-        {% elif current_user.has_pending_username_request %}
-            <span style="margin-left: 10px; color: #d97706; font-weight: bold;">
-                ⏳ Change to <em>@{{ current_user.pending_username_request.new_username }}</em> is pending review
-            </span>
-            <a href="{{ url_for('request_username_change') }}" style="margin-left: 8px;">View Status</a>
-            <small style="display: block; color: #64748b; margin-top: 4px;">{% if current_user.is_moderator() %}Usernames cannot be changed directly. Community Moderator changes require Administrator approval.{% else %}Usernames cannot be changed directly. You must submit a request for Admin or Moderator approval.{% endif %}</small>
-        {% else %}
-            <a href="{{ url_for('request_username_change') }}" style="margin-left: 10px; font-weight: bold;">Request Username Change &rarr;</a>
-            <small style="display: block; color: #64748b; margin-top: 4px;">{% if current_user.is_moderator() %}Usernames cannot be changed directly. Community Moderator changes require Administrator approval.{% else %}Usernames cannot be changed directly. You must submit a request for Admin or Moderator approval.{% endif %}</small>
-        {% endif %}
-    </div>
-</fieldset>
+    .glass-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 10%;
+        right: 10%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.3), rgba(237, 28, 36, 0.3), transparent);
+    }
 
-<form id="remove-photo-form" method="POST" action="{{ url_for('remove_profile_photo') }}" style="display: none;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-</form>
+    [data-theme="dark"] .glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.18);
+        box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.5);
+    }
 
-<fieldset style="border: 1px solid #cbd5e1; padding: 18px; border-radius: 6px; margin-bottom: 22px; background: rgba(255, 255, 255, 0.7);">
-    <legend><strong>Profile Photo (Upload, Replace &amp; Remove)</strong></legend>
-    
-    <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
-        <!-- Current Avatar Status & Remove Action -->
-        <div style="text-align: center; min-width: 140px;">
-            <label style="display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.9em; color: #475569;">Current Avatar</label>
-            {% if current_user.avatar_url %}
-                <img id="current-avatar-img" src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}'s Avatar" width="100" height="100" style="object-fit: cover; border-radius: 50%; border: 3px solid #004FB6; display: block; margin: 0 auto 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
-                <span style="display: inline-block; font-size: 0.78em; color: #16a34a; background: #dcfce7; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-bottom: 8px;">Custom Photo</span>
-                <br>
-                <button type="button" onclick="if(confirm('Remove your custom profile photo and revert to default initials avatar?')) document.getElementById('remove-photo-form').submit();" style="background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; padding: 5px 12px; border-radius: 4px; font-size: 0.82em; cursor: pointer; font-weight: 600;">
-                    🗑️ Remove Photo
-                </button>
-            {% else %}
-                <div style="width: 100px; height: 100px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; color: #475569; border: 3px solid #cbd5e1; margin: 0 auto 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.04);">
-                    {{ current_user.username[:2]|upper }}
-                </div>
-                <span style="display: block; font-size: 0.78em; color: #64748b;">Default Initials</span>
-            {% endif %}
+    .page-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #003366;
+        margin: 0 0 6px 0;
+    }
+
+    [data-theme="dark"] .page-title {
+        color: #38bdf8;
+    }
+
+    .page-subtitle {
+        color: #64748b;
+        font-size: 0.92rem;
+        margin: 0 0 16px 0;
+    }
+
+    .header-links a {
+        color: #004FB6;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.88rem;
+        transition: color 0.18s ease;
+    }
+
+    .header-links a:hover {
+        color: #ED1C24;
+    }
+
+    [data-theme="dark"] .header-links a {
+        color: #38bdf8;
+    }
+
+    [data-theme="dark"] .header-links a:hover {
+        color: #f43f5e;
+    }
+
+    .section-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 16px 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    [data-theme="dark"] .section-title {
+        color: #f1f5f9;
+        border-bottom-color: rgba(56, 189, 248, 0.18);
+    }
+
+    .form-group {
+        margin-bottom: 18px;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 6px;
+    }
+
+    [data-theme="dark"] .form-label {
+        color: #cbd5e1;
+    }
+
+    .form-control {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        background: rgba(255, 255, 255, 0.9);
+        color: #0f172a;
+        font-size: 0.95rem;
+        font-family: inherit;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: #004FB6;
+        box-shadow: 0 0 0 3px rgba(0, 79, 182, 0.15);
+        background: #ffffff;
+    }
+
+    .form-control:disabled,
+    .form-control[readonly] {
+        background: rgba(241, 245, 249, 0.8);
+        color: #64748b;
+        cursor: not-allowed;
+    }
+
+    [data-theme="dark"] .form-control {
+        background: rgba(15, 23, 42, 0.85);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #f1f5f9;
+    }
+
+    [data-theme="dark"] .form-control:focus {
+        background: rgba(15, 23, 42, 0.95);
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+
+    [data-theme="dark"] .form-control:disabled,
+    [data-theme="dark"] .form-control[readonly] {
+        background: rgba(30, 41, 59, 0.6);
+        color: #94a3b8;
+    }
+
+    .form-hint {
+        display: block;
+        font-size: 0.82rem;
+        color: #64748b;
+        margin-top: 5px;
+        line-height: 1.4;
+    }
+
+    [data-theme="dark"] .form-hint {
+        color: #94a3b8;
+    }
+
+    .form-error {
+        color: #dc2626;
+        font-size: 0.82rem;
+        margin: 4px 0 0 0;
+    }
+
+    .btn-submit {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        border: none;
+        padding: 11px 26px;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 51, 102, 0.25);
+        transition: all 0.2s ease;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 51, 102, 0.35);
+    }
+
+    .btn-cancel {
+        display: inline-flex;
+        align-items: center;
+        padding: 10px 18px;
+        border-radius: 10px;
+        text-decoration: none;
+        color: #475569;
+        font-size: 0.95rem;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid #cbd5e1;
+        transition: all 0.2s ease;
+        margin-left: 10px;
+    }
+
+    .btn-cancel:hover {
+        background: #ffffff;
+        color: #003366;
+    }
+
+    [data-theme="dark"] .btn-cancel {
+        background: rgba(30, 41, 59, 0.7);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #cbd5e1;
+    }
+
+    [data-theme="dark"] .btn-cancel:hover {
+        background: rgba(30, 41, 59, 0.95);
+        color: #38bdf8;
+    }
+
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+
+    .chip-permanent {
+        background: rgba(226, 232, 240, 0.85);
+        color: #475569;
+        border: 1px solid rgba(203, 213, 225, 0.8);
+    }
+
+    .chip-success {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .chip-warning {
+        background: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+
+    .form-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+        .form-grid-2 {
+            grid-template-columns: 1fr;
+        }
+
+        .glass-card {
+            padding: 20px 18px;
+        }
+    }
+</style>
+
+<div class="profile-edit-wrap">
+    <!-- Header Card -->
+    <div class="glass-card" style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 class="page-title">⚙️ Edit Profile</h2>
+                <p class="page-subtitle" style="margin: 0;">Customize your academic identity, avatar, bio, and social
+                    connections.</p>
+            </div>
+            <div class="header-links">
+                <a href="{{ url_for('public_profile', username=current_user.username) }}">← View Public Profile</a>
+                <span style="color: #cbd5e1; margin: 0 6px;">|</span>
+                <a href="{{ url_for('settings') }}">Account Settings</a>
+            </div>
         </div>
+    </div>
 
-        <!-- Upload & Replace Action -->
-        <div style="flex: 1; min-width: 280px;">
-            <label for="profile_photo" style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 0.95em;">
-                {% if current_user.avatar_url %}
-                    Replace Existing Photo:
-                {% else %}
-                    Upload New Profile Photo:
-                {% endif %}
-            </label>
+    <!-- Hidden form for removing photo -->
+    <form id="remove-photo-form" method="POST" action="{{ url_for('remove_profile_photo') }}" style="display: none;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    </form>
 
-            <!-- accept attribute triggers browser's 'Custom Files' filter instead of 'All Files' -->
-            {{ form.profile_photo(id="profile_photo", accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp", style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; width: 100%; max-width: 420px; background: #ffffff;") }}
-            
-            <small style="display: block; color: #64748b; margin-top: 5px; font-size: 0.82em;">
-                Accepted formats: PNG, JPG, JPEG, WEBP (Max 5MB).
-            </small>
+    <!-- Main Edit Profile Form -->
+    <form method="POST" action="{{ url_for('edit_profile') }}" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
 
-            <!-- Instant client-side error notification for prohibited files -->
-            <div id="file-error-alert" style="display: none; background: #fef2f2; border: 1px solid #f87171; color: #991b1b; padding: 8px 12px; border-radius: 6px; margin-top: 10px; font-size: 0.86em;"></div>
+        <!-- 1. Account Credentials & Identity -->
+        <div class="glass-card">
+            <h3 class="section-title">🔒 Account Credentials &amp; Identity</h3>
 
-            <!-- Instant live preview of selected replacement image -->
-            <div id="new-photo-preview-container" style="display: none; margin-top: 12px; align-items: center; gap: 14px; background: #f0fdf4; border: 1px solid #86efac; padding: 10px 14px; border-radius: 8px; max-width: 420px;">
-                <img id="new-photo-preview-img" src="" alt="New Avatar Preview" width="60" height="60" style="object-fit: cover; border-radius: 50%; border: 2px solid #16a34a; flex-shrink: 0;">
-                <div style="flex: 1; min-width: 0;">
-                    <strong style="display: block; color: #166534; font-size: 0.86em;">Ready to upload &amp; replace</strong>
-                    <span id="preview-file-name" style="display: block; font-size: 0.78em; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+            <div class="form-group">
+                <label class="form-label">Student / University Email</label>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <input type="text" class="form-control" value="{{ current_user.email }}" disabled readonly
+                        style="max-width: 380px;">
+                    <span class="chip chip-permanent">Permanent</span>
                 </div>
-                <button type="button" id="cancel-preview-btn" style="background: #ffffff; border: 1px solid #cbd5e1; color: #475569; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">Cancel</button>
+                <small class="form-hint" style="color: #b91c1c;">Student email cannot be changed. It is permanently tied
+                    to your university verification.</small>
             </div>
 
-            {% for error in form.profile_photo.errors %}
-                <p style="color: #dc2626; font-size: 0.86em; margin: 4px 0 0 0;">{{ error }}</p>
-            {% endfor %}
-        </div>
-    </div>
-</fieldset>
-
-    <br>
-
-    <div>
-        <label for="bio"><strong>Bio / About Me:</strong></label><br>
-        {{ form.bio(id="bio", rows="4", cols="60", placeholder="Tell your peers and professors about your academic interests, courses, and skills...") }}
-        <small style="display: block; color: #64748b;">Maximum 500 characters. Prohibited/inappropriate language will be rejected.</small>
-        {% for error in form.bio.errors %}
-            <p style="color: red; margin: 2px 0;">{{ error }}</p>
-        {% endfor %}
-    </div>
-
-    <br>
-    <fieldset style="border: 1px solid #cbd5e1; padding: 15px; border-radius: 4px;">
-        <legend><strong>Contact Details & Visibility</strong></legend>
-        
-        <div style="margin-bottom: 10px;">
-            <label for="contact_email"><strong>Contact Email:</strong></label><br>
-            {{ form.contact_email(id="contact_email", size="40", placeholder="e.g. personal@domain.com") }}
-            {% for error in form.contact_email.errors %}
-                <p style="color: red; margin: 2px 0;">{{ error }}</p>
-            {% endfor %}
-        </div>
-
-        <div>
-            <label for="contact_email_privacy"><strong>Email Visibility:</strong></label><br>
-            {{ form.contact_email_privacy(id="contact_email_privacy") }}
-            <small style="display: block; color: #64748b;">Controls who can see your contact email on your profile.</small>
-            {% for error in form.contact_email_privacy.errors %}
-                <p style="color: red; margin: 2px 0;">{{ error }}</p>
-            {% endfor %}
-        </div>
-    </fieldset>
-
-    <br>
-    <fieldset style="border: 1px solid #cbd5e1; padding: 15px; border-radius: 4px;">
-        <legend><strong>Social Profiles & Visibility</strong></legend>
-
-        <div style="margin-bottom: 10px;">
-            <label for="github_url"><strong>GitHub Profile URL:</strong></label><br>
-            {{ form.github_url(id="github_url", size="50", placeholder="https://github.com/yourusername") }}
-            {% for error in form.github_url.errors %}
-                <p style="color: red; margin: 2px 0;">{{ error }}</p>
-            {% endfor %}
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Username</label>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <input type="text" class="form-control" value="{{ current_user.username }}" disabled readonly
+                        style="max-width: 260px;">
+                    {% if current_user.is_admin() %}
+                    <a href="{{ url_for('request_username_change') }}"
+                        style="font-weight: 700; color: #16a34a; font-size: 0.9rem; text-decoration: none;">
+                        Change Username (Admin Direct) &rarr;
+                    </a>
+                    {% elif current_user.has_pending_username_request %}
+                    <span class="chip chip-warning">
+                        ⏳ Change to @{{ current_user.pending_username_request.new_username }} is pending review
+                    </span>
+                    <a href="{{ url_for('request_username_change') }}"
+                        style="font-size: 0.88rem; color: #004FB6; font-weight: 600;">View Status</a>
+                    {% else %}
+                    <a href="{{ url_for('request_username_change') }}"
+                        style="font-weight: 700; color: #004FB6; font-size: 0.9rem; text-decoration: none;">
+                        Request Username Change &rarr;
+                    </a>
+                    {% endif %}
+                </div>
+                <small class="form-hint">
+                    {% if current_user.is_admin() %}
+                    ⚡ Admin Privilege: As an Administrator, your username changes take effect immediately without
+                    review.
+                    {% elif current_user.is_moderator() %}
+                    Usernames cannot be changed directly. Community Moderator changes require Administrator approval.
+                    {% else %}
+                    Usernames cannot be changed directly. You must submit a request for Admin or Moderator approval.
+                    {% endif %}
+                </small>
+            </div>
         </div>
 
-        <div style="margin-bottom: 10px;">
-            <label for="linkedin_url"><strong>LinkedIn Profile URL:</strong></label><br>
-            {{ form.linkedin_url(id="linkedin_url", size="50", placeholder="https://linkedin.com/in/yourusername") }}
-            {% for error in form.linkedin_url.errors %}
-                <p style="color: red; margin: 2px 0;">{{ error }}</p>
-            {% endfor %}
+        <!-- 2. Profile Photo -->
+        <div class="glass-card">
+            <h3 class="section-title">📸 Profile Photo</h3>
+
+            <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+                <!-- Current Avatar Preview -->
+                <div style="text-align: center; min-width: 130px;">
+                    <label class="form-label" style="text-align: center;">Current Avatar</label>
+                    {% if current_user.avatar_url %}
+                    <img id="current-avatar-img" src="{{ current_user.avatar_url }}"
+                        alt="{{ current_user.username }}'s Avatar" width="96" height="96"
+                        style="object-fit: cover; border-radius: 50%; border: 3px solid #004FB6; display: block; margin: 0 auto 8px; box-shadow: 0 4px 14px rgba(0, 51, 102, 0.15);">
+                    <span class="chip chip-success" style="margin-bottom: 8px;">Custom Photo</span>
+                    <br>
+                    <button type="button"
+                        onclick="if(confirm('Remove your custom profile photo and revert to default initials avatar?')) document.getElementById('remove-photo-form').submit();"
+                        style="background: rgba(239, 68, 68, 0.1); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3); padding: 5px 12px; border-radius: 8px; font-size: 0.8rem; cursor: pointer; font-weight: 600; transition: all 0.18s ease;">
+                        🗑️ Remove Photo
+                    </button>
+                    {% else %}
+                    <div
+                        style="width: 96px; height: 96px; border-radius: 50%; background: rgba(0, 51, 102, 0.08); display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; color: #003366; border: 3px solid #cbd5e1; margin: 0 auto 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.04);">
+                        {{ current_user.username[:2]|upper }}
+                    </div>
+                    <span class="chip chip-permanent">Default Initials</span>
+                    {% endif %}
+                </div>
+
+                <!-- Upload & Live Preview -->
+                <div style="flex: 1; min-width: 260px;">
+                    <label for="profile_photo" class="form-label">
+                        {% if current_user.avatar_url %}Replace Existing Photo:{% else %}Upload Profile Photo:{% endif
+                        %}
+                    </label>
+
+                    {{ form.profile_photo(id="profile_photo",
+                    accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp", class="form-control",
+                    style="max-width: 440px; padding: 8px;") }}
+
+                    <small class="form-hint">
+                        Accepted formats: PNG, JPG, JPEG, WEBP (Max 5MB).
+                    </small>
+
+                    <!-- Instant client-side error notification for prohibited files -->
+                    <div id="file-error-alert"
+                        style="display: none; background: #fef2f2; border: 1px solid #f87171; color: #991b1b; padding: 10px 14px; border-radius: 8px; margin-top: 10px; font-size: 0.86em;">
+                    </div>
+
+                    <!-- Instant live preview of selected replacement image -->
+                    <div id="new-photo-preview-container"
+                        style="display: none; margin-top: 12px; align-items: center; gap: 14px; background: rgba(240, 253, 244, 0.85); border: 1px solid #86efac; padding: 10px 14px; border-radius: 10px; max-width: 440px;">
+                        <img id="new-photo-preview-img" src="" alt="New Avatar Preview" width="56" height="56"
+                            style="object-fit: cover; border-radius: 50%; border: 2px solid #16a34a; flex-shrink: 0;">
+                        <div style="flex: 1; min-width: 0;">
+                            <strong style="display: block; color: #166534; font-size: 0.86em;">Ready to upload &amp;
+                                replace</strong>
+                            <span id="preview-file-name"
+                                style="display: block; font-size: 0.78em; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                        </div>
+                        <button type="button" id="cancel-preview-btn"
+                            style="background: #ffffff; border: 1px solid #cbd5e1; color: #475569; padding: 4px 10px; border-radius: 6px; font-size: 0.8em; cursor: pointer;">Cancel</button>
+                    </div>
+
+                    {% for error in form.profile_photo.errors %}
+                    <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
 
-        <div style="margin-bottom: 10px;">
-            <label for="website_url"><strong>Personal Website / Portfolio:</strong></label><br>
-            {{ form.website_url(id="website_url", size="50", placeholder="https://yourportfolio.com") }}
-            {% for error in form.website_url.errors %}
-                <p style="color: red; margin: 2px 0;">{{ error }}</p>
-            {% endfor %}
+        <!-- 3. Bio / About Me -->
+        <div class="glass-card">
+            <h3 class="section-title">📝 Bio &amp; About Me</h3>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="bio" class="form-label">Brief Academic &amp; Personal Bio</label>
+                {{ form.bio(id="bio", class="form-control", rows="4", placeholder="Tell your peers and professors about
+                your academic interests, courses, and skills...") }}
+                <small class="form-hint">Maximum 500 characters. Prohibited/inappropriate language will be
+                    filtered.</small>
+                {% for error in form.bio.errors %}
+                <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
         </div>
 
-        <div>
-            <label for="social_links_privacy"><strong>Social Links Visibility:</strong></label><br>
-            {{ form.social_links_privacy(id="social_links_privacy") }}
-            <small style="display: block; color: #64748b;">Controls who can see your GitHub, LinkedIn, and website links.</small>
-            {% for error in form.social_links_privacy.errors %}
-                <p style="color: red; margin: 2px 0;">{{ error }}</p>
-            {% endfor %}
+        <!-- 4. Contact Details & Visibility -->
+        <div class="glass-card">
+            <h3 class="section-title">📫 Contact Information</h3>
+
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="contact_email" class="form-label">Contact Email Address</label>
+                    {{ form.contact_email(id="contact_email", class="form-control", placeholder="e.g.
+                    personal@domain.com") }}
+                    <small class="form-hint">Secondary email for peer collaborations.</small>
+                    {% for error in form.contact_email.errors %}
+                    <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="contact_email_privacy" class="form-label">Email Visibility Setting</label>
+                    {{ form.contact_email_privacy(id="contact_email_privacy", class="form-control") }}
+                    <small class="form-hint">Controls who can see your contact email on your profile.</small>
+                    {% for error in form.contact_email_privacy.errors %}
+                    <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-    </fieldset>
 
-    <br>
-    <fieldset style="border: 1px solid #cbd5e1; padding: 15px; border-radius: 4px;">
-        <legend><strong>Follower Privacy & Approval</strong></legend>
+        <!-- 5. Social Profiles & Visibility -->
+        <div class="glass-card">
+            <h3 class="section-title">🌐 Social Profiles &amp; Portfolio</h3>
 
-        <div>
-            <label>
-                {{ form.require_follow_approval() }}
-                <strong>Require approval for new followers (Private Account)</strong>
-            </label>
-            <small style="display: block; color: #64748b; margin-top: 4px;">
-                When enabled, other users must request to follow you. Follow requests will remain pending until you explicitly accept or decline them on the Follow Requests page.
-            </small>
-            {% for error in form.require_follow_approval.errors %}
-                <p style="color: red; margin: 2px 0;">{{ error }}</p>
-            {% endfor %}
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="github_url" class="form-label">GitHub Profile URL</label>
+                    {{ form.github_url(id="github_url", class="form-control",
+                    placeholder="https://github.com/yourusername") }}
+                    {% for error in form.github_url.errors %}
+                    <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="linkedin_url" class="form-label">LinkedIn Profile URL</label>
+                    {{ form.linkedin_url(id="linkedin_url", class="form-control",
+                    placeholder="https://linkedin.com/in/yourusername") }}
+                    {% for error in form.linkedin_url.errors %}
+                    <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="website_url" class="form-label">Personal Website / Portfolio</label>
+                    {{ form.website_url(id="website_url", class="form-control", placeholder="https://yourportfolio.com")
+                    }}
+                    {% for error in form.website_url.errors %}
+                    <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="social_links_privacy" class="form-label">Links Visibility Setting</label>
+                    {{ form.social_links_privacy(id="social_links_privacy", class="form-control") }}
+                    <small class="form-hint">Controls who can see your external profiles.</small>
+                    {% for error in form.social_links_privacy.errors %}
+                    <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-    </fieldset>
 
-    <br>
-    <div>
-        {{ form.submit() }}
-        <a href="{{ url_for('public_profile', username=current_user.username) }}" style="margin-left: 10px;">Cancel</a>
-    </div>
-</form>
+        <!-- 6. Follower Privacy & Approval -->
+        <div class="glass-card">
+            <h3 class="section-title">🛡️ Account Privacy &amp; Follow Approval</h3>
+
+            <div style="display: flex; align-items: flex-start; gap: 12px;">
+                {{ form.require_follow_approval(style="margin-top: 4px; transform: scale(1.15); cursor: pointer;") }}
+                <div>
+                    <label for="require_follow_approval" class="form-label"
+                        style="margin-bottom: 2px; cursor: pointer;">
+                        Require approval for new followers (Private Account)
+                    </label>
+                    <small class="form-hint">
+                        When enabled, other students must request to follow you. Requests remain pending until you
+                        explicitly accept or decline them on your Follow Requests page.
+                    </small>
+                    {% for error in form.require_follow_approval.errors %}
+                    <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; align-items: center; justify-content: flex-start; margin-top: 24px;">
+            {{ form.submit(class="btn-submit", value="Save Profile Changes") }}
+            <a href="{{ url_for('public_profile', username=current_user.username) }}" class="btn-cancel">Cancel</a>
+        </div>
+    </form>
+</div>
 
 <script>
-(function() {
-    const photoInput = document.getElementById('profile_photo');
-    const errorAlert = document.getElementById('file-error-alert');
-    const previewContainer = document.getElementById('new-photo-preview-container');
-    const previewImg = document.getElementById('new-photo-preview-img');
-    const previewName = document.getElementById('preview-file-name');
-    const cancelBtn = document.getElementById('cancel-preview-btn');
+    (function () {
+        const photoInput = document.getElementById('profile_photo');
+        const errorAlert = document.getElementById('file-error-alert');
+        const previewContainer = document.getElementById('new-photo-preview-container');
+        const previewImg = document.getElementById('new-photo-preview-img');
+        const previewName = document.getElementById('preview-file-name');
+        const cancelBtn = document.getElementById('cancel-preview-btn');
 
-    if (!photoInput) return;
+        if (!photoInput) return;
 
-    const allowedExtensions = ['png', 'jpg', 'jpeg', 'webp'];
-    const prohibitedExtensions = [
-        'exe', 'bat', 'cmd', 'sh', 'pdf', 'docx', 'doc', 'txt', 'rtf', 
-        'odt', 'zip', 'rar', '7z', 'py', 'js', 'html', 'bin', 'dll', 'msi', 'com'
-    ];
+        const allowedExtensions = ['png', 'jpg', 'jpeg', 'webp'];
+        const prohibitedExtensions = [
+            'exe', 'bat', 'cmd', 'sh', 'pdf', 'docx', 'doc', 'txt', 'rtf',
+            'odt', 'zip', 'rar', '7z', 'py', 'js', 'html', 'bin', 'dll', 'msi', 'com'
+        ];
 
-    function showError(msg) {
-        if (errorAlert) {
-            errorAlert.textContent = msg;
-            errorAlert.style.display = 'block';
-        }
-        if (previewContainer) {
-            previewContainer.style.display = 'none';
-        }
-        photoInput.value = '';
-    }
-
-    function clearError() {
-        if (errorAlert) {
-            errorAlert.textContent = '';
-            errorAlert.style.display = 'none';
-        }
-    }
-
-    photoInput.addEventListener('change', function() {
-        clearError();
-        const file = this.files && this.files[0];
-        if (!file) {
-            if (previewContainer) previewContainer.style.display = 'none';
-            return;
-        }
-
-        const fileName = file.name || '';
-        const ext = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
-
-        // Check for prohibited or non-image file types
-        if (prohibitedExtensions.includes(ext) || !allowedExtensions.includes(ext) || (file.type && !file.type.startsWith('image/'))) {
-            showError("Only image files (.png, .jpg, .jpeg, .webp) are allowed.");
-            return;
-        }
-
-        // 4. Check file size (5MB maximum)
-        const maxBytes = 5 * 1024 * 1024;
-        if (file.size > maxBytes) {
-            const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-            showError(`⚠️ File size exceeds limit: ${sizeMb}MB. Maximum allowed photo size is 5MB.`);
-            return;
-        }
-
-        // 5. Valid file: render instant live preview
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            if (previewImg) previewImg.src = e.target.result;
-            if (previewName) {
-                const kb = Math.round(file.size / 1024);
-                previewName.textContent = `${fileName} (${kb} KB)`;
+        function showError(msg) {
+            if (errorAlert) {
+                errorAlert.textContent = msg;
+                errorAlert.style.display = 'block';
             }
-            if (previewContainer) previewContainer.style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
-    });
-
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
+            if (previewContainer) {
+                previewContainer.style.display = 'none';
+            }
             photoInput.value = '';
+        }
+
+        function clearError() {
+            if (errorAlert) {
+                errorAlert.textContent = '';
+                errorAlert.style.display = 'none';
+            }
+        }
+
+        photoInput.addEventListener('change', function () {
             clearError();
-            if (previewContainer) previewContainer.style.display = 'none';
+            const file = this.files && this.files[0];
+            if (!file) {
+                if (previewContainer) previewContainer.style.display = 'none';
+                return;
+            }
+
+            const fileName = file.name || '';
+            const ext = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+
+            // Check for prohibited or non-image file types
+            if (prohibitedExtensions.includes(ext) || !allowedExtensions.includes(ext) || (file.type && !file.type.startsWith('image/'))) {
+                showError("Only image files (.png, .jpg, .jpeg, .webp) are allowed.");
+                return;
+            }
+
+            // Check file size (5MB maximum)
+            const maxBytes = 5 * 1024 * 1024;
+            if (file.size > maxBytes) {
+                const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                showError(`⚠️ File size exceeds limit: ${sizeMb}MB. Maximum allowed photo size is 5MB.`);
+                return;
+            }
+
+            // Valid file: render instant live preview
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                if (previewImg) previewImg.src = e.target.result;
+                if (previewName) {
+                    const kb = Math.round(file.size / 1024);
+                    previewName.textContent = `${fileName} (${kb} KB)`;
+                }
+                if (previewContainer) previewContainer.style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
         });
-    }
-})();
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function () {
+                photoInput.value = '';
+                clearError();
+                if (previewContainer) previewContainer.style.display = 'none';
+            });
+        }
+    })();
 </script>
 {% endblock %}

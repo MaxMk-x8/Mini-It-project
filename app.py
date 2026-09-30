@@ -4977,8 +4977,8 @@ def ideas_index():
 
     all_ideas = query.order_by(Idea.created_at.desc()).all()
 
-    # Pagination: 10 items per page
-    PER_PAGE = 10
+    # Pagination: 5 items per page
+    PER_PAGE = 5
     total_items = len(all_ideas)
     total_pages = max(1, (total_items + PER_PAGE - 1) // PER_PAGE)
     try:

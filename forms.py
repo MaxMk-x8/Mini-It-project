@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileAllowed
+from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wtforms import (
     StringField, PasswordField, SelectField, SubmitField,
     TextAreaField, MultipleFileField, IntegerField, BooleanField
@@ -101,7 +101,6 @@ class AnswerForm(FlaskForm):
 # -------------------------------
 # RESOURCE HUB MODULE FORMS 
 # -------------------------------
-from flask_wtf.file import FileField, FileRequired, FileAllowed
 
 RESOURCE_CATEGORIES = [
     ('Lecture Notes', 'Lecture Notes'),
@@ -394,7 +393,7 @@ class EditProfileForm(FlaskForm):
         """Strict server-side validation ensuring no document, text, or executable files can be uploaded."""
         if field.data and getattr(field.data, 'filename', None):
             filename = field.data.filename.lower().strip()
-            ext = os.path.splitext(filename)[1].lstrip('.')
+            ext = filename.rsplit('.', 1)[1] if '.' in filename else ''
             prohibited_exts = {'exe', 'bat', 'cmd', 'sh', 'pdf', 'docx', 'doc', 'txt', 'rtf', 'odt', 'zip', 'rar', '7z', 'py', 'js', 'html', 'bin', 'dll'}
             if ext in prohibited_exts or ext not in {'png', 'jpg', 'jpeg', 'webp'}:
                 raise ValidationError("Only image files (.png, .jpg, .jpeg, .webp) are allowed.")

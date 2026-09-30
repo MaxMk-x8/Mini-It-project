@@ -1,107 +1,386 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>My Inbox</h2>
-<p>Official notices, moderation warnings, and in-app notifications regarding your CodeNest activity.</p>
 
-<hr>
+<style>
+    .inbox-wrap {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 8px 0 40px;
+    }
 
-{# Section 1: In-App Notifications (Mentions, Social, etc.) #}
-<div style="margin-bottom: 30px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="margin: 0;">Notifications</h3>
-        {% if notifications and current_user.unread_notifications_count > 0 %}
-            <form method="POST" action="{{ url_for('mark_all_notifications_read') }}" style="display: inline;">
+    .glass-card {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(18px) saturate(180%);
+        -webkit-backdrop-filter: blur(18px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 20px;
+        padding: 26px 30px;
+        box-shadow: 0 14px 34px -8px rgba(0, 51, 102, 0.07), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .glass-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 10%;
+        right: 10%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.3), rgba(237, 28, 36, 0.3), transparent);
+    }
+
+    [data-theme="dark"] .glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.18);
+        box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.5);
+    }
+
+    .page-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #003366;
+        margin: 0 0 6px 0;
+    }
+
+    [data-theme="dark"] .page-title {
+        color: #38bdf8;
+    }
+
+    .page-subtitle {
+        color: #64748b;
+        font-size: 0.92rem;
+        margin: 0;
+    }
+
+    .section-title {
+        font-size: 1.12rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    [data-theme="dark"] .section-title {
+        color: #f1f5f9;
+    }
+
+    .notif-item {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .notif-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 51, 102, 0.06);
+    }
+
+    .notif-item.unread {
+        background: rgba(239, 246, 255, 0.85);
+        border-color: rgba(191, 219, 254, 0.9);
+        border-left: 4px solid #004FB6;
+    }
+
+    [data-theme="dark"] .notif-item {
+        background: rgba(15, 23, 42, 0.8);
+        border-color: rgba(56, 189, 248, 0.18);
+    }
+
+    [data-theme="dark"] .notif-item.unread {
+        background: rgba(14, 116, 144, 0.15);
+        border-color: rgba(56, 189, 248, 0.35);
+        border-left: 4px solid #38bdf8;
+    }
+
+    .warning-item {
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 14px;
+        padding: 18px 22px;
+        margin-bottom: 16px;
+        border-left: 4px solid #64748b;
+        transition: transform 0.18s ease;
+    }
+
+    .warning-item.unread {
+        background: rgba(254, 242, 242, 0.85);
+        border-color: rgba(252, 165, 165, 0.8);
+        border-left: 5px solid #ED1C24;
+    }
+
+    [data-theme="dark"] .warning-item {
+        background: rgba(15, 23, 42, 0.8);
+        border-color: rgba(56, 189, 248, 0.18);
+        border-left-color: #64748b;
+    }
+
+    [data-theme="dark"] .warning-item.unread {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.3);
+        border-left-color: #f43f5e;
+    }
+
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }
+
+    .chip-new {
+        background: linear-gradient(135deg, #004FB6, #0284c7);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 79, 182, 0.25);
+    }
+
+    .chip-warning {
+        background: linear-gradient(135deg, #ED1C24, #c9141b);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(237, 28, 36, 0.25);
+    }
+
+    .chip-acknowledged {
+        background: rgba(226, 232, 240, 0.85);
+        color: #475569;
+        border: 1px solid rgba(203, 213, 225, 0.8);
+    }
+
+    [data-theme="dark"] .chip-acknowledged {
+        background: rgba(30, 41, 59, 0.7);
+        color: #94a3b8;
+        border-color: rgba(56, 189, 248, 0.2);
+    }
+
+    .btn-read-all {
+        background: rgba(255, 255, 255, 0.8);
+        color: #003366;
+        border: 1px solid #cbd5e1;
+        padding: 5px 14px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+
+    .btn-read-all:hover {
+        background: #ffffff;
+        border-color: #004FB6;
+        color: #004FB6;
+    }
+
+    [data-theme="dark"] .btn-read-all {
+        background: rgba(30, 41, 59, 0.8);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #38bdf8;
+    }
+
+    .btn-ack {
+        background: linear-gradient(135deg, #ED1C24, #c9141b);
+        color: #ffffff;
+        border: none;
+        padding: 7px 16px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(237, 28, 36, 0.25);
+        transition: all 0.2s ease;
+    }
+
+    .btn-ack:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(237, 28, 36, 0.35);
+    }
+
+    .btn-mark-item {
+        background: none;
+        border: none;
+        color: #004FB6;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0;
+        text-decoration: underline;
+    }
+
+    .btn-mark-item:hover {
+        color: #ED1C24;
+    }
+
+    [data-theme="dark"] .btn-mark-item {
+        color: #38bdf8;
+    }
+
+    .empty-card {
+        background: rgba(255, 255, 255, 0.4);
+        border: 2px dashed rgba(203, 213, 225, 0.8);
+        border-radius: 14px;
+        padding: 28px 20px;
+        text-align: center;
+    }
+
+    [data-theme="dark"] .empty-card {
+        background: rgba(15, 23, 42, 0.4);
+        border-color: rgba(56, 189, 248, 0.2);
+    }
+</style>
+
+<div class="inbox-wrap">
+    <!-- Header Card -->
+    <div class="glass-card" style="margin-bottom: 22px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 class="page-title">📥 My Inbox</h2>
+                <p class="page-subtitle">Official notifications, peer interactions, and moderation notices regarding
+                    your CodeNest activity.</p>
+            </div>
+            {% set total_unread = current_user.unread_warnings_count + current_user.unread_notifications_count %}
+            {% if total_unread > 0 %}
+            <span class="chip chip-warning" style="font-size: 0.82rem; padding: 4px 10px;">
+                {{ total_unread }} Unread
+            </span>
+            {% else %}
+            <span class="chip chip-acknowledged" style="font-size: 0.82rem; padding: 4px 10px;">
+                All Caught Up
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Section 1: In-App Notifications -->
+    <div class="glass-card">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid rgba(226, 232, 240, 0.8);">
+            <h3 class="section-title">
+                🔔 Activity Notifications
+                {% if current_user.unread_notifications_count > 0 %}
+                <span class="chip chip-new">{{ current_user.unread_notifications_count }} NEW</span>
+                {% endif %}
+            </h3>
+            {% if notifications and current_user.unread_notifications_count > 0 %}
+            <form method="POST" action="{{ url_for('mark_all_notifications_read') }}"
+                style="display: inline; margin: 0;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" style="font-size: 0.85rem; padding: 4px 10px;">Mark All Read</button>
+                <button type="submit" class="btn-read-all">Mark All as Read</button>
             </form>
+            {% endif %}
+        </div>
+
+        {% if not notifications %}
+        <div class="empty-card">
+            <div style="font-size: 1.8rem; margin-bottom: 6px;">🔔</div>
+            <p style="color: #64748b; margin: 0; font-size: 0.95rem;">You have no notifications at this time.</p>
+        </div>
+        {% else %}
+        <div>
+            {% for n in notifications %}
+            <div class="notif-item {% if not n.is_read %}unread{% endif %}">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <strong style="color: var(--text-color, #0f172a); font-size: 0.98rem;">{{ n.title }}</strong>
+                        {% if not n.is_read %}
+                        <span class="chip chip-new">NEW</span>
+                        {% endif %}
+                    </div>
+                    <small style="color: #64748b; font-size: 0.82rem;">{{ n.created_at.strftime('%b %d, %H:%M') if
+                        n.created_at else '' }}</small>
+                </div>
+                <p style="margin: 0 0 10px 0; font-size: 0.92rem; color: #475569; line-height: 1.5;">{{ n.message }}</p>
+                <div style="display: flex; align-items: center; gap: 12px; font-size: 0.85rem;">
+                    {% if n.link_url %}
+                    <a href="{{ n.link_url }}" style="color: #004FB6; font-weight: 600; text-decoration: none;">View
+                        Discussion &rarr;</a>
+                    {% endif %}
+                    {% if not n.is_read %}
+                    <form method="POST" action="{{ url_for('mark_notification_read', notif_id=n.id) }}"
+                        style="display: inline; margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-mark-item">Mark as Read</button>
+                    </form>
+                    {% else %}
+                    <span style="color: #94a3b8; font-size: 0.8rem;">Read</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
         {% endif %}
     </div>
 
-    {% if not notifications %}
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 15px; text-align: center; max-width: 800px;">
-            <p style="color: #64748b; margin: 0;">You have no notifications at this time.</p>
+    <!-- Section 2: Official Account Warnings -->
+    <div class="glass-card">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid rgba(226, 232, 240, 0.8);">
+            <h3 class="section-title">
+                🛡️ Disciplinary Warnings &amp; Official Notices
+            </h3>
         </div>
-    {% else %}
-        <div style="max-width: 800px;">
-            {% for n in notifications %}
-                <div style="background: {% if not n.is_read %}#eff6ff{% else %}#ffffff{% endif %}; border: 1px solid {% if not n.is_read %}#bfdbfe{% else %}#e2e8f0{% endif %}; border-radius: 4px; padding: 12px 16px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>{{ n.title }}</strong>
-                            {% if not n.is_read %}
-                                <span style="background: #3b82f6; color: white; padding: 1px 6px; border-radius: 9999px; font-size: 0.7rem; font-weight: bold; margin-left: 6px;">NEW</span>
-                            {% endif %}
-                        </div>
-                        <small style="color: #64748b;">{{ n.created_at.strftime('%b %d, %H:%M') if n.created_at else '' }}</small>
-                    </div>
-                    <p style="margin: 6px 0 8px 0; font-size: 0.95rem;">{{ n.message }}</p>
-                    <div>
-                        {% if n.link_url %}
-                            <a href="{{ n.link_url }}">View Discussion &rarr;</a>
-                            &nbsp;|&nbsp;
-                        {% endif %}
-                        {% if not n.is_read %}
-                            <form method="POST" action="{{ url_for('mark_notification_read', notif_id=n.id) }}" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" style="font-size: 0.8rem; padding: 2px 8px;">Mark as Read</button>
-                            </form>
-                        {% else %}
-                            <small style="color: #64748b;">Read</small>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
-</div>
 
-<hr>
-
-{# Section 2: Official Account Warnings #}
-<div>
-    <h3>Official Account Warnings</h3>
-    {% if not warnings %}
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; text-align: center; max-width: 800px;">
-            <p style="color: #64748b; font-size: 1rem; margin: 0;">✔ You have no disciplinary warnings or official notices.</p>
+        {% if not warnings %}
+        <div class="empty-card">
+            <div style="font-size: 1.8rem; margin-bottom: 6px;">🛡️</div>
+            <p style="color: #059669; font-weight: 600; font-size: 0.95rem; margin: 0;">
+                ✔ Excellent standing! You have no disciplinary warnings or official moderation notices.
+            </p>
         </div>
-    {% else %}
-        <div style="max-width: 800px;">
+        {% else %}
+        <div>
             {% for w in warnings %}
-                <div style="background: {% if not w.is_read %}#fef2f2{% else %}#ffffff{% endif %}; border: 1px solid {% if not w.is_read %}#fca5a5{% else %}#e2e8f0{% endif %}; border-radius: 6px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div>
-                            <strong style="color: #1e293b; font-size: 1.05rem;">{{ w.title }}</strong>
-                            <span style="color: #64748b; font-size: 0.85rem; margin-left: 8px;">from <strong>{{ w.sender_role }}</strong></span>
-                        </div>
-                        <div>
-                            {% if not w.is_read %}
-                                <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">UNREAD</span>
-                            {% else %}
-                                <span style="background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">ACKNOWLEDGED</span>
-                            {% endif %}
-                        </div>
+            <div class="warning-item {% if not w.is_read %}unread{% endif %}">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+                    <div>
+                        <strong style="color: #0f172a; font-size: 1.05rem;">{{ w.title }}</strong>
+                        <span style="color: #64748b; font-size: 0.85rem; margin-left: 8px;">from <strong>{{
+                                w.sender_role }}</strong></span>
                     </div>
-
-                    <p style="color: #64748b; font-size: 0.82rem; margin: 0 0 10px 0;">
-                        Received: {{ w.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
-                    </p>
-
-                    <div style="background: #ffffff; border: 1px solid {% if not w.is_read %}#fecaca{% else %}#f1f5f9{% endif %}; border-radius: 4px; padding: 12px; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; margin-bottom: 12px;">
-                        {{ w.message }}
+                    <div>
+                        {% if not w.is_read %}
+                        <span class="chip chip-warning">UNREAD</span>
+                        {% else %}
+                        <span class="chip chip-acknowledged">ACKNOWLEDGED</span>
+                        {% endif %}
                     </div>
-
-                    {% if not w.is_read %}
-                        <form method="POST" action="{{ url_for('mark_warning_read', warning_id=w.id) }}" style="display: inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" style="background: #dc2626; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">
-                                ✔ Acknowledge &amp; Mark as Read
-                            </button>
-                        </form>
-                    {% endif %}
                 </div>
+
+                <p style="color: #64748b; font-size: 0.82rem; margin: 0 0 10px 0;">
+                    Received: {{ w.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+                </p>
+
+                <div
+                    style="background: rgba(255, 255, 255, 0.85); border: 1px solid {% if not w.is_read %}#fecaca{% else %}#e2e8f0{% endif %}; border-radius: 10px; padding: 14px 16px; font-size: 0.92rem; line-height: 1.6; white-space: pre-wrap; margin-bottom: 14px; color: #1e293b;">
+                    {{ w.message }}
+                </div>
+
+                {% if not w.is_read %}
+                <form method="POST" action="{{ url_for('mark_warning_read', warning_id=w.id) }}"
+                    style="display: inline; margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-ack">
+                        ✔ Acknowledge &amp; Mark as Read
+                    </button>
+                </form>
+                {% endif %}
+            </div>
             {% endfor %}
         </div>
-    {% endif %}
+        {% endif %}
+    </div>
 </div>
-{% endblock %}
 
+{% endblock %}

@@ -1,177 +1,436 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div>
-    <h2>Username Change Request</h2>
-    <p>
-        <a href="{{ url_for('edit_profile') }}">← Back to Edit Profile</a> |
-        <a href="{{ url_for('settings') }}">Settings</a> |
-        <a href="{{ url_for('public_profile', username=current_user.username) }}">My Profile</a>
-    </p>
-</div>
-
-<hr>
-
-{% if current_user.is_admin() %}
-<div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
-    <h4 style="margin-top: 0; margin-bottom: 6px; color: #15803d;">⚡ Administrator Direct Update Privilege</h4>
-    <p style="margin: 0 0 6px 0; font-size: 0.95em; color: #166534;">
-        As a System Administrator, you possess top-level authority. You do not need to request permission or wait in an approval queue—your username changes take effect <strong>immediately</strong> upon submission.
-    </p>
-    <ul style="margin: 0; padding-left: 20px; font-size: 0.9em; color: #166534;">
-        <li><strong>University Email:</strong> <code>{{ current_user.email }}</code> — <em>Permanent credential.</em></li>
-        <li><strong>Validation:</strong> The new username must be unique, 3–50 characters, and contain only letters, numbers, and underscores.</li>
-    </ul>
-</div>
-{% else %}
-<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
-    <h4 style="margin-top: 0; margin-bottom: 6px;">Official Username &amp; Identity Policy</h4>
-    <p style="margin: 0 0 6px 0; font-size: 0.95em; color: #334155;">
-        Usernames identify you on all course discussions, questions, answers, and resources across CodeNest.
-        To maintain academic accountability and prevent identity confusion, direct username modifications are disabled.
-    </p>
-    <ul style="margin: 0; padding-left: 20px; font-size: 0.9em; color: #475569;">
-        <li><strong>Student/University Email:</strong> <code>{{ current_user.email }}</code> — <em>Strictly permanent; cannot be changed under any circumstances.</em></li>
-        <li><strong>Username Changes:</strong> {% if current_user.is_moderator() %}Require review and approval strictly by a <strong>System Administrator</strong> (peer moderators cannot approve).{% else %}Require review and approval by an Administrator or Community Moderator.{% endif %}</li>
-        <li><strong>Guidelines:</strong> Desired usernames must be between 3 and 50 characters, contain only alphanumeric characters or underscores, and adhere to CodeNest community standards.</li>
-    </ul>
-</div>
-{% endif %}
-
-{% if pending_request and not current_user.is_admin() %}
-<div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 16px; border-radius: 4px; margin-bottom: 25px;">
-    <h3 style="margin-top: 0; color: #b45309;">Active Request Pending Review</h3>
-    <p style="margin-bottom: 10px;">
-        {% if current_user.is_moderator() %}
-            You have an active username change request awaiting review and approval by a <strong>System Administrator</strong>.
-        {% else %}
-            You already have a username change request awaiting review by an Administrator or Community Moderator.
-        {% endif %}
-    </p>
+<style>
+    .username-req-wrap {
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 8px 0 40px;
+    }
+    .glass-card {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(18px) saturate(180%);
+        -webkit-backdrop-filter: blur(18px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 20px;
+        padding: 26px 30px;
+        box-shadow: 0 14px 34px -8px rgba(0, 51, 102, 0.07), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        margin-bottom: 22px;
+        position: relative;
+        overflow: hidden;
+    }
+    .glass-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 10%; right: 10%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.3), rgba(237, 28, 36, 0.3), transparent);
+    }
+    [data-theme="dark"] .glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.18);
+        box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.5);
+    }
+    .page-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #003366;
+        margin: 0 0 6px 0;
+    }
+    [data-theme="dark"] .page-title { color: #38bdf8; }
+    .page-subtitle {
+        color: #64748b;
+        font-size: 0.92rem;
+        margin: 0;
+    }
+    .header-links a {
+        color: #004FB6;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.88rem;
+        transition: color 0.18s ease;
+    }
+    .header-links a:hover {
+        color: #ED1C24;
+    }
+    [data-theme="dark"] .header-links a { color: #38bdf8; }
+    [data-theme="dark"] .header-links a:hover { color: #f43f5e; }
+    .section-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 16px 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    [data-theme="dark"] .section-title {
+        color: #f1f5f9;
+        border-bottom-color: rgba(56, 189, 248, 0.18);
+    }
+    .notice-card {
+        border-radius: 14px;
+        padding: 16px 20px;
+        margin-bottom: 22px;
+        font-size: 0.92rem;
+        line-height: 1.55;
+    }
+    .notice-admin {
+        background: rgba(240, 253, 244, 0.85);
+        border: 1px solid #bbf7d0;
+        border-left: 5px solid #16a34a;
+        color: #166534;
+    }
+    .notice-policy {
+        background: rgba(241, 245, 249, 0.85);
+        border: 1px solid #e2e8f0;
+        border-left: 5px solid #004FB6;
+        color: #334155;
+    }
+    [data-theme="dark"] .notice-admin {
+        background: rgba(22, 101, 52, 0.15);
+        border-color: rgba(34, 197, 94, 0.3);
+        border-left-color: #22c55e;
+        color: #86efac;
+    }
+    [data-theme="dark"] .notice-policy {
+        background: rgba(15, 23, 42, 0.8);
+        border-color: rgba(56, 189, 248, 0.25);
+        border-left-color: #38bdf8;
+        color: #cbd5e1;
+    }
+    .form-group {
+        margin-bottom: 18px;
+    }
+    .form-label {
+        display: block;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 6px;
+    }
+    [data-theme="dark"] .form-label { color: #cbd5e1; }
+    .form-control {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        background: rgba(255, 255, 255, 0.9);
+        color: #0f172a;
+        font-size: 0.95rem;
+        font-family: inherit;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+    .form-control:focus {
+        border-color: #004FB6;
+        box-shadow: 0 0 0 3px rgba(0, 79, 182, 0.15);
+        background: #ffffff;
+    }
+    .form-control:disabled, .form-control[readonly] {
+        background: rgba(241, 245, 249, 0.8);
+        color: #64748b;
+        cursor: not-allowed;
+    }
+    [data-theme="dark"] .form-control {
+        background: rgba(15, 23, 42, 0.85);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #f1f5f9;
+    }
+    [data-theme="dark"] .form-control:focus {
+        background: rgba(15, 23, 42, 0.95);
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+    [data-theme="dark"] .form-control:disabled, [data-theme="dark"] .form-control[readonly] {
+        background: rgba(30, 41, 59, 0.6);
+        color: #94a3b8;
+    }
+    .form-hint {
+        display: block;
+        font-size: 0.82rem;
+        color: #64748b;
+        margin-top: 5px;
+    }
+    [data-theme="dark"] .form-hint { color: #94a3b8; }
+    .form-error {
+        color: #dc2626;
+        font-size: 0.82rem;
+        margin: 4px 0 0 0;
+    }
+    .btn-submit {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        border: none;
+        padding: 11px 26px;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 51, 102, 0.25);
+        transition: all 0.2s ease;
+    }
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 51, 102, 0.35);
+    }
+    .btn-admin {
+        background: linear-gradient(135deg, #059669, #047857) !important;
+        box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3) !important;
+    }
+    .btn-cancel {
+        display: inline-flex;
+        align-items: center;
+        padding: 10px 18px;
+        border-radius: 10px;
+        text-decoration: none;
+        color: #475569;
+        font-size: 0.95rem;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid #cbd5e1;
+        transition: all 0.2s ease;
+        margin-left: 10px;
+    }
+    .btn-cancel:hover {
+        background: #ffffff;
+        color: #003366;
+    }
+    [data-theme="dark"] .btn-cancel {
+        background: rgba(30, 41, 59, 0.7);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #cbd5e1;
+    }
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    .chip-approved { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .chip-rejected { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .chip-pending { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .chip-cancelled { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
     
-    <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-bottom: 15px;">
-        <tr>
-            <td style="padding: 6px 0; color: #64748b; width: 180px;"><strong>Current Username:</strong></td>
-            <td style="padding: 6px 0;"><code>{{ pending_request.current_username }}</code></td>
-        </tr>
-        <tr>
-            <td style="padding: 6px 0; color: #64748b;"><strong>Requested Username:</strong></td>
-            <td style="padding: 6px 0; font-size: 1.1em; color: #0f172a;"><strong>@{{ pending_request.new_username }}</strong></td>
-        </tr>
-        <tr>
-            <td style="padding: 6px 0; color: #64748b;"><strong>Submitted At:</strong></td>
-            <td style="padding: 6px 0;">{{ pending_request.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
-        </tr>
-        <tr>
-            <td style="padding: 6px 0; color: #64748b;"><strong>Status:</strong></td>
-            <td style="padding: 6px 0;">
-                <span style="display: inline-block; background: #fef3c7; color: #b45309; font-weight: bold; padding: 3px 8px; border-radius: 4px; font-size: 0.85em;">
-                    PENDING APPROVAL
-                </span>
-            </td>
-        </tr>
-        {% if pending_request.reason %}
-        <tr>
-            <td style="padding: 6px 0; color: #64748b; vertical-align: top;"><strong>Provided Reason:</strong></td>
-            <td style="padding: 6px 0;"><em>{{ pending_request.reason }}</em></td>
-        </tr>
-        {% endif %}
-    </table>
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        margin-top: 10px;
+    }
+    .history-table th {
+        background: rgba(0, 51, 102, 0.06);
+        padding: 11px 14px;
+        text-align: left;
+        font-weight: 700;
+        color: #334155;
+        border-bottom: 1px solid #cbd5e1;
+    }
+    [data-theme="dark"] .history-table th {
+        background: rgba(56, 189, 248, 0.1);
+        color: #94a3b8;
+        border-bottom-color: rgba(56, 189, 248, 0.2);
+    }
+    .history-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+        color: #0f172a;
+    }
+    [data-theme="dark"] .history-table td {
+        border-bottom-color: rgba(56, 189, 248, 0.15);
+        color: #f1f5f9;
+    }
+    .history-table tr:hover td {
+        background: rgba(0, 79, 182, 0.03);
+    }
+    [data-theme="dark"] .history-table tr:hover td {
+        background: rgba(56, 189, 248, 0.05);
+    }
+</style>
 
-    <form method="POST" action="{{ url_for('cancel_username_request', request_id=pending_request.id) }}" style="display: inline;">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-        <button type="submit" onclick="return confirm('Are you sure you want to cancel this pending username change request?');" style="background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">
-            Cancel Request
-        </button>
-    </form>
-</div>
+<div class="username-req-wrap">
+    <!-- Header Card -->
+    <div class="glass-card" style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 class="page-title">🏷️ Username Change Request</h2>
+                <p class="page-subtitle">Manage or submit formal identity and handle modifications across CodeNest.</p>
+            </div>
+            <div class="header-links">
+                <a href="{{ url_for('edit_profile') }}">← Back to Edit Profile</a>
+                <span style="color: #cbd5e1; margin: 0 6px;">|</span>
+                <a href="{{ url_for('settings') }}">Settings</a>
+            </div>
+        </div>
+    </div>
 
-{% else %}
-
-<div style="background: white; border: 1px solid #e2e8f0; padding: 20px; border-radius: 4px; max-width: 650px; margin-bottom: 30px;">
+    <!-- Policy Banner -->
     {% if current_user.is_admin() %}
-        <h3 style="margin-top: 0; color: #166534;">Update Username Directly (Admin)</h3>
+        <div class="notice-card notice-admin">
+            <h4 style="margin: 0 0 6px 0; font-size: 1rem; font-weight: 700;">⚡ Administrator Direct Update Privilege</h4>
+            <p style="margin: 0 0 8px 0;">
+                As a System Administrator, you possess top-level authority. You do not need to wait in an approval queue—your username changes take effect <strong>immediately</strong> upon submission.
+            </p>
+            <div style="font-size: 0.86rem; opacity: 0.9;">
+                <strong>Permanent Credential:</strong> <code>{{ current_user.email }}</code> &bull; Usernames must be 3–50 alphanumeric characters or underscores.
+            </div>
+        </div>
     {% else %}
-        <h3 style="margin-top: 0;">Submit a Username Change Request</h3>
+        <div class="notice-card notice-policy">
+            <h4 style="margin: 0 0 6px 0; font-size: 1rem; font-weight: 700; color: #003366;">📋 Official Username &amp; Identity Policy</h4>
+            <p style="margin: 0 0 8px 0;">
+                Usernames identify you on all course discussions, questions, answers, and resources across CodeNest. To maintain academic accountability, direct modifications are reviewed by moderators or administrators.
+            </p>
+            <div style="font-size: 0.86rem; color: #64748b;">
+                <strong>Permanent Email:</strong> <code>{{ current_user.email }}</code> &bull; Changes require review &bull; 3–50 characters.
+            </div>
+        </div>
     {% endif %}
-    <form method="POST" action="{{ url_for('request_username_change') }}">
-        {{ form.hidden_tag() }}
 
-        <div style="margin-bottom: 15px;">
-            <label><strong>Current Username:</strong></label><br>
-            <input type="text" value="{{ current_user.username }}" disabled readonly style="background-color: #f1f5f9; color: #475569; width: 300px; cursor: not-allowed;">
-        </div>
-
-        <div style="margin-bottom: 15px;">
-            <label for="new_username"><strong>Desired New Username:</strong></label><br>
-            {{ form.new_username(id="new_username", size="40", placeholder="e.g. alex_dev") }}
-            <small style="display: block; color: #64748b; margin-top: 4px;">3-50 characters. Letters, numbers, and underscores only. Prohibited terms are rejected.</small>
-            {% for error in form.new_username.errors %}
-                <p style="color: red; margin: 2px 0;">{{ error }}</p>
-            {% endfor %}
-        </div>
-
-        <div style="margin-bottom: 15px;">
-            <label for="reason"><strong>Reason / Log Note (Optional):</strong></label><br>
-            {{ form.reason(id="reason", rows="3", cols="50", placeholder="Reason or administrative audit note...") }}
-            <small style="display: block; color: #64748b; margin-top: 4px;">Maximum 300 characters.</small>
-            {% for error in form.reason.errors %}
-                <p style="color: red; margin: 2px 0;">{{ error }}</p>
-            {% endfor %}
-        </div>
-
-        <div>
-            {% if current_user.is_admin() %}
-                <input type="submit" name="submit" value="Update Username Immediately (Admin)" style="background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
-            {% else %}
-                {{ form.submit() }}
-            {% endif %}
-            <a href="{{ url_for('edit_profile') }}" style="margin-left: 10px;">Cancel</a>
-        </div>
-    </form>
-</div>
-{% endif %}
-
-<hr>
-
-<h3>Your Request History</h3>
-{% if request_history %}
-<table class="table-bordered" style="width: 100%; margin-top: 15px;">
-    <thead style="background: #f3f4f6;">
-        <tr>
-            <th>ID</th>
-            <th>Requested Username</th>
-            <th>Submitted On</th>
-            <th>Status</th>
-            <th>Reviewer Note</th>
-            <th>Handled At</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for r in request_history %}
-        <tr>
-            <td>#{{ r.id }}</td>
-            <td><strong>@{{ r.new_username }}</strong></td>
-            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
-                {% if r.status == 'approved' %}
-                    <span style="color: #059669; font-weight: bold;">APPROVED</span>
-                {% elif r.status == 'rejected' %}
-                    <span style="color: #dc2626; font-weight: bold;">DISAPPROVED</span>
-                {% elif r.status == 'cancelled' %}
-                    <span style="color: #64748b; font-weight: bold;">CANCELLED</span>
+    <!-- Active Request Card (If Pending) -->
+    {% if pending_request and not current_user.is_admin() %}
+        <div class="glass-card" style="border-left: 5px solid #d97706;">
+            <h3 class="section-title" style="color: #b45309;">
+                ⏳ Active Request Pending Review
+            </h3>
+            <p style="color: #64748b; font-size: 0.92rem; margin: 0 0 16px 0;">
+                {% if current_user.is_moderator() %}
+                    Your request is currently awaiting review by a <strong>System Administrator</strong>.
                 {% else %}
-                    <span style="color: #d97706; font-weight: bold;">PENDING</span>
+                    Your request is currently awaiting review by an Administrator or Community Moderator.
                 {% endif %}
-            </td>
-            <td>{{ r.reviewer_note or '-' }}</td>
-            <td>{{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') if r.reviewed_at else '-' }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p style="color: #64748b;">You have not submitted any previous username change requests.</p>
-{% endif %}
+            </p>
+
+            <div style="background: rgba(255, 255, 255, 0.75); border: 1px solid rgba(203, 213, 225, 0.8); border-radius: 12px; padding: 16px 20px; margin-bottom: 18px;">
+                <div style="display: grid; grid-template-columns: 160px 1fr; gap: 10px; font-size: 0.92rem;">
+                    <span style="color: #64748b; font-weight: 600;">Current Handle:</span>
+                    <code>{{ pending_request.current_username }}</code>
+
+                    <span style="color: #64748b; font-weight: 600;">Requested Handle:</span>
+                    <strong style="color: #003366; font-size: 1.05rem;">@{{ pending_request.new_username }}</strong>
+
+                    <span style="color: #64748b; font-weight: 600;">Submitted At:</span>
+                    <span>{{ pending_request.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</span>
+
+                    <span style="color: #64748b; font-weight: 600;">Status:</span>
+                    <div><span class="chip chip-pending">PENDING APPROVAL</span></div>
+
+                    {% if pending_request.reason %}
+                        <span style="color: #64748b; font-weight: 600;">Reason Provided:</span>
+                        <em>{{ pending_request.reason }}</em>
+                    {% endif %}
+                </div>
+            </div>
+
+            <form method="POST" action="{{ url_for('cancel_username_request', request_id=pending_request.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" onclick="return confirm('Are you sure you want to cancel this pending username change request?');" style="background: linear-gradient(135deg, #ED1C24, #c9141b); color: white; border: none; padding: 9px 20px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.9rem; box-shadow: 0 4px 12px rgba(237, 28, 36, 0.25);">
+                    Cancel Request
+                </button>
+            </form>
+        </div>
+
+    {% else %}
+        <!-- Request Submission Form -->
+        <div class="glass-card">
+            <h3 class="section-title">
+                {% if current_user.is_admin() %}
+                    ⚡ Update Username Directly (Administrator)
+                {% else %}
+                    ✏️ Submit Username Change Request
+                {% endif %}
+            </h3>
+
+            <form method="POST" action="{{ url_for('request_username_change') }}">
+                {{ form.hidden_tag() }}
+
+                <div class="form-group">
+                    <label class="form-label">Current Username</label>
+                    <input type="text" class="form-control" value="{{ current_user.username }}" disabled readonly style="max-width: 320px;">
+                </div>
+
+                <div class="form-group">
+                    <label for="new_username" class="form-label">Desired New Username</label>
+                    {{ form.new_username(id="new_username", class="form-control", placeholder="e.g. alex_dev", style="max-width: 360px;") }}
+                    <small class="form-hint">3–50 characters. Letters, numbers, and underscores only.</small>
+                    {% for error in form.new_username.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="reason" class="form-label">Reason / Justification (Optional)</label>
+                    {{ form.reason(id="reason", class="form-control", rows="3", placeholder="Brief explanation for peer or admin context...") }}
+                    <small class="form-hint">Maximum 300 characters.</small>
+                    {% for error in form.reason.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <div style="display: flex; align-items: center; margin-top: 22px;">
+                    {% if current_user.is_admin() %}
+                        <input type="submit" name="submit" value="Update Username Immediately (Admin)" class="btn-submit btn-admin">
+                    {% else %}
+                        {{ form.submit(class="btn-submit", value="Submit Request") }}
+                    {% endif %}
+                    <a href="{{ url_for('edit_profile') }}" class="btn-cancel">Cancel</a>
+                </div>
+            </form>
+        </div>
+    {% endif %}
+
+    <!-- Request History Card -->
+    <div class="glass-card">
+        <h3 class="section-title">📜 Request History</h3>
+        {% if request_history %}
+            <div style="overflow-x: auto;">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Requested Username</th>
+                            <th>Submitted On</th>
+                            <th>Status</th>
+                            <th>Reviewer Note</th>
+                            <th>Handled At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in request_history %}
+                        <tr>
+                            <td>#{{ r.id }}</td>
+                            <td><strong>@{{ r.new_username }}</strong></td>
+                            <td style="color: #64748b; font-size: 0.85rem;">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                {% if r.status == 'approved' %}
+                                    <span class="chip chip-approved">APPROVED</span>
+                                {% elif r.status == 'rejected' %}
+                                    <span class="chip chip-rejected">DISAPPROVED</span>
+                                {% elif r.status == 'cancelled' %}
+                                    <span class="chip chip-cancelled">CANCELLED</span>
+                                {% else %}
+                                    <span class="chip chip-pending">PENDING</span>
+                                {% endif %}
+                            </td>
+                            <td style="color: #64748b; font-size: 0.88rem;">{{ r.reviewer_note or '-' }}</td>
+                            <td style="color: #64748b; font-size: 0.85rem;">{{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') if r.reviewed_at else '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: #64748b; font-size: 0.92rem; margin: 0; text-align: center; padding: 14px 0;">
+                You have not submitted any previous username change requests.
+            </p>
+        {% endif %}
+    </div>
+</div>
 
 {% endblock %}
