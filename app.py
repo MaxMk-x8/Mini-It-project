@@ -89,7 +89,7 @@ def send_email_async(msg):
                 import json
                 try:
                     payload = {
-                        "from": "CodeNest <onboarding@resend.dev>",
+                        "from": "CodeNest <noreply@mail.sadaqanaldiyafa.com>",
                         "to": list(msg.recipients) if isinstance(msg.recipients, (list, tuple)) else [msg.recipients],
                         "subject": msg.subject,
                         "text": msg.body
