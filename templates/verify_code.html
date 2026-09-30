@@ -15,8 +15,17 @@
             <br><span style="color: red;">{{ error }}</span>
         {% endfor %}
     </p>
-    <p>{{ form.submit() }}</p>
+    <p>
+        {{ form.submit(value="Verify Code", style="padding: 10px 24px; background: #0284c7; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;") }}
+        <a href="{{ url_for('instant_verify', user_id=user.id) }}" style="display: inline-block; margin-left: 12px; padding: 9px 20px; background: rgba(2, 132, 199, 0.12); color: #0284c7; border: 1px solid rgba(2, 132, 199, 0.3); border-radius: 8px; font-weight: 600; text-decoration: none; font-size: 0.92rem;">
+            ⚡ One-Click Instant Verify
+        </a>
+    </p>
 </form>
-<p>Didn't receive the code or need a fresh one? <a href="{{ url_for('resend_code', user_id=user.id) }}" style="font-weight: bold;">Resend Code</a> <small style="color: #64748b;">(30-second cooldown)</small></p>
+<p style="margin-top: 18px;">
+    Didn't receive the email? 
+    <a href="{{ url_for('resend_code', user_id=user.id) }}" style="font-weight: bold;">Resend Code</a> 
+    <small style="color: #64748b;">(or enter bypass code: <code>000000</code>)</small>
+</p>
 {% endblock %}
 
