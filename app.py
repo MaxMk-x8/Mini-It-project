@@ -79,10 +79,9 @@ mail = Mail(app)
 def send_email_async(msg):
     """Dispatches emails in a background daemon thread so synchronous SMTP network pauses never block the HTTP request or cause Gunicorn timeouts."""
     import threading
-    app_obj = app._get_current_object()
 
     def _send():
-        with app_obj.app_context():
+        with app.app_context():
             try:
                 if not msg.sender:
                     msg.sender = app.config.get('MAIL_USERNAME') or 'noreply@codenest.com'
