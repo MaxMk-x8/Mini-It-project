@@ -473,29 +473,6 @@ def verify_code(user_id):
     return render_template('verify_code.html', form=form, user=user)
 
 
-@app.route('/verify-code/<int:user_id>/instant', methods=['GET', 'POST'])
-def instant_verify(user_id):
-    user = db.session.get(User, user_id)
-    if not user:
-        flash('User not found.', 'danger')
-        return redirect(url_for('register'))
-
-    if user.is_banned:
-        flash('This account has been permanently banned from CodeNest.', 'danger')
-        return redirect(url_for('login'))
-
-    user.is_verified = True
-    user.verification_code = None
-    user.verification_code_created_at = None
-    user.verification_resend_available_at = None
-    user.verification_attempts = 0
-    user.reset_login_lockout()
-    db.session.commit()
-    login_user(user)
-    flash(f'Account verified successfully! Welcome, {user.username}!', 'success')
-    return redirect(url_for('home'))
-
-
 @app.route('/resend-code/<int:user_id>', methods=['GET', 'POST'])
 def resend_code(user_id):
     user = db.session.get(User, user_id)
