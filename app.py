@@ -44,6 +44,7 @@ load_dotenv()
 app = Flask(__name__)
 csrf = CSRFProtect(app)
 
+app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'codenest-foundation-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///codenest.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -409,7 +410,8 @@ def register():
             send_email_async(msg)
             flash(f'Account created! Role assigned: {role}. Please check your email for your 6-digit code.', 'info')
         except Exception as e:
-            flash(f'Verification email notification notice: {e}. [Dev Mode Code: {code}]', 'warning')
+            app.logger.warning(f"Registration email delivery notice: {e}")
+            flash('Account created! Please check your email for your 6-digit verification code.', 'info')
 
         return redirect(url_for('verify_code', user_id=user.id))
 
@@ -523,7 +525,8 @@ def resend_code(user_id):
         send_email_async(msg)
         flash('A new verification code has been sent to your email (expires in 5 minutes).', 'info')
     except Exception as e:
-        flash(f'Failed to send verification email: {e}. [Dev Mode Code: {code}]', 'warning')
+        app.logger.warning(f"Resend verification email notice: {e}")
+        flash('Failed to deliver verification email. Please try again shortly.', 'warning')
 
     return redirect(url_for('verify_code', user_id=user.id))
 
@@ -637,7 +640,8 @@ def forgot_password():
                 send_email_async(msg)
                 flash('A 6-digit password reset code has been sent to your email.', 'info')
             except Exception as e:
-                flash(f'Failed to send reset email: {e}. [Dev Mode Code: {code}]', 'warning')
+                app.logger.warning(f"Forgot password email delivery notice: {e}")
+                flash('Could not deliver password reset email. Please try again shortly.', 'warning')
 
             return redirect(url_for('verify_reset_code', user_id=user.id))
         else:
@@ -746,7 +750,8 @@ def resend_reset_code(user_id):
         send_email_async(msg)
         flash('A new password reset code has been sent to your email.', 'info')
     except Exception as e:
-        flash(f'Failed to send reset email: {e}. [Dev Mode Code: {code}]', 'warning')
+        app.logger.warning(f"Resend password reset email notice: {e}")
+        flash('Failed to deliver password reset email. Please try again shortly.', 'warning')
 
     return redirect(url_for('verify_reset_code', user_id=user.id))
 
@@ -5416,11 +5421,21 @@ def handle_exception(e):
     tb = traceback.format_exc()
     print("=== UNCAUGHT SERVER EXCEPTION ===", flush=True)
     print(tb, flush=True)
-    return f"""
-    <div style="font-family: -apple-system, sans-serif; padding: 24px; max-width: 800px; margin: 40px auto; background: #fff1f2; border: 2px solid #f43f5e; border-radius: 12px; color: #881337;">
-        <h2 style="margin-top: 0; color: #9f1239;">Server Error (500)</h2>
-        <p><strong>Exception:</strong> {escape(str(e))}</p>
-        <pre style="background: rgba(0,0,0,0.06); padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; line-height: 1.5; color: #1e293b;">{escape(tb)}</pre>
+    if app.debug:
+        return f"""
+        <div style="font-family: -apple-system, sans-serif; padding: 24px; max-width: 800px; margin: 40px auto; background: #fff1f2; border: 2px solid #f43f5e; border-radius: 12px; color: #881337;">
+            <h2 style="margin-top: 0; color: #9f1239;">Server Error (500)</h2>
+            <p><strong>Exception:</strong> {escape(str(e))}</p>
+            <pre style="background: rgba(0,0,0,0.06); padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; line-height: 1.5; color: #1e293b;">{escape(tb)}</pre>
+        </div>
+        """, 500
+
+    return """
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 48px 24px; max-width: 580px; margin: 60px auto; text-align: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); color: #1e293b;">
+        <div style="font-size: 3rem; margin-bottom: 8px;">🛠️</div>
+        <h1 style="font-size: 2rem; margin: 0 0 8px 0; color: #0284c7;">500 Internal Server Error</h1>
+        <p style="color: #64748b; font-size: 0.98rem; line-height: 1.6; margin: 0 0 24px 0;">An unexpected error occurred while processing your request. Please try again or return to the main dashboard.</p>
+        <a href="/" style="display: inline-block; padding: 10px 24px; background: #0284c7; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 0.95rem;">Return to Homepage</a>
     </div>
     """, 500
 
@@ -5431,4 +5446,4 @@ def handle_exception(e):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, port=int(os.environ.get('PORT', 5050)))
+    app.run(debug=False, port=int(os.environ.get('PORT', 5050)))
