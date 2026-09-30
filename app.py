@@ -5389,6 +5389,24 @@ def set_security_cache_headers(response):
 
 
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+    import traceback
+    tb = traceback.format_exc()
+    print("=== UNCAUGHT SERVER EXCEPTION ===", flush=True)
+    print(tb, flush=True)
+    return f"""
+    <div style="font-family: -apple-system, sans-serif; padding: 24px; max-width: 800px; margin: 40px auto; background: #fff1f2; border: 2px solid #f43f5e; border-radius: 12px; color: #881337;">
+        <h2 style="margin-top: 0; color: #9f1239;">Server Error (500)</h2>
+        <p><strong>Exception:</strong> {escape(str(e))}</p>
+        <pre style="background: rgba(0,0,0,0.06); padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; line-height: 1.5; color: #1e293b;">{escape(tb)}</pre>
+    </div>
+    """, 500
+
+
 #-------------------------------
 #GLOBAL APP RUN
 #-------------------------------
