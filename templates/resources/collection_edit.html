@@ -102,7 +102,7 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 18px;">
             <div>
                 <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">Academic Year</label>
-                {{ form.academic_year(class="res-form-field", style="width: 100%;", placeholder="e.g. 2025/2026") }}
+                {{ form.academic_year(class="res-form-field", style="width: 100%;") }}
                 {% for error in form.academic_year.errors %}
                     <span class="res-form-error">{{ error }}</span>
                 {% endfor %}

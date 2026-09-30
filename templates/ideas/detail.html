@@ -22,6 +22,12 @@
                         {% if idea.course_code %}
                             <span class="idea-badge idea-badge--course">{{ idea.course_code }}</span>
                         {% endif %}
+                        {% if idea.academic_year %}
+                            <span class="idea-badge idea-badge--course">📅 {{ idea.academic_year }}</span>
+                        {% endif %}
+                        {% if idea.semester %}
+                            <span class="idea-badge idea-badge--course">⏱️ {{ idea.semester }}</span>
+                        {% endif %}
                     </div>
                     <div>
                         {% if not idea.is_open %}

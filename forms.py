@@ -113,15 +113,21 @@ RESOURCE_CATEGORIES = [
 ]
 
 SEMESTER_CHOICES = [
-    ('', '-- Select Semester (Optional) --'),
-    ('Trimester 1', 'Trimester 1'),
-    ('Trimester 2', 'Trimester 2'),
-    ('Trimester 3', 'Trimester 3'),
-    ('Semester 1', 'Semester 1'),
-    ('Semester 2', 'Semester 2'),
+    ('', '-- Select Semester / Term (Optional) --'),
     ('March/April', 'March/April'),
     ('July/August', 'July/August'),
     ('October/November', 'October/November')
+]
+
+ACADEMIC_YEAR_CHOICES = [
+    ('', '-- Select Academic Year (Optional) --'),
+    ('2020', '2020'),
+    ('2021', '2021'),
+    ('2022', '2022'),
+    ('2023', '2023'),
+    ('2024', '2024'),
+    ('2025', '2025'),
+    ('2026', '2026')
 ]
 
 ALLOWED_EXTENSIONS = ['pdf', 'docx', 'pptx', 'txt', 'zip']
@@ -137,8 +143,8 @@ class ResourceForm(FlaskForm):
     description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
     course_code = StringField('Course / Module Code (Optional)', validators=[Length(max=20), NoProfanity()], filters=[lambda x: x.strip().upper() if x else None])
     course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
-    academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
-    semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
+    academic_year = SelectField('Academic Year (Optional)', choices=ACADEMIC_YEAR_CHOICES)
+    semester = SelectField('Semester / Term (Optional)', choices=SEMESTER_CHOICES)
     file = FileField('Resource File', validators=[
         FileRequired(message='Please select a file to upload.'),
         FileAllowed(ALLOWED_EXTENSIONS, f'Allowed file types: {", ".join(ALLOWED_EXTENSIONS).upper()}')
@@ -153,8 +159,8 @@ class ResourceEditForm(FlaskForm):
     description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
     course_code = StringField('Course / Module Code (Optional)', validators=[Length(max=20), NoProfanity()], filters=[lambda x: x.strip().upper() if x else None])
     course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
-    academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
-    semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
+    academic_year = SelectField('Academic Year (Optional)', choices=ACADEMIC_YEAR_CHOICES)
+    semester = SelectField('Semester / Term (Optional)', choices=SEMESTER_CHOICES)
     file = FileField('Replace File (Optional - choose new PDF/file to update this resource)', validators=[
         FileAllowed(ALLOWED_EXTENSIONS, f'Allowed file types: {", ".join(ALLOWED_EXTENSIONS).upper()}')
     ])
@@ -185,8 +191,8 @@ class CollectionForm(FlaskForm):
     description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
     course_code = StringField('Course / Module Code (Optional)', validators=[Length(max=20), NoProfanity()], filters=[lambda x: x.strip().upper() if x else None])
     course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
-    academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
-    semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
+    academic_year = SelectField('Academic Year (Optional)', choices=ACADEMIC_YEAR_CHOICES)
+    semester = SelectField('Semester / Term (Optional)', choices=SEMESTER_CHOICES)
     files = MultipleFileField('Notes Folder / Files')
     submit = SubmitField('Upload Notes Collection')
 
@@ -202,8 +208,8 @@ class CollectionEditForm(FlaskForm):
     description = TextAreaField('Description (Optional)', validators=[Length(max=1000), NoProfanity()])
     course_code = StringField('Course / Module Code (Optional)', validators=[Length(max=20), NoProfanity()], filters=[lambda x: x.strip().upper() if x else None])
     course_name = StringField('Course / Module Name (Optional)', validators=[Length(max=150), NoProfanity()])
-    academic_year = StringField('Academic Year (Optional, e.g. 2023/2024)', validators=[Length(max=20), NoProfanity()])
-    semester = SelectField('Semester (Optional)', choices=SEMESTER_CHOICES)
+    academic_year = SelectField('Academic Year (Optional)', choices=ACADEMIC_YEAR_CHOICES)
+    semester = SelectField('Semester / Term (Optional)', choices=SEMESTER_CHOICES)
     replacement_folder = MultipleFileField('Replace All Files / Folder (Optional)')
     submit = SubmitField('Update Collection')
 
@@ -537,6 +543,8 @@ class IdeaForm(FlaskForm):
         Length(max=150, message='Course name cannot exceed 150 characters.'),
         NoProfanity()
     ])
+    academic_year = SelectField('Academic Year (Optional)', choices=ACADEMIC_YEAR_CHOICES)
+    semester = SelectField('Semester / Term (Optional)', choices=SEMESTER_CHOICES)
     max_members = IntegerField('Maximum Members (Total Group Size, including you)', default=4, validators=[
         DataRequired(message='Please enter maximum team capacity.'),
         NumberRange(min=2, max=10, message='Total group size must be between 2 and 10 members (including owner).')

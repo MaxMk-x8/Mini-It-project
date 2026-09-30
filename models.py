@@ -1437,6 +1437,8 @@ class Idea(db.Model):
     faculty = db.Column(db.String(10), nullable=False)
     course_code = db.Column(db.String(20), nullable=True)
     course_name = db.Column(db.String(150), nullable=True)
+    academic_year = db.Column(db.String(20), nullable=True)
+    semester = db.Column(db.String(20), nullable=True)
     max_members = db.Column(db.Integer, nullable=False, default=4)
     is_full = db.Column(db.Boolean, nullable=False, default=False)
     is_open = db.Column(db.Boolean, nullable=False, default=True)
@@ -1449,7 +1451,7 @@ class Idea(db.Model):
 
     def __init__(self, title=None, description=None, category=None, faculty=None,
                  course_code=None, course_name=None, max_members=4, is_full=False,
-                 is_open=True, owner_id=None, **kwargs):
+                 is_open=True, owner_id=None, academic_year=None, semester=None, **kwargs):
         super().__init__(**kwargs)
         if title:
             self.title = title
@@ -1461,6 +1463,8 @@ class Idea(db.Model):
             self.faculty = faculty
         self.course_code = course_code
         self.course_name = course_name
+        self.academic_year = academic_year
+        self.semester = semester
         self.max_members = max_members if max_members is not None else 4
         self.is_full = bool(is_full)
         self.is_open = bool(is_open)
@@ -1658,9 +1662,14 @@ def migrate_database(db_path=None):
         owner_id INTEGER NOT NULL,
         created_at DATETIME,
         updated_at DATETIME,
+        academic_year VARCHAR(20),
+        semester VARCHAR(20),
         CONSTRAINT fk_ideas_owner_id FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE
     )
     """)
+
+    ensure_column('ideas', 'academic_year', 'VARCHAR(20)', None)
+    ensure_column('ideas', 'semester', 'VARCHAR(20)', None)
 
     # 8. IDEA_INTERESTS table (Idea Lab)
     cursor.execute("""

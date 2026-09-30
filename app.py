@@ -23,7 +23,7 @@ from models import (
 from forms import (
     RegistrationForm, LoginForm, VerificationForm, QuestionForm, AnswerForm, 
     QUESTION_CATEGORIES, ResourceForm, ResourceEditForm, RESOURCE_CATEGORIES, ALLOWED_EXTENSIONS,
-    RatingForm, CollectionForm, CollectionEditForm, CollectionUploadForm, ProfessorReviewForm, AddFilesToCollectionForm, SEMESTER_CHOICES,
+    RatingForm, CollectionForm, CollectionEditForm, CollectionUploadForm, ProfessorReviewForm, AddFilesToCollectionForm, SEMESTER_CHOICES, ACADEMIC_YEAR_CHOICES,
     ALLOWED_SCREENSHOT_EXTENSIONS, MAX_SCREENSHOT_SIZE, MAX_SCREENSHOTS_COUNT,
     ChangePasswordForm, LogoutForm, ReportActionForm,
     ModeratorApplicationForm, ModeratorApplicationReviewForm,
@@ -3646,6 +3646,7 @@ def resources_list():
     selected_category = request.args.get('category', '').strip()
     selected_course_code = request.args.get('course_code', '').strip().upper()
     selected_semester = request.args.get('semester', '').strip()
+    selected_academic_year = request.args.get('academic_year', '').strip()
     sort_by = request.args.get('sort', 'newest').strip()
     selected_sort = sort_by
 
@@ -3688,6 +3689,10 @@ def resources_list():
     if selected_semester:
         res_query = res_query.filter(Resource.semester == selected_semester)
         col_query = col_query.filter(ResourceCollection.semester == selected_semester)
+
+    if selected_academic_year:
+        res_query = res_query.filter(Resource.academic_year == selected_academic_year)
+        col_query = col_query.filter(ResourceCollection.academic_year == selected_academic_year)
 
     res_items = res_query.all()
     col_items = col_query.all()
@@ -3748,6 +3753,8 @@ def resources_list():
         selected_category=selected_category,
         selected_course_code=selected_course_code,
         selected_semester=selected_semester,
+        selected_academic_year=selected_academic_year,
+        academic_years=ACADEMIC_YEAR_CHOICES,
         selected_sort=sort_by,
         sort_by=sort_by,
         faculties=FACULTIES,
@@ -3770,6 +3777,7 @@ def my_uploads():
     selected_category = request.args.get('category', '').strip()
     selected_course_code = request.args.get('course_code', '').strip().upper()
     selected_semester = request.args.get('semester', '').strip()
+    selected_academic_year = request.args.get('academic_year', '').strip()
     sort_by = request.args.get('sort', 'newest').strip()
     selected_sort = sort_by
 
@@ -3817,6 +3825,10 @@ def my_uploads():
     if selected_semester:
         res_query = res_query.filter(Resource.semester == selected_semester)
         col_query = col_query.filter(ResourceCollection.semester == selected_semester)
+
+    if selected_academic_year:
+        res_query = res_query.filter(Resource.academic_year == selected_academic_year)
+        col_query = col_query.filter(ResourceCollection.academic_year == selected_academic_year)
 
     res_items = res_query.all()
     col_items = col_query.all()
@@ -3873,6 +3885,8 @@ def my_uploads():
         selected_category=selected_category,
         selected_course_code=selected_course_code,
         selected_semester=selected_semester,
+        selected_academic_year=selected_academic_year,
+        academic_years=ACADEMIC_YEAR_CHOICES,
         selected_sort=sort_by,
         sort_by=sort_by,
         faculties=FACULTIES,
@@ -4935,6 +4949,8 @@ def ideas_index():
     query_text = request.args.get('q', '').strip()
     selected_category = request.args.get('category', '').strip()
     selected_faculty = request.args.get('faculty', '').strip()
+    selected_academic_year = request.args.get('academic_year', '').strip()
+    selected_semester = request.args.get('semester', '').strip()
 
     query = Idea.query
 
@@ -4952,6 +4968,12 @@ def ideas_index():
 
     if selected_faculty:
         query = query.filter(Idea.faculty == selected_faculty)
+
+    if selected_academic_year:
+        query = query.filter(Idea.academic_year == selected_academic_year)
+
+    if selected_semester:
+        query = query.filter(Idea.semester == selected_semester)
 
     all_ideas = query.order_by(Idea.created_at.desc()).all()
 
@@ -4981,6 +5003,10 @@ def ideas_index():
         query_text=query_text,
         selected_category=selected_category,
         selected_faculty=selected_faculty,
+        selected_academic_year=selected_academic_year,
+        selected_semester=selected_semester,
+        academic_years=ACADEMIC_YEAR_CHOICES,
+        semesters=SEMESTER_CHOICES,
         categories=IDEA_CATEGORIES,
         faculties=IDEA_FACULTIES
     )
@@ -4999,6 +5025,8 @@ def idea_post():
             faculty=form.faculty.data,
             course_code=form.course_code.data.strip().upper() if form.course_code.data else None,
             course_name=form.course_name.data.strip() if form.course_name.data else None,
+            academic_year=form.academic_year.data or None,
+            semester=form.semester.data or None,
             max_members=form.max_members.data,
             owner_id=current_user.id
         )
@@ -5057,6 +5085,8 @@ def idea_edit(idea_id):
         idea.faculty = form.faculty.data
         idea.course_code = form.course_code.data.strip().upper() if form.course_code.data else None
         idea.course_name = form.course_name.data.strip() if form.course_name.data else None
+        idea.academic_year = form.academic_year.data or None
+        idea.semester = form.semester.data or None
         idea.max_members = new_max
         if idea.accepted_members_count >= idea.max_members:
             idea.is_full = True

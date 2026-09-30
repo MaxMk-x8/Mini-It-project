@@ -63,9 +63,33 @@
                 </select>
             </div>
 
+            <div style="flex: 0 1 150px;">
+                <label for="academic_year" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Academic Year</label>
+                <select id="academic_year" name="academic_year" style="width: 100%;">
+                    <option value="">All Years</option>
+                    {% for code, label in academic_years %}
+                        {% if code %}
+                            <option value="{{ code }}" {% if selected_academic_year == code %}selected{% endif %}>{{ label }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="flex: 0 1 150px;">
+                <label for="semester" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: var(--text-color);">Semester / Term</label>
+                <select id="semester" name="semester" style="width: 100%;">
+                    <option value="">All Terms</option>
+                    {% for code, label in semesters %}
+                        {% if code %}
+                            <option value="{{ code }}" {% if selected_semester == code %}selected{% endif %}>{{ label }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
             <div style="display: flex; align-items: flex-end; gap: 8px; margin-left: auto;">
                 <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-                {% if query_text or selected_category or selected_faculty %}
+                {% if query_text or selected_category or selected_faculty or selected_academic_year or selected_semester %}
                     <a href="{{ url_for('ideas_index') }}" class="btn btn-secondary btn-sm">Reset</a>
                 {% endif %}
             </div>
@@ -104,6 +128,16 @@
                             {% if idea.course_code %}
                                 <span class="idea-badge idea-badge--course">
                                     📚 {{ idea.course_code }}
+                                </span>
+                            {% endif %}
+                            {% if idea.academic_year %}
+                                <span class="idea-badge idea-badge--course">
+                                    📅 {{ idea.academic_year }}
+                                </span>
+                            {% endif %}
+                            {% if idea.semester %}
+                                <span class="idea-badge idea-badge--course">
+                                    ⏱️ {{ idea.semester }}
                                 </span>
                             {% endif %}
                         </div>

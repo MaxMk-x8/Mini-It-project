@@ -77,6 +77,28 @@
                     </div>
                 </div>
 
+                {# Academic Year & Semester / Term #}
+                <div class="idea-form-row idea-form-group">
+                    <div>
+                        <label for="academic_year" class="idea-form-label">Academic Year (Optional)</label>
+                        {{ form.academic_year(style="width: 100%;") }}
+                        {% if form.academic_year.errors %}
+                            <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                                {% for error in form.academic_year.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="semester" class="idea-form-label">Semester / Term (Optional)</label>
+                        {{ form.semester(style="width: 100%;") }}
+                        {% if form.semester.errors %}
+                            <div style="color: var(--primary-red); font-size: 0.82rem; margin-top: 4px;">
+                                {% for error in form.semester.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
                 {# Team Size Capacity #}
                 <div class="idea-form-group">
                     <label for="max_members" class="idea-form-label">Team Capacity</label>
