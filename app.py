@@ -75,6 +75,25 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 db.init_app(app)
 mail = Mail(app)
 
+
+def send_email_async(msg):
+    """Dispatches emails in a background daemon thread so synchronous SMTP network pauses never block the HTTP request or cause Gunicorn timeouts."""
+    import threading
+    app_obj = app._get_current_object()
+
+    def _send():
+        with app_obj.app_context():
+            try:
+                if not msg.sender:
+                    msg.sender = app.config.get('MAIL_USERNAME') or 'noreply@codenest.com'
+                mail.send(msg)
+                print(f"[CodeNest Email] Successfully delivered '{msg.subject}' to {msg.recipients}", flush=True)
+            except Exception as e:
+                print(f"[CodeNest Email Notice] Could not deliver email to {msg.recipients}: {e}", flush=True)
+
+    t = threading.Thread(target=_send, daemon=True)
+    t.start()
+
 # Automatically create all tables and sync new columns on startup
 with app.app_context():
     try:
@@ -351,12 +370,12 @@ def register():
                 flash('That username is already taken. Please choose another username.', 'danger')
             return render_template('register.html', form=form)
 
-        if email.endswith('@student.mmu.edu.my'):
+        if email.endswith('@student.mmu.edu.my') or email.endswith('@gmail.com'):
             role = 'Student'
         elif email.endswith('@mmu.edu.my'):
             role = 'Professor'
         else:
-            flash('Registration is restricted to official MMU emails (@student.mmu.edu.my or @mmu.edu.my).', 'danger')
+            flash('Registration is restricted to official MMU emails (@student.mmu.edu.my / @mmu.edu.my) or personal Gmail (@gmail.com).', 'danger')
             return render_template('register.html', form=form)
 
         code = str(random.randint(100000, 999999))
@@ -384,14 +403,14 @@ def register():
         try:
             msg = Message(
                 subject='CodeNest - Verify Your Account',
-                sender=app.config['MAIL_USERNAME'],
+                sender=app.config.get('MAIL_USERNAME'),
                 recipients=[user.email]
             )
             msg.body = f'Hi {user.username},\n\nYour CodeNest verification code is: {code}\n\nEnter this code to activate your account.'
-            mail.send(msg)
+            send_email_async(msg)
             flash(f'Account created! Role assigned: {role}. Please check your email for your 6-digit code.', 'info')
         except Exception as e:
-            flash(f'Verification email failed to send: {e}. [Dev Mode Code: {code}]', 'warning')
+            flash(f'Verification email notification notice: {e}. [Dev Mode Code: {code}]', 'warning')
 
         return redirect(url_for('verify_code', user_id=user.id))
 
@@ -498,11 +517,11 @@ def resend_code(user_id):
     try:
         msg = Message(
             subject='CodeNest - Verify Your Account',
-            sender=app.config['MAIL_USERNAME'],
+            sender=app.config.get('MAIL_USERNAME'),
             recipients=[user.email]
         )
         msg.body = f'Hi {user.username},\n\nYour new CodeNest verification code is: {code}\n\nEnter this code to activate your account. This code expires in 5 minutes.'
-        mail.send(msg)
+        send_email_async(msg)
         flash('A new verification code has been sent to your email (expires in 5 minutes).', 'info')
     except Exception as e:
         flash(f'Failed to send verification email: {e}. [Dev Mode Code: {code}]', 'warning')
@@ -612,11 +631,11 @@ def forgot_password():
             try:
                 msg = Message(
                     subject='CodeNest - Password Reset Code',
-                    sender=app.config['MAIL_USERNAME'],
+                    sender=app.config.get('MAIL_USERNAME'),
                     recipients=[user.email]
                 )
                 msg.body = f'Hi {user.username},\n\nYour CodeNest password reset code is: {code}\n\nThis code expires in 5 minutes. If you did not request this, please ignore this email.'
-                mail.send(msg)
+                send_email_async(msg)
                 flash('A 6-digit password reset code has been sent to your email.', 'info')
             except Exception as e:
                 flash(f'Failed to send reset email: {e}. [Dev Mode Code: {code}]', 'warning')
@@ -721,11 +740,11 @@ def resend_reset_code(user_id):
     try:
         msg = Message(
             subject='CodeNest - Password Reset Code',
-            sender=app.config['MAIL_USERNAME'],
+            sender=app.config.get('MAIL_USERNAME'),
             recipients=[user.email]
         )
         msg.body = f'Hi {user.username},\n\nYour new CodeNest password reset code is: {code}\n\nThis code expires in 5 minutes.'
-        mail.send(msg)
+        send_email_async(msg)
         flash('A new password reset code has been sent to your email.', 'info')
     except Exception as e:
         flash(f'Failed to send reset email: {e}. [Dev Mode Code: {code}]', 'warning')
