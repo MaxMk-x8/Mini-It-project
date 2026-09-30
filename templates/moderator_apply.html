@@ -1,71 +1,535 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h2>Apply to Become a Community Moderator</h2>
+<style>
+    /* ============================================================
+       Modern Glassmorphic Community Moderator Application Page
+       Matches CodeNest Home Page Aesthetic & Design System
+       ============================================================ */
 
-<p>
-    <a href="{{ url_for('public_profile', username=current_user.username) }}">&larr; Back to Profile</a> |
-    <a href="{{ url_for('moderator_status') }}">View Application Status</a>
-</p>
+    /* Glassmorphic Hero Banner */
+    .glass-hero-mod {
+        position: relative;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.68);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.88);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+        padding: 36px 32px 30px;
+        margin-bottom: 28px;
+    }
+    .glass-hero-mod::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 10%; right: 10%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.35), rgba(237, 28, 36, 0.35), transparent);
+    }
 
-<div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 14px; margin-bottom: 20px;">
-    <h4 style="margin-top: 0; color: #0369a1;">About the Community Moderator Role</h4>
-    <p style="margin-bottom: 6px; font-size: 0.95rem;">
-        Community Moderators help maintain academic integrity and supportive discussion within CodeNest. 
-        Moderators are <strong>faculty-scoped</strong>: upon approval, you will oversee questions, answers, and study resources originating from your faculty.
+    /* Refined Frosted Glass Badge (From Home Page) */
+    .glass-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 18px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.92);
+        box-shadow: 0 4px 16px -2px rgba(0, 51, 102, 0.06), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+        margin-bottom: 16px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #334155;
+        letter-spacing: 0.3px;
+        transition: all 0.25s ease;
+    }
+    .glass-badge:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: 0 8px 20px -2px rgba(0, 51, 102, 0.1), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
+    }
+    .badge-sparkle { font-size: 0.9rem; }
+    .badge-highlight {
+        color: #003366;
+        font-weight: 700;
+    }
+
+    .hero-title {
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0 0 10px 0;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+    }
+    .hero-subtitle {
+        color: #475569;
+        font-size: 1.02rem;
+        line-height: 1.6;
+        margin: 0 0 20px 0;
+        max-width: 800px;
+    }
+
+    /* User Chips (Directly from Home Page) */
+    .user-chip-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 22px;
+    }
+    .user-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+    }
+    .chip-role { background: rgba(224, 242, 254, 0.85); color: #0369a1; border: 1px solid rgba(186, 230, 253, 0.9); }
+    .chip-faculty { background: rgba(241, 245, 249, 0.85); color: #334155; border: 1px solid rgba(226, 232, 240, 0.9); }
+    .chip-pts { background: rgba(254, 226, 226, 0.85); color: #b91c1c; border: 1px solid rgba(254, 202, 202, 0.9); font-weight: 700; }
+
+    /* Modern Top Action Buttons */
+    .top-actions-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        padding-top: 18px;
+        border-top: 1px solid rgba(226, 232, 240, 0.7);
+    }
+    .btn-glass-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 18px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 0.88rem;
+        font-weight: 600;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: pointer;
+    }
+    .btn-glass-nav.outline {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(8px);
+        color: #003366;
+        border: 1px solid rgba(203, 213, 225, 0.85);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+    .btn-glass-nav.outline:hover {
+        background: #ffffff;
+        border-color: #004FB6;
+        color: #004FB6;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 51, 102, 0.08);
+    }
+    .btn-glass-nav.solid {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        box-shadow: 0 4px 14px rgba(0, 51, 102, 0.22);
+    }
+    .btn-glass-nav.solid:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 51, 102, 0.32);
+        color: #ffffff;
+    }
+
+    /* About Role Feature Card */
+    .role-info-card {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px -8px rgba(0, 51, 102, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        padding: 24px 28px;
+        margin-bottom: 28px;
+    }
+    .role-info-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .role-icon-orb {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.95);
+    }
+    .role-info-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+    }
+    .role-info-text {
+        font-size: 0.94rem;
+        color: #475569;
+        line-height: 1.6;
+        margin: 0 0 16px 0;
+    }
+    .role-perks-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px;
+    }
+    .role-perk-item {
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        border-radius: 12px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: 0.88rem;
+        color: #334155;
+        line-height: 1.45;
+    }
+    .role-perk-icon {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    /* Glass Form Card */
+    .glass-form-card {
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+        padding: 34px 34px 38px;
+        margin-bottom: 32px;
+    }
+    .form-header-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.75);
+    }
+    .form-header-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Form Fields Styling */
+    .form-group {
+        margin-bottom: 22px;
+    }
+    .form-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.94rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
+        letter-spacing: -0.01em;
+    }
+    .form-hint {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: #64748b;
+        font-size: 0.83rem;
+        margin-top: 6px;
+        line-height: 1.4;
+    }
+    .form-error {
+        color: #dc2626;
+        font-size: 0.84rem;
+        font-weight: 600;
+        margin: 6px 0 0 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    /* Modern Glass Inputs & Controls */
+    .glass-input, .glass-select, .glass-textarea {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1.5px solid rgba(203, 213, 225, 0.85);
+        background: rgba(255, 255, 255, 0.88);
+        color: #0f172a;
+        font-size: 0.95rem;
+        font-family: inherit;
+        outline: none;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    }
+    .glass-input:hover, .glass-select:hover, .glass-textarea:hover {
+        border-color: rgba(0, 79, 182, 0.4);
+        background: #ffffff;
+    }
+    .glass-input:focus, .glass-select:focus, .glass-textarea:focus {
+        background: #ffffff;
+        border-color: #004FB6;
+        box-shadow: 0 0 0 4px rgba(0, 79, 182, 0.12), 0 4px 12px rgba(0, 51, 102, 0.06);
+    }
+    .glass-select {
+        cursor: pointer;
+        padding-right: 36px;
+    }
+    .glass-textarea {
+        resize: vertical;
+        min-height: 140px;
+        line-height: 1.6;
+    }
+
+    /* ============================================================
+       Modern Professional Buttons System (As requested)
+       ============================================================ */
+    .btn-form-group {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(226, 232, 240, 0.7);
+    }
+    .btn-modern-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 13px 28px;
+        border-radius: 12px;
+        font-size: 0.98rem;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        color: #ffffff;
+        background: linear-gradient(135deg, #003366 0%, #004FB6 100%);
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(0, 51, 102, 0.28);
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        text-decoration: none;
+    }
+    .btn-modern-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 28px rgba(0, 51, 102, 0.38);
+        color: #ffffff;
+    }
+    .btn-modern-primary:active {
+        transform: translateY(0);
+    }
+
+    .btn-modern-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 13px 24px;
+        border-radius: 12px;
+        font-size: 0.96rem;
+        font-weight: 600;
+        color: #475569;
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    }
+    .btn-modern-secondary:hover {
+        background: #ffffff;
+        color: #003366;
+        border-color: #004FB6;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 51, 102, 0.08);
+    }
+    .btn-modern-secondary:active {
+        transform: translateY(0);
+    }
+</style>
+
+<!-- ============================================================
+     1. Frosted Glass Hero Banner
+     ============================================================ -->
+<div class="glass-hero-mod">
+    <div>
+        <div class="glass-badge">
+            <span class="badge-sparkle">✨</span>
+            <span>Academic Leadership &bull; <span class="badge-highlight">Community Moderator Application</span></span>
+        </div>
+    </div>
+
+    <h1 class="hero-title">Apply to Become a Community Moderator</h1>
+    <p class="hero-subtitle">
+        Help uphold academic integrity, resolve peer questions, and foster an active, respectful learning environment within your MMU faculty.
     </p>
-    <ul style="margin: 0; padding-left: 20px; font-size: 0.9rem; color: #334155;">
-        <li>Review reported posts and study resources within your faculty.</li>
-        <li>Help resolve disputes and uphold community guidelines.</li>
-        <li>Receive the official <strong>Community Moderator</strong> badge across discussions.</li>
-    </ul>
+
+    <!-- Applicant Metadata Chips -->
+    <div class="user-chip-bar">
+        <span class="user-chip chip-role">👤 @{{ current_user.username }}</span>
+        <span class="user-chip chip-faculty">📧 {{ current_user.email }}</span>
+        <span class="user-chip chip-faculty">🏛️ Faculty: {{ current_user.faculty or 'MMU' }}</span>
+        <span class="user-chip chip-pts">⭐ {{ current_user.reputation_points }} pts</span>
+    </div>
+
+    <!-- Top Action Buttons -->
+    <div class="top-actions-bar">
+        <a href="{{ url_for('public_profile', username=current_user.username) }}" class="btn-glass-nav outline">
+            <span>&larr;</span>
+            <span>Back to Profile</span>
+        </a>
+        <a href="{{ url_for('moderator_status') }}" class="btn-glass-nav solid">
+            <span>📋</span>
+            <span>View Application Status</span>
+        </a>
+    </div>
 </div>
 
-<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; max-width: 650px;">
-    <p style="margin-top: 0;">
-        Applicant Account: <strong>{{ current_user.username }}</strong> (<code>{{ current_user.email }}</code>)
+<!-- ============================================================
+     2. About the Community Moderator Role Card
+     ============================================================ -->
+<div class="role-info-card">
+    <div class="role-info-header">
+        <div class="role-icon-orb">🛡️</div>
+        <h2 class="role-info-title">About the Community Moderator Role</h2>
+    </div>
+    <p class="role-info-text">
+        Community Moderators are trusted student leaders appointed to guide faculty-specific academic discussions. 
+        Moderators are <strong>faculty-scoped</strong>: upon administrative endorsement, your moderation actions will oversee questions, solutions, and shared course materials originating strictly within your assigned faculty.
     </p>
+    <div class="role-perks-grid">
+        <div class="role-perk-item">
+            <span class="role-perk-icon">🔍</span>
+            <span><strong>Faculty Scope:</strong> Review reported questions, answers, and study resources in your faculty queue.</span>
+        </div>
+        <div class="role-perk-item">
+            <span class="role-perk-icon">⚖️</span>
+            <span><strong>Academic Integrity:</strong> Resolve disputes constructively and uphold CodeNest academic honesty standards.</span>
+        </div>
+        <div class="role-perk-item">
+            <span class="role-perk-icon">🏅</span>
+            <span><strong>Verified Leadership:</strong> Receive the official <strong>Community Moderator</strong> badge across MMU discussions.</span>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     3. Modern Glass Application Form
+     ============================================================ -->
+<div class="glass-form-card">
+    <div class="form-header-bar">
+        <h2 class="form-header-title">
+            <span>📝</span>
+            <span>Application Form</span>
+        </h2>
+        <span style="font-size: 0.85rem; color: #64748b; font-weight: 600;">
+            Applying as: <strong style="color: #003366;">@{{ current_user.username }}</strong>
+        </span>
+    </div>
 
     <form method="POST" action="{{ url_for('moderator_apply') }}">
         {{ form.hidden_tag() }}
 
-        <div style="margin-bottom: 16px;">
-            {{ form.full_name.label(style="font-weight: bold; display: block; margin-bottom: 5px;") }}
-            {{ form.full_name(style="width: 100%; max-width: 400px; padding: 7px; border: 1px solid #ccc; border-radius: 4px;", placeholder="e.g. Alex Tan Wei Ming") }}
+        <!-- Full Name Field -->
+        <div class="form-group">
+            <label class="form-label" for="full_name">
+                <span>👤</span>
+                <span>Full Name</span>
+            </label>
+            {{ form.full_name(class="glass-input", placeholder="e.g. Alex Tan Wei Ming", id="full_name") }}
             {% for error in form.full_name.errors %}
-                <p style="color: #dc2626; margin: 4px 0 0 0; font-size: 0.85rem;">{{ error }}</p>
+                <p class="form-error">⚠️ {{ error }}</p>
             {% endfor %}
+            <div class="form-hint">
+                <span>ℹ️</span>
+                <span>Enter your official full name as registered with the University.</span>
+            </div>
         </div>
 
-        <div style="margin-bottom: 16px;">
-            {{ form.matric_number.label(style="font-weight: bold; display: block; margin-bottom: 5px;") }}
-            {{ form.matric_number(style="width: 100%; max-width: 300px; padding: 7px; border: 1px solid #ccc; border-radius: 4px;", placeholder="e.g. 1211102345") }}
+        <!-- Student ID / Matric Number Field -->
+        <div class="form-group">
+            <label class="form-label" for="matric_number">
+                <span>🆔</span>
+                <span>Student ID / Matric Number</span>
+            </label>
+            {{ form.matric_number(class="glass-input", placeholder="e.g. 1211102345", id="matric_number") }}
             {% for error in form.matric_number.errors %}
-                <p style="color: #dc2626; margin: 4px 0 0 0; font-size: 0.85rem;">{{ error }}</p>
+                <p class="form-error">⚠️ {{ error }}</p>
             {% endfor %}
-            <small style="color: #64748b; display: block; margin-top: 4px;">Enter your official MMU Student ID / Matric Number.</small>
+            <div class="form-hint">
+                <span>ℹ️</span>
+                <span>Enter your official MMU Student ID / Matric Number.</span>
+            </div>
         </div>
 
-        <div style="margin-bottom: 16px;">
-            {{ form.faculty.label(style="font-weight: bold; display: block; margin-bottom: 5px;") }}
-            {{ form.faculty(style="padding: 7px; border: 1px solid #ccc; border-radius: 4px;") }}
+        <!-- Faculty Dropdown Field -->
+        <div class="form-group">
+            <label class="form-label" for="faculty">
+                <span>🏛️</span>
+                <span>Faculty</span>
+            </label>
+            {{ form.faculty(class="glass-select", id="faculty") }}
             {% for error in form.faculty.errors %}
-                <p style="color: #dc2626; margin: 4px 0 0 0; font-size: 0.85rem;">{{ error }}</p>
+                <p class="form-error">⚠️ {{ error }}</p>
             {% endfor %}
-            <small style="color: #64748b; display: block; margin-top: 4px;">Moderation duties will be restricted strictly to this faculty.</small>
+            <div class="form-hint">
+                <span>ℹ️</span>
+                <span>Moderation duties will be restricted strictly to this faculty.</span>
+            </div>
         </div>
 
-        <div style="margin-bottom: 20px;">
-            {{ form.reason.label(style="font-weight: bold; display: block; margin-bottom: 5px;") }}
-            {{ form.reason(rows="6", style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;", placeholder="Please share why you wish to be a moderator, your involvement in the faculty community, and any relevant experience...") }}
+        <!-- Reason / Statement of Motivation Field -->
+        <div class="form-group">
+            <label class="form-label" for="reason">
+                <span>✍️</span>
+                <span>Why do you want to become a Community Moderator? (Statement of Motivation)</span>
+            </label>
+            {{ form.reason(class="glass-textarea", rows="6", placeholder="Please share why you wish to be a moderator, your involvement in the faculty community, and any relevant experience...", id="reason") }}
             {% for error in form.reason.errors %}
-                <p style="color: #dc2626; margin: 4px 0 0 0; font-size: 0.85rem;">{{ error }}</p>
+                <p class="form-error">⚠️ {{ error }}</p>
             {% endfor %}
-            <small style="color: #64748b; display: block; margin-top: 4px;">Minimum 20 characters.</small>
+            <div class="form-hint">
+                <span>ℹ️</span>
+                <span>Minimum 20 characters. Detail your qualifications, academic interests, and motivation.</span>
+            </div>
         </div>
 
-        <div>
-            {{ form.submit(style="background: #2563eb; color: white; border: none; padding: 9px 20px; font-weight: bold; border-radius: 4px; cursor: pointer;") }}
-            <a href="{{ url_for('public_profile', username=current_user.username) }}" style="margin-left: 12px; color: #64748b; text-decoration: none;">Cancel</a>
+        <!-- Modern Action Buttons -->
+        <div class="btn-form-group">
+            <button type="submit" name="submit" value="Submit Application" class="btn-modern-primary">
+                <span>🚀</span>
+                <span>Submit Application</span>
+            </button>
+            <a href="{{ url_for('public_profile', username=current_user.username) }}" class="btn-modern-secondary">
+                <span>Cancel</span>
+            </a>
         </div>
     </form>
 </div>
