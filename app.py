@@ -78,11 +78,33 @@ mail = Mail(app)
 
 
 def send_email_async(msg):
-    """Dispatches emails in a background daemon thread so synchronous SMTP network pauses never block the HTTP request or cause Gunicorn timeouts."""
+    """Dispatches emails in a background daemon thread. Uses Resend HTTPS API if RESEND_API_KEY is configured, else falls back to Flask-Mail SMTP."""
     import threading
 
     def _send():
         with app.app_context():
+            resend_key = os.environ.get('RESEND_API_KEY')
+            if resend_key:
+                import urllib.request
+                import json
+                try:
+                    payload = {
+                        "from": "CodeNest <onboarding@resend.dev>",
+                        "to": list(msg.recipients) if isinstance(msg.recipients, (list, tuple)) else [msg.recipients],
+                        "subject": msg.subject,
+                        "text": msg.body
+                    }
+                    data = json.dumps(payload).encode('utf-8')
+                    req = urllib.request.Request("https://api.resend.com/emails", data=data, method="POST")
+                    req.add_header("Authorization", f"Bearer {resend_key.strip()}")
+                    req.add_header("Content-Type", "application/json")
+                    req.add_header("User-Agent", "CodeNest/1.0")
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        print(f"[CodeNest Resend] Successfully sent '{msg.subject}' to {msg.recipients} (Status: {resp.status})", flush=True)
+                    return
+                except Exception as e:
+                    print(f"[CodeNest Resend Notice] Delivery to {msg.recipients} failed: {e}", flush=True)
+
             try:
                 if not msg.sender:
                     msg.sender = app.config.get('MAIL_USERNAME') or 'noreply@codenest.com'
