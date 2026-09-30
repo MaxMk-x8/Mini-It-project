@@ -263,6 +263,69 @@
     .btn-logout-modern:active {
         transform: translateY(0);
     }
+
+    /* Theme Toggle Status Pills */
+    .status-pill-light {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        background: rgba(254, 243, 199, 0.9);
+        color: #b45309;
+        border: 1px solid rgba(251, 191, 36, 0.5);
+    }
+    .status-pill-dark {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        background: rgba(14, 116, 144, 0.25);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.4);
+    }
+
+    /* Dark Mode Theme Support for Settings Page */
+    [data-theme="dark"] .glass-hero-settings,
+    [data-theme="dark"] .glass-logout-card,
+    [data-theme="dark"] .glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.18);
+        box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .settings-title { color: #38bdf8; }
+    [data-theme="dark"] .settings-subtitle { color: #94a3b8; }
+    [data-theme="dark"] .glass-badge {
+        background: rgba(30, 41, 59, 0.7);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #e2e8f0;
+    }
+    [data-theme="dark"] .badge-highlight { color: #38bdf8; }
+    [data-theme="dark"] .card-title,
+    [data-theme="dark"] .logout-info-title { color: #f1f5f9; }
+    [data-theme="dark"] .card-desc,
+    [data-theme="dark"] .logout-info-sub { color: #94a3b8; }
+    [data-theme="dark"] .glass-icon-orb {
+        background: rgba(30, 41, 59, 0.8);
+        border-color: rgba(56, 189, 248, 0.2);
+    }
+    [data-theme="dark"] .card-link { color: #38bdf8; }
+    [data-theme="dark"] .glass-card:hover .card-link { color: #7dd3fc; }
+    [data-theme="dark"] .email-box {
+        background: rgba(15, 23, 42, 0.6);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .email-val { color: #38bdf8; }
+    [data-theme="dark"] .badge-immutable {
+        background: rgba(30, 41, 59, 0.8);
+        color: #cbd5e1;
+    }
 </style>
 
 <!-- ============================================================
@@ -302,7 +365,28 @@
      2. Interactive Glass Settings Grid (Like Home Page .glass-grid)
      ============================================================ -->
 <div class="glass-grid">
-    <!-- 1. My Public Profile -->
+    <!-- 0. Appearance & Theme (Global Webapp Toggle) -->
+    <div class="glass-card" style="cursor: pointer;" onclick="toggleAppTheme()" id="theme-setting-card" title="Click to toggle Light / Dark Mode">
+        <div class="glass-icon-orb" id="theme-icon-orb">🌙</div>
+        <h3 class="card-title">
+            <span>Appearance</span>
+            <span id="theme-status-pill" class="status-pill-light">☀️ Light Mode</span>
+        </h3>
+        <p class="card-desc">Switch between light and dark mode for your entire CodeNest experience across all pages.</p>
+        <span class="card-link" id="theme-toggle-link">
+            <span id="theme-toggle-label">Switch to Dark Mode</span> &rarr;
+        </span>
+    </div>
+
+    <!-- 1. Edit Profile -->
+    <a href="{{ url_for('edit_profile') }}" class="glass-card">
+        <div class="glass-icon-orb">⚙️</div>
+        <h3 class="card-title">Edit Profile</h3>
+        <p class="card-desc">Update your profile photo, academic bio, contact details, and privacy settings.</p>
+        <span class="card-link">Edit Profile &rarr;</span>
+    </a>
+
+    <!-- 2. My Public Profile -->
     <a href="{{ url_for('public_profile', username=current_user.username) }}" class="glass-card">
         <div class="glass-icon-orb">👤</div>
         <h3 class="card-title">My Profile</h3>
@@ -401,4 +485,30 @@
         </form>
     </div>
 </div>
+
+<script>
+function toggleAppTheme() {
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var nextTheme = isDark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    localStorage.setItem('app_theme', nextTheme);
+    localStorage.setItem('qa_theme', nextTheme);
+    updateSettingsThemeUI();
+}
+
+function updateSettingsThemeUI() {
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var orb = document.getElementById('theme-icon-orb');
+    var pill = document.getElementById('theme-status-pill');
+    var label = document.getElementById('theme-toggle-label');
+    if (orb) orb.textContent = isDark ? '☀️' : '🌙';
+    if (pill) {
+        pill.textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
+        pill.className = isDark ? 'status-pill-dark' : 'status-pill-light';
+    }
+    if (label) label.textContent = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+}
+
+document.addEventListener('DOMContentLoaded', updateSettingsThemeUI);
+</script>
 {% endblock %}

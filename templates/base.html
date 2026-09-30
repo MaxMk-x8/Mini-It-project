@@ -8,8 +8,52 @@
     <meta http-equiv="Expires" content="0">
     <title>{{ app_name or 'CodeNest' }}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <script>
+        (function() {
+            var theme = localStorage.getItem('app_theme') || localStorage.getItem('qa_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
     <style>
         * { box-sizing: border-box; }
+
+        /* Hide scattered duplicate theme buttons across individual pages */
+        .qa-theme-toggle, .res-theme-toggle, #res-theme-btn {
+            display: none !important;
+        }
+
+        /* Global Dark Mode Support for base layout */
+        [data-theme="dark"] body {
+            background: radial-gradient(circle at 15% 15%, rgba(14, 116, 144, 0.12) 0%, transparent 40%),
+                        radial-gradient(circle at 85% 20%, rgba(239, 68, 68, 0.08) 0%, transparent 45%),
+                        radial-gradient(circle at 50% 85%, rgba(56, 189, 248, 0.08) 0%, transparent 50%),
+                        #0b0f19;
+            color: #f1f5f9;
+        }
+        [data-theme="dark"] nav {
+            background: rgba(15, 23, 42, 0.85);
+            border-bottom-color: rgba(56, 189, 248, 0.18);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        }
+        [data-theme="dark"] nav a {
+            color: #38bdf8;
+        }
+        [data-theme="dark"] nav a:hover {
+            background: rgba(56, 189, 248, 0.12);
+            color: #7dd3fc;
+        }
+        [data-theme="dark"] .nav-search-input {
+            background: rgba(15, 23, 42, 0.7);
+            border-color: rgba(56, 189, 248, 0.25);
+            color: #f1f5f9;
+        }
+        [data-theme="dark"] .nav-search-input:focus {
+            background: rgba(15, 23, 42, 0.95);
+            border-color: #38bdf8;
+        }
+        [data-theme="dark"] .nav-search-btn {
+            background: linear-gradient(135deg, #0284c7, #004FB6);
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             margin: 0;
