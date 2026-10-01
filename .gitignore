@@ -3,8 +3,6 @@ venv/
 venvvenv/
 __pycache__/
 *.pyc
-instance/
-*.db
 .env
 uploads/
 .vscode/
