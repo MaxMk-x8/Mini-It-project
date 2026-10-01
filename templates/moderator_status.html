@@ -1,23 +1,523 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Community Moderator Application Status</h2>
+<style>
+    /* Community Moderator Status - Harmonized with Home Page (index.html) */
 
-<p>
-    {% if current_user.is_student() %}
-        <a href="{{ url_for('public_profile', username=current_user.username) }}">&larr; Back to Profile</a>
-    {% elif current_user.is_moderator() %}
-        <a href="{{ url_for('moderator_dashboard') }}">&larr; Go to Moderator Dashboard</a>
-    {% else %}
-        <a href="{{ url_for('home') }}">&larr; Home</a>
-    {% endif %}
-</p>
+    /* 1. Frosted Glass Hero Banner */
+    .status-hero {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        padding: 32px 32px 28px;
+        margin-bottom: 28px;
+        position: relative;
+        overflow: hidden;
+    }
+    .status-hero::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 15%; right: 15%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.4), rgba(237, 28, 36, 0.4), transparent);
+    }
+    .status-hero-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+    .status-title-wrap h2 {
+        margin: 4px 0 6px 0;
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #003366;
+        letter-spacing: -0.02em;
+    }
+    .status-hero-sub {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    /* Frosted Glass Badge from Home Page */
+    .glass-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 18px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 4px 16px -2px rgba(0, 51, 102, 0.06), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+        margin-bottom: 8px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #334155;
+        letter-spacing: 0.3px;
+        transition: all 0.25s ease;
+    }
+    .glass-badge:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 8px 20px -2px rgba(0, 51, 102, 0.1), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
+    }
+    .badge-sparkle { font-size: 0.85rem; }
+    .badge-highlight { color: #003366; font-weight: 700; }
+
+    /* Quick Links from Home Page */
+    .status-nav-links {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding-top: 16px;
+        border-top: 1px solid rgba(0, 51, 102, 0.08);
+    }
+    .quick-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.88rem;
+        font-weight: 600;
+        transition: all 0.18s ease;
+    }
+    .quick-link.solid {
+        background: #003366;
+        color: #ffffff;
+    }
+    .quick-link.solid:hover { 
+        background: #004FB6; 
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.2);
+    }
+    .quick-link.outline {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(8px);
+        color: #334155;
+        border: 1px solid rgba(203, 213, 225, 0.8);
+    }
+    .quick-link.outline:hover { 
+        background: #ffffff; 
+        color: #003366; 
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.08);
+    }
+
+    /* 2. Glass Card Container */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 20px;
+        padding: 26px 28px;
+        margin-bottom: 26px;
+        box-shadow: 0 10px 30px -8px rgba(0, 51, 102, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.85);
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease;
+    }
+    .glass-card:hover {
+        background: rgba(255, 255, 255, 0.75);
+        border-color: rgba(0, 79, 182, 0.25);
+        box-shadow: 0 16px 36px -10px rgba(0, 51, 102, 0.09);
+    }
+
+    /* Glass Icon Orb from Home Page */
+    .glass-icon-orb {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.95);
+        flex-shrink: 0;
+    }
+
+    .card-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .card-header-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .card-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 0;
+        color: #003366;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 14px;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+    }
+    .status-badge.pending {
+        background: rgba(245, 158, 11, 0.12);
+        color: #b45309;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .status-badge.approved {
+        background: rgba(16, 185, 129, 0.12);
+        color: #047857;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-badge.rejected {
+        background: rgba(239, 68, 68, 0.12);
+        color: #b91c1c;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    /* User Chips from Home Page */
+    .user-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 0.84rem;
+        font-weight: 600;
+    }
+    .chip-role { background: rgba(224, 242, 254, 0.85); color: #0369a1; border: 1px solid rgba(186, 230, 253, 0.8); }
+
+    /* Data Overview Grid */
+    .info-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    .info-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(0, 51, 102, 0.06);
+        font-size: 0.92rem;
+    }
+    .info-label {
+        width: 190px;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .info-value {
+        color: #0f172a;
+        font-weight: 600;
+    }
+    .code-pill {
+        background: rgba(0, 51, 102, 0.06);
+        color: #003366;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 0.88rem;
+        border: 1px solid rgba(0, 51, 102, 0.1);
+    }
+
+    /* Statement Quote Box */
+    .statement-card {
+        background: rgba(248, 250, 252, 0.7);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-left: 4px solid #004FB6;
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 22px;
+    }
+    .statement-label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+    }
+    .statement-text {
+        margin: 0;
+        font-size: 0.94rem;
+        line-height: 1.6;
+        color: #334155;
+        white-space: pre-wrap;
+    }
+
+    /* Decision Callout Boxes */
+    .callout-box {
+        border-radius: 14px;
+        padding: 18px 20px;
+        margin-top: 14px;
+    }
+    .callout-box.approved {
+        background: rgba(16, 185, 129, 0.08);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .callout-box.rejected {
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+    .callout-box.pending {
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    /* Buttons from Home Page */
+    .btn-glass {
+        padding: 10px 20px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.92rem;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        box-shadow: 0 4px 16px rgba(0, 51, 102, 0.24);
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 22px rgba(0, 51, 102, 0.34);
+        color: #ffffff;
+    }
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.85);
+        color: #003366;
+        border: 1px solid rgba(255, 255, 255, 0.95);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    }
+    .btn-secondary:hover {
+        background: #ffffff;
+        transform: translateY(-2px);
+        color: #004FB6;
+    }
+    .btn-success {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: #ffffff;
+        box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+    }
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 22px rgba(16, 185, 129, 0.35);
+        color: #ffffff;
+    }
+
+    /* Frosted Glass Table */
+    .table-container {
+        overflow-x: auto;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px -10px rgba(0, 51, 102, 0.08);
+    }
+    .styled-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 16px;
+        font-size: 0.9rem;
+    }
+    .styled-table th {
+        background: rgba(0, 51, 102, 0.06);
+        color: #003366;
+        font-weight: 700;
+        padding: 12px 14px;
+        text-align: left;
+        border-bottom: 1px solid rgba(0, 51, 102, 0.08);
+        white-space: nowrap;
+    }
+    .styled-table td {
+        padding: 11px 14px;
+        border-bottom: 1px solid rgba(0, 51, 102, 0.06);
+        color: #334155;
+        vertical-align: middle;
+    }
+    .styled-table tbody tr:hover {
+        background: rgba(0, 79, 182, 0.045);
+    }
+    .styled-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Dark Mode Parity with Home Page */
+    [data-theme="dark"] .status-hero {
+        background: rgba(15, 23, 42, 0.7);
+        border-color: rgba(56, 189, 248, 0.2);
+        box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .status-title-wrap h2 {
+        color: #7dd3fc;
+    }
+    [data-theme="dark"] .status-hero-sub {
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .glass-badge {
+        background: rgba(15, 23, 42, 0.6);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .badge-highlight {
+        color: #38bdf8;
+    }
+    [data-theme="dark"] .quick-link.outline {
+        background: rgba(15, 23, 42, 0.7);
+        color: #7dd3fc;
+        border-color: rgba(56, 189, 248, 0.25);
+    }
+    [data-theme="dark"] .quick-link.outline:hover {
+        background: rgba(30, 41, 59, 0.8);
+        color: #38bdf8;
+    }
+    [data-theme="dark"] .glass-card {
+        background: rgba(15, 23, 42, 0.6);
+        border-color: rgba(56, 189, 248, 0.18);
+        box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .glass-card:hover {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.3);
+    }
+    [data-theme="dark"] .glass-icon-orb {
+        background: rgba(15, 23, 42, 0.85);
+        border-color: rgba(56, 189, 248, 0.25);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    [data-theme="dark"] .card-title {
+        color: #7dd3fc;
+    }
+    [data-theme="dark"] .info-table td {
+        border-bottom-color: rgba(56, 189, 248, 0.1);
+    }
+    [data-theme="dark"] .info-label {
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .info-value {
+        color: #f1f5f9;
+    }
+    [data-theme="dark"] .code-pill {
+        background: rgba(56, 189, 248, 0.1);
+        color: #7dd3fc;
+        border-color: rgba(56, 189, 248, 0.25);
+    }
+    [data-theme="dark"] .statement-card {
+        background: rgba(15, 23, 42, 0.8);
+        border-color: rgba(56, 189, 248, 0.2);
+        border-left-color: #38bdf8;
+    }
+    [data-theme="dark"] .statement-text {
+        color: #cbd5e1;
+    }
+    [data-theme="dark"] .styled-table {
+        background: rgba(15, 23, 42, 0.65);
+        border-color: rgba(56, 189, 248, 0.18);
+    }
+    [data-theme="dark"] .styled-table th {
+        background: rgba(56, 189, 248, 0.1);
+        color: #7dd3fc;
+        border-bottom-color: rgba(56, 189, 248, 0.14);
+    }
+    [data-theme="dark"] .styled-table td {
+        border-bottom-color: rgba(56, 189, 248, 0.1);
+        color: #e2e8f0;
+    }
+    [data-theme="dark"] .styled-table tbody tr:hover {
+        background: rgba(56, 189, 248, 0.06);
+    }
+    [data-theme="dark"] .btn-secondary {
+        background: rgba(15, 23, 42, 0.7);
+        color: #7dd3fc;
+        border-color: rgba(56, 189, 248, 0.25);
+    }
+    [data-theme="dark"] .btn-secondary:hover {
+        background: rgba(30, 41, 59, 0.8);
+        color: #38bdf8;
+    }
+</style>
+
+<!-- Hero Banner -->
+<div class="status-hero">
+    <div class="status-hero-top">
+        <div class="status-title-wrap">
+            <div class="glass-badge">
+                <span class="badge-sparkle">🛡️</span>
+                <span>Faculty Governance &bull; <span class="badge-highlight">Moderation Status</span></span>
+            </div>
+            <h2>Community Moderator Application Record</h2>
+            <p class="status-hero-sub">
+                Review historical applications, faculty assignments, and administrative decisions.
+            </p>
+        </div>
+        <div>
+            <a href="{{ url_for('home') }}" title="CodeNest Home">
+                <img src="{{ url_for('static', filename='images/codenest_logo_transparent.png') }}" alt="CodeNest" style="height: 42px; filter: drop-shadow(0 6px 14px rgba(0, 51, 102, 0.12));">
+            </a>
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <div class="status-nav-links">
+        {% if current_user.is_student() %}
+            <a href="{{ url_for('public_profile', username=current_user.username) }}" class="quick-link outline">
+                <span>👤</span> Back to Profile
+            </a>
+            {% if not current_user.has_pending_moderator_application %}
+                <a href="{{ url_for('moderator_apply') }}" class="quick-link solid">
+                    <span>✍️</span> Submit New Application
+                </a>
+            {% endif %}
+        {% elif current_user.is_moderator() %}
+            <a href="{{ url_for('moderator_dashboard') }}" class="quick-link solid">
+                <span>🛡️</span> Moderator Dashboard
+            </a>
+            <a href="{{ url_for('public_profile', username=current_user.username) }}" class="quick-link outline">
+                <span>👤</span> My Profile
+            </a>
+        {% else %}
+            <a href="{{ url_for('home') }}" class="quick-link outline">
+                <span>🏠</span> Home
+            </a>
+        {% endif %}
+    </div>
+</div>
 
 {% if not applications %}
-    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 20px; text-align: center; max-width: 600px;">
-        <p style="font-size: 1.1rem; color: #475569; margin-top: 0;">You have not submitted any Community Moderator applications yet.</p>
+    <!-- Empty State -->
+    <div class="glass-card" style="text-align: center; padding: 48px 32px; max-width: 620px; margin: 0 auto 30px;">
+        <div class="glass-icon-orb" style="margin: 0 auto 18px; width: 62px; height: 62px; font-size: 2rem;">📋</div>
+        <h3 class="card-title" style="font-size: 1.35rem; margin-bottom: 8px;">No Moderator Applications On File</h3>
+        <p style="color: #64748b; font-size: 0.96rem; line-height: 1.6; margin: 0 auto 24px; max-width: 440px;">
+            You have not submitted an application to become a Community Moderator for your faculty yet.
+        </p>
         {% if current_user.is_student() %}
-            <a href="{{ url_for('moderator_apply') }}" style="display: inline-block; background: #2563eb; color: white; padding: 9px 18px; border-radius: 4px; text-decoration: none; font-weight: bold;">
-                Apply to Become a Moderator &rarr;
+            <a href="{{ url_for('moderator_apply') }}" class="btn-glass btn-primary">
+                Apply to Become a Moderator ➔
             </a>
         {% endif %}
     </div>
@@ -25,87 +525,98 @@
     {% set latest = applications[0] %}
 
     <!-- Latest Application Card -->
-    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; max-width: 700px; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-        <h3 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
-            <span>Current Application (#{{ latest.id }})</span>
-            {% if latest.status == 'pending' %}
-                <span style="background: #fef3c7; color: #92400e; font-size: 0.85rem; padding: 4px 10px; border-radius: 12px; border: 1px solid #fde68a;">⏳ PENDING REVIEW</span>
-            {% elif latest.status == 'approved' %}
-                <span style="background: #dcfce7; color: #166534; font-size: 0.85rem; padding: 4px 10px; border-radius: 12px; border: 1px solid #bbf7d0;">✔ APPROVED</span>
-            {% elif latest.status == 'rejected' %}
-                <span style="background: #fee2e2; color: #991b1b; font-size: 0.85rem; padding: 4px 10px; border-radius: 12px; border: 1px solid #fecaca;">✖ REJECTED</span>
-            {% endif %}
-        </h3>
+    <div class="glass-card" style="max-width: 760px; margin: 0 auto 30px;">
+        <div class="card-header-row">
+            <div class="card-header-left">
+                <div class="glass-icon-orb">🎓</div>
+                <div>
+                    <h3 class="card-title">Latest Submission (#{{ latest.id }})</h3>
+                    <small style="color: #64748b;">Submitted on {{ latest.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</small>
+                </div>
+            </div>
+            <div>
+                {% if latest.status == 'pending' %}
+                    <span class="status-badge pending">⏳ PENDING REVIEW</span>
+                {% elif latest.status == 'approved' %}
+                    <span class="status-badge approved">✔ APPROVED</span>
+                {% elif latest.status == 'rejected' %}
+                    <span class="status-badge rejected">✖ REJECTED</span>
+                {% endif %}
+            </div>
+        </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+        <table class="info-table">
             <tr>
-                <td style="padding: 6px 0; width: 180px; color: #64748b;"><strong>Applicant Name:</strong></td>
-                <td style="padding: 6px 0;">{{ latest.full_name }}</td>
+                <td class="info-label">Applicant Name:</td>
+                <td class="info-value">{{ latest.full_name }}</td>
             </tr>
             <tr>
-                <td style="padding: 6px 0; color: #64748b;"><strong>Student ID / Matric:</strong></td>
-                <td style="padding: 6px 0;"><code>{{ latest.matric_number }}</code></td>
+                <td class="info-label">Student ID / Matric:</td>
+                <td class="info-value"><span class="code-pill">{{ latest.matric_number }}</span></td>
             </tr>
             <tr>
-                <td style="padding: 6px 0; color: #64748b;"><strong>Target Faculty:</strong></td>
-                <td style="padding: 6px 0;"><strong>{{ latest.faculty }}</strong></td>
+                <td class="info-label">Target Faculty:</td>
+                <td class="info-value"><span class="user-chip chip-role">{{ latest.faculty }}</span></td>
             </tr>
             <tr>
-                <td style="padding: 6px 0; color: #64748b;"><strong>Date Submitted:</strong></td>
-                <td style="padding: 6px 0;">{{ latest.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+                <td class="info-label">Date Submitted:</td>
+                <td class="info-value">{{ latest.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
             </tr>
             {% if latest.reviewed_at %}
             <tr>
-                <td style="padding: 6px 0; color: #64748b;"><strong>Date Reviewed:</strong></td>
-                <td style="padding: 6px 0;">{{ latest.reviewed_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+                <td class="info-label">Date Reviewed:</td>
+                <td class="info-value">{{ latest.reviewed_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
             </tr>
             {% endif %}
         </table>
 
-        <div style="margin-bottom: 15px;">
-            <strong style="color: #64748b; display: block; margin-bottom: 5px;">Your Statement:</strong>
-            <div style="background: #f8fafc; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.95rem; white-space: pre-wrap;">{{ latest.reason }}</div>
+        <div class="statement-card">
+            <span class="statement-label">Your Submitted Statement</span>
+            <p class="statement-text">{{ latest.reason }}</p>
         </div>
 
+        <!-- Decision Callout -->
         {% if latest.status == 'approved' %}
-            <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 4px; padding: 12px; margin-top: 15px;">
-                <p style="margin: 0 0 8px 0; color: #15803d; font-weight: bold;">
+            <div class="callout-box approved">
+                <p style="margin: 0 0 6px 0; color: #047857; font-weight: 800; font-size: 1.05rem;">
                     🎉 Congratulations! Your application was approved.
                 </p>
-                <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: #166534;">
-                    You are now an official Community Moderator for {{ latest.faculty }}. You have access to review and resolve reports originating from {{ latest.faculty }} content.
+                <p style="margin: 0 0 14px 0; font-size: 0.92rem; color: #065f46; line-height: 1.5;">
+                    You are now an official Community Moderator for <strong>{{ latest.faculty }}</strong>. You have permissions to review, resolve, and audit content reports originating from {{ latest.faculty }}.
                 </p>
                 {% if latest.admin_note %}
-                    <p style="margin: 0 0 8px 0; font-size: 0.9rem;"><strong>Admin Feedback:</strong> {{ latest.admin_note }}</p>
+                    <p style="margin: 0 0 14px 0; font-size: 0.9rem; color: #065f46; background: rgba(16, 185, 129, 0.12); padding: 8px 12px; border-radius: 8px;">
+                        <strong>Admin Feedback:</strong> {{ latest.admin_note }}
+                    </p>
                 {% endif %}
-                <a href="{{ url_for('moderator_dashboard') }}" style="display: inline-block; background: #16a34a; color: white; padding: 7px 14px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9rem;">
-                    Access Moderator Dashboard &rarr;
+                <a href="{{ url_for('moderator_dashboard') }}" class="btn-glass btn-success">
+                    Access Moderator Dashboard ➔
                 </a>
             </div>
         {% elif latest.status == 'rejected' %}
-            <div style="background: #fef2f2; border: 1px solid #fca5a5; border-radius: 4px; padding: 12px; margin-top: 15px;">
-                <p style="margin: 0 0 6px 0; color: #b91c1c; font-weight: bold;">
+            <div class="callout-box rejected">
+                <p style="margin: 0 0 6px 0; color: #b91c1c; font-weight: 800; font-size: 1.05rem;">
                     Application Not Accepted
                 </p>
                 {% if latest.admin_note %}
-                    <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: #7f1d1d;">
+                    <p style="margin: 0 0 14px 0; font-size: 0.92rem; color: #991b1b; line-height: 1.5;">
                         <strong>Admin Feedback:</strong> {{ latest.admin_note }}
                     </p>
                 {% else %}
-                    <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: #7f1d1d;">
+                    <p style="margin: 0 0 14px 0; font-size: 0.92rem; color: #991b1b; line-height: 1.5;">
                         Thank you for your interest. You may review your qualifications and re-apply at any time.
                     </p>
                 {% endif %}
                 {% if current_user.is_student() %}
-                    <a href="{{ url_for('moderator_apply') }}" style="display: inline-block; background: #2563eb; color: white; padding: 7px 14px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9rem;">
-                        Submit a New Application &rarr;
+                    <a href="{{ url_for('moderator_apply') }}" class="btn-glass btn-secondary">
+                        Submit a New Application ➔
                     </a>
                 {% endif %}
             </div>
         {% else %}
-            <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 4px; padding: 12px; margin-top: 15px;">
-                <p style="margin: 0; color: #b45309; font-size: 0.9rem;">
-                    ℹ Your application is currently awaiting review by the administration team. You will be notified of any changes upon logging in.
+            <div class="callout-box pending">
+                <p style="margin: 0; color: #b45309; font-size: 0.92rem; font-weight: 600; line-height: 1.5;">
+                    ℹ Your application is currently awaiting review by the faculty administration team. You will be notified of decisions upon logging in.
                 </p>
             </div>
         {% endif %}
@@ -113,39 +624,52 @@
 
     <!-- Application History Table if > 1 -->
     {% if applications|length > 1 %}
-        <h4>Application History</h4>
-        <table class="table-bordered" style="max-width: 700px; margin-bottom: 25px;">
-            <thead style="background: #f1f5f9;">
-                <tr>
-                    <th>ID</th>
-                    <th>Faculty</th>
-                    <th>Matric Number</th>
-                    <th>Status</th>
-                    <th>Submitted</th>
-                    <th>Reviewed</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in applications %}
-                <tr>
-                    <td>#{{ app.id }}</td>
-                    <td>{{ app.faculty }}</td>
-                    <td><code>{{ app.matric_number }}</code></td>
-                    <td>
-                        {% if app.status == 'pending' %}
-                            <span style="color: #d97706; font-weight: bold;">Pending</span>
-                        {% elif app.status == 'approved' %}
-                            <span style="color: #16a34a; font-weight: bold;">Approved</span>
-                        {% elif app.status == 'rejected' %}
-                            <span style="color: #dc2626; font-weight: bold;">Rejected</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ app.created_at.strftime('%Y-%m-%d') }}</td>
-                    <td>{{ app.reviewed_at.strftime('%Y-%m-%d') if app.reviewed_at else '-' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="glass-card" style="max-width: 760px; margin: 0 auto 30px;">
+            <div class="card-header-row" style="margin-bottom: 14px;">
+                <div class="card-header-left">
+                    <div class="glass-icon-orb">📜</div>
+                    <div>
+                        <h3 class="card-title">Application History</h3>
+                        <small style="color: #64748b;">Previous submissions on this account</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="styled-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Faculty</th>
+                            <th>Matric Number</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                            <th>Reviewed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app in applications %}
+                        <tr>
+                            <td><strong>#{{ app.id }}</strong></td>
+                            <td><span class="user-chip chip-role">{{ app.faculty }}</span></td>
+                            <td><span class="code-pill">{{ app.matric_number }}</span></td>
+                            <td>
+                                {% if app.status == 'pending' %}
+                                    <span class="status-badge pending">⏳ Pending</span>
+                                {% elif app.status == 'approved' %}
+                                    <span class="status-badge approved">✔ Approved</span>
+                                {% elif app.status == 'rejected' %}
+                                    <span class="status-badge rejected">✖ Rejected</span>
+                                {% endif %}
+                            </td>
+                            <td><small style="color: #64748b;">{{ app.created_at.strftime('%Y-%m-%d') }}</small></td>
+                            <td><small style="color: #64748b;">{{ app.reviewed_at.strftime('%Y-%m-%d') if app.reviewed_at else '-' }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     {% endif %}
 {% endif %}
 {% endblock %}
