@@ -49,6 +49,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'codenest-foundation-sec
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///codenest.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads', 'resources')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
