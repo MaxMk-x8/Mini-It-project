@@ -1,163 +1,958 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Community Moderator Dashboard</h2>
-<p>Welcome, <strong>{{ user.username }}</strong>. Your assigned moderation faculty is <strong>{{ assigned_faculty }}</strong>.</p>
-<p><em>You are authorized to review and act on reports originating from {{ assigned_faculty }} content only.</em></p>
-<p>
-    <a href="{{ url_for('public_profile', username=user.username) }}">View My Profile</a> |
-    <a href="{{ url_for('edit_profile') }}">Edit Profile</a> |
-    <a href="{{ url_for('saved_questions') }}">Bookmarks</a> |
-    <a href="{{ url_for('username_requests_queue') }}">Username Requests</a>
-    {% if user.pending_follow_requests_count > 0 %}
-        | <a href="{{ url_for('follow_requests') }}">Follow Requests (<strong>{{ user.pending_follow_requests_count }}</strong>)</a>
-    {% endif %}
-</p>
 
-<hr>
+<style>
+    /* ============================================================
+       Modern Glassmorphic Moderator Dashboard
+       Matches CodeNest Home Page & Design System Aesthetics
+       ============================================================ */
 
-<h3>Pending Reports Queue ({{ assigned_faculty }})</h3>
-{% if pending_reports %}
-<table class="table-bordered" style="margin-bottom: 25px;">
-    <thead style="background: #f3f4f6;">
-        <tr>
-            <th>ID</th>
-            <th>Type</th>
-            <th>Content Snippet</th>
-            <th>Reason</th>
-            <th>Reported By</th>
-            <th>Submitted</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for r in pending_reports %}
-        <tr>
-            <td>#{{ r.id }}</td>
-            <td><strong>{{ r.content_type|capitalize }}</strong> (#{{ r.content_id }})</td>
-            <td>{{ r.content_snippet or '(No preview)' }}</td>
-            <td><span style="color: #b91c1c;">{{ r.reason }}</span></td>
-            <td>{{ r.reporter.username if r.reporter else 'Deleted User' }}</td>
-            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
-                <a href="{{ url_for('report_detail', report_id=r.id) }}" style="font-weight: bold;">Review &amp; Act &rarr;</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p style="color: #16a34a;">✔ No pending reports in the {{ assigned_faculty }} queue.</p>
-{% endif %}
+    .mod-dashboard-wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 6px 0 40px;
+    }
 
-<hr>
+    /* Glassmorphic Hero Banner */
+    .glass-hero-mod {
+        position: relative;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.68);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.88);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+        padding: 34px 32px 28px;
+        margin-bottom: 28px;
+    }
+    .glass-hero-mod::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 10%; right: 10%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.35), rgba(237, 28, 36, 0.35), transparent);
+    }
 
-<h3>Recently Handled Reports ({{ assigned_faculty }})</h3>
-{% if resolved_reports %}
-<table class="table-bordered">
-    <thead style="background: #f3f4f6;">
-        <tr>
-            <th>ID</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Handled By</th>
-            <th>Decision Note</th>
-            <th>Resolved At</th>
-            <th>Details</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for r in resolved_reports %}
-        <tr>
-            <td>#{{ r.id }}</td>
-            <td>{{ r.content_type|capitalize }} (#{{ r.content_id }})</td>
-            <td>
-                {% if r.status == 'resolved' %}
-                    <span style="color: #059669; font-weight: bold;">RESOLVED</span>
-                {% elif r.status == 'dismissed' %}
-                    <span style="color: #6b7280; font-weight: bold;">DISMISSED</span>
-                {% elif r.status == 'content_removed' %}
-                    <span style="color: #dc2626; font-weight: bold;">REMOVED</span>
-                {% else %}
-                    {{ r.status }}
+    /* Refined Frosted Glass Badge (From Home Page) */
+    .glass-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 18px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.92);
+        box-shadow: 0 4px 16px -2px rgba(0, 51, 102, 0.06), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+        margin-bottom: 14px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #334155;
+        letter-spacing: 0.3px;
+        transition: all 0.25s ease;
+    }
+    .glass-badge:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: 0 8px 20px -2px rgba(0, 51, 102, 0.1), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
+    }
+    .badge-sparkle { font-size: 0.9rem; }
+    .badge-highlight {
+        color: #003366;
+        font-weight: 700;
+    }
+
+    .mod-title {
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0 0 10px 0;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+    }
+    .mod-subtitle {
+        color: #475569;
+        font-size: 1.02rem;
+        line-height: 1.6;
+        margin: 0 0 18px 0;
+        max-width: 860px;
+    }
+
+    /* Jurisdiction Notice Box */
+    .jurisdiction-notice {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 16px;
+        border-radius: 12px;
+        background: rgba(239, 246, 255, 0.85);
+        border: 1px solid rgba(191, 219, 254, 0.9);
+        color: #1e40af;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-bottom: 20px;
+    }
+
+    /* Quick Action Navigation Buttons */
+    .mod-nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+    }
+    .quick-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 0.88rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .quick-link.solid {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        box-shadow: 0 4px 14px rgba(0, 51, 102, 0.25);
+    }
+    .quick-link.solid:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(0, 51, 102, 0.35);
+        color: #ffffff;
+    }
+    .quick-link.outline {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(8px);
+        color: #334155;
+        border: 1px solid rgba(203, 213, 225, 0.85);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+    .quick-link.outline:hover {
+        background: #ffffff;
+        color: #004FB6;
+        border-color: rgba(0, 79, 182, 0.4);
+        transform: translateY(-2px);
+    }
+    .counter-pill {
+        background: #ED1C24;
+        color: #ffffff;
+        border-radius: 9999px;
+        padding: 1px 7px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        box-shadow: 0 1px 4px rgba(237, 28, 36, 0.35);
+    }
+
+    /* 4-Column Metric / Stats Grid */
+    .mod-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 18px;
+        margin-bottom: 30px;
+    }
+    .stat-glass-card {
+        background: rgba(255, 255, 255, 0.62);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 18px;
+        padding: 20px 22px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 10px 30px -8px rgba(0, 51, 102, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease;
+    }
+    .stat-glass-card:hover {
+        transform: translateY(-4px);
+        background: rgba(255, 255, 255, 0.88);
+        border-color: rgba(0, 79, 182, 0.35);
+        box-shadow: 0 16px 36px -10px rgba(0, 51, 102, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+    }
+    .stat-orb {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.95);
+        flex-shrink: 0;
+    }
+    .stat-meta {
+        display: flex;
+        flex-direction: column;
+    }
+    .stat-num {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+    .stat-label {
+        font-size: 0.84rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Glass Section Card */
+    .glass-section-card {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(18px) saturate(180%);
+        -webkit-backdrop-filter: blur(18px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 20px;
+        padding: 26px 28px;
+        box-shadow: 0 14px 34px -8px rgba(0, 51, 102, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        margin-bottom: 28px;
+        position: relative;
+    }
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+    }
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .section-badge {
+        font-size: 0.78rem;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-weight: 700;
+    }
+    .section-badge-warning {
+        background: rgba(254, 243, 199, 0.9);
+        color: #b45309;
+        border: 1px solid rgba(251, 191, 36, 0.6);
+    }
+    .section-badge-info {
+        background: rgba(224, 242, 254, 0.9);
+        color: #0369a1;
+        border: 1px solid rgba(186, 230, 253, 0.8);
+    }
+    .section-link {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #004FB6;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.18s ease;
+    }
+    .section-link:hover {
+        color: #003366;
+        gap: 8px;
+    }
+
+    /* Modern Responsive Data Tables */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 14px;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        background: rgba(255, 255, 255, 0.75);
+        box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.04);
+    }
+    .mod-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        text-align: left;
+    }
+    .mod-table thead {
+        background: rgba(241, 245, 249, 0.85);
+        backdrop-filter: blur(8px);
+    }
+    .mod-table th {
+        padding: 12px 14px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        border-bottom: 1px solid rgba(203, 213, 225, 0.8);
+        white-space: nowrap;
+    }
+    .mod-table td {
+        padding: 13px 14px;
+        color: #334155;
+        border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+        vertical-align: middle;
+    }
+    .mod-table tbody tr {
+        transition: background-color 0.15s ease;
+    }
+    .mod-table tbody tr:hover {
+        background: rgba(248, 250, 252, 0.95);
+    }
+    .mod-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Pill Badges */
+    .id-tag {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-weight: 700;
+        color: #004FB6;
+        background: rgba(224, 242, 254, 0.6);
+        padding: 2px 7px;
+        border-radius: 6px;
+        font-size: 0.82rem;
+    }
+    .type-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: rgba(241, 245, 249, 0.95);
+        color: #334155;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+    }
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+    }
+    .status-badge.pending {
+        background: rgba(254, 243, 199, 0.9);
+        color: #b45309;
+        border: 1px solid rgba(251, 191, 36, 0.6);
+    }
+    .status-badge.resolved {
+        background: rgba(220, 252, 231, 0.9);
+        color: #15803d;
+        border: 1px solid rgba(134, 239, 172, 0.8);
+    }
+    .status-badge.dismissed {
+        background: rgba(241, 245, 249, 0.95);
+        color: #64748b;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+    }
+    .status-badge.removed {
+        background: rgba(254, 226, 226, 0.9);
+        color: #b91c1c;
+        border: 1px solid rgba(254, 202, 202, 0.9);
+    }
+    .status-badge.lock {
+        background: rgba(254, 243, 199, 0.9);
+        color: #b45309;
+        border: 1px solid rgba(251, 191, 36, 0.6);
+    }
+
+    .reason-text {
+        color: #b91c1c;
+        font-weight: 600;
+        background: rgba(254, 242, 242, 0.7);
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        display: inline-block;
+    }
+    .snippet-box {
+        max-width: 240px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #475569;
+        font-size: 0.86rem;
+    }
+    .username-link {
+        color: #003366;
+        text-decoration: none;
+        font-weight: 700;
+    }
+    .username-link:hover {
+        color: #004FB6;
+        text-decoration: underline;
+    }
+    .moderator-tag {
+        background: rgba(224, 231, 255, 0.9);
+        color: #3730a3;
+        font-weight: 700;
+        font-size: 0.72rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 4px;
+        border: 1px solid rgba(199, 210, 254, 0.8);
+    }
+
+    /* Action Buttons */
+    .btn-action-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff !important;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.84rem;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 2px 8px rgba(0, 51, 102, 0.2);
+        transition: all 0.18s ease;
+    }
+    .btn-action-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.3);
+    }
+    .btn-action-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(255, 255, 255, 0.85);
+        color: #004FB6 !important;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 0.84rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: all 0.18s ease;
+    }
+    .btn-action-secondary:hover {
+        background: #ffffff;
+        border-color: #004FB6;
+        transform: translateY(-1px);
+    }
+    .btn-action-approve {
+        background: linear-gradient(135deg, #059669, #047857);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 0.84rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+        transition: all 0.18s ease;
+    }
+    .btn-action-approve:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(5, 150, 105, 0.35);
+    }
+    .btn-action-reject {
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 0.84rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+        transition: all 0.18s ease;
+    }
+    .btn-action-reject:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(220, 38, 38, 0.35);
+    }
+    .input-reject-note {
+        font-size: 0.82rem;
+        padding: 5px 8px;
+        width: 120px;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.9);
+        outline: none;
+        transition: border-color 0.18s ease;
+    }
+    .input-reject-note:focus {
+        border-color: #004FB6;
+        box-shadow: 0 0 0 2px rgba(0, 79, 182, 0.12);
+    }
+
+    /* Empty States */
+    .mod-empty-state {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 22px;
+        background: rgba(240, 253, 244, 0.75);
+        border: 1px solid rgba(187, 247, 208, 0.9);
+        border-radius: 14px;
+        color: #15803d;
+    }
+    .mod-empty-icon {
+        font-size: 1.6rem;
+        flex-shrink: 0;
+    }
+    .mod-empty-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        margin: 0 0 2px 0;
+    }
+    .mod-empty-desc {
+        font-size: 0.86rem;
+        margin: 0;
+        color: #166534;
+    }
+
+    .mod-neutral-empty {
+        padding: 24px;
+        text-align: center;
+        color: #64748b;
+        background: rgba(248, 250, 252, 0.7);
+        border: 1px dashed rgba(203, 213, 225, 0.9);
+        border-radius: 14px;
+        font-size: 0.92rem;
+    }
+
+    /* ============================================================
+       Dark Mode Theme Support
+       ============================================================ */
+    [data-theme="dark"] .glass-hero-mod,
+    [data-theme="dark"] .glass-section-card,
+    [data-theme="dark"] .stat-glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.18);
+        box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .mod-title { color: #38bdf8; }
+    [data-theme="dark"] .mod-subtitle { color: #94a3b8; }
+    [data-theme="dark"] .glass-badge {
+        background: rgba(30, 41, 59, 0.7);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #e2e8f0;
+    }
+    [data-theme="dark"] .badge-highlight { color: #38bdf8; }
+    [data-theme="dark"] .jurisdiction-notice {
+        background: rgba(14, 116, 144, 0.2);
+        border-color: rgba(56, 189, 248, 0.3);
+        color: #7dd3fc;
+    }
+    [data-theme="dark"] .stat-orb {
+        background: rgba(30, 41, 59, 0.85);
+        border-color: rgba(56, 189, 248, 0.2);
+    }
+    [data-theme="dark"] .stat-num { color: #f1f5f9; }
+    [data-theme="dark"] .stat-label { color: #94a3b8; }
+    [data-theme="dark"] .section-title { color: #f1f5f9; }
+    [data-theme="dark"] .section-header { border-bottom-color: rgba(56, 189, 248, 0.18); }
+    [data-theme="dark"] .table-container {
+        background: rgba(15, 23, 42, 0.8);
+        border-color: rgba(56, 189, 248, 0.18);
+    }
+    [data-theme="dark"] .mod-table thead {
+        background: rgba(30, 41, 59, 0.9);
+    }
+    [data-theme="dark"] .mod-table th {
+        color: #94a3b8;
+        border-bottom-color: rgba(56, 189, 248, 0.2);
+    }
+    [data-theme="dark"] .mod-table td {
+        color: #cbd5e1;
+        border-bottom-color: rgba(51, 65, 85, 0.6);
+    }
+    [data-theme="dark"] .mod-table tbody tr:hover {
+        background: rgba(30, 41, 59, 0.65);
+    }
+    [data-theme="dark"] .id-tag {
+        background: rgba(14, 116, 144, 0.3);
+        color: #38bdf8;
+    }
+    [data-theme="dark"] .type-pill {
+        background: rgba(30, 41, 59, 0.85);
+        color: #cbd5e1;
+        border-color: rgba(56, 189, 248, 0.2);
+    }
+    [data-theme="dark"] .username-link { color: #38bdf8; }
+    [data-theme="dark"] .snippet-box { color: #94a3b8; }
+    [data-theme="dark"] .reason-text {
+        background: rgba(239, 68, 68, 0.15);
+        color: #fca5a5;
+    }
+    [data-theme="dark"] .quick-link.outline {
+        background: rgba(30, 41, 59, 0.7);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #e2e8f0;
+    }
+    [data-theme="dark"] .quick-link.outline:hover {
+        background: rgba(30, 41, 59, 0.95);
+        color: #38bdf8;
+        border-color: #38bdf8;
+    }
+    [data-theme="dark"] .btn-action-secondary {
+        background: rgba(30, 41, 59, 0.8);
+        border-color: rgba(56, 189, 248, 0.3);
+        color: #38bdf8 !important;
+    }
+    [data-theme="dark"] .btn-action-secondary:hover {
+        background: rgba(30, 41, 59, 1);
+        border-color: #38bdf8;
+    }
+    [data-theme="dark"] .input-reject-note {
+        background: rgba(30, 41, 59, 0.85);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #f1f5f9;
+    }
+    [data-theme="dark"] .mod-empty-state {
+        background: rgba(6, 78, 59, 0.35);
+        border-color: rgba(52, 211, 153, 0.3);
+        color: #6ee7b7;
+    }
+    [data-theme="dark"] .mod-empty-desc { color: #a7f3d0; }
+    [data-theme="dark"] .mod-neutral-empty {
+        background: rgba(30, 41, 59, 0.5);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #94a3b8;
+    }
+</style>
+
+<div class="mod-dashboard-wrap">
+    <!-- 1. Frosted Glass Hero Banner -->
+    <div class="glass-hero-mod">
+        <div>
+            <div class="glass-badge">
+                <span class="badge-sparkle">🛡️</span>
+                <span>Community Governance &bull; <span class="badge-highlight">{{ assigned_faculty }} Faculty Hub</span></span>
+            </div>
+        </div>
+
+        <h1 class="mod-title">Community Moderator Dashboard</h1>
+        <p class="mod-subtitle">
+            Welcome back, <strong>@{{ user.username }}</strong>. You are authorized to review reports, moderate discussions, and approve member identity changes for the <strong>{{ assigned_faculty }}</strong> community.
+        </p>
+
+        <div class="jurisdiction-notice">
+            <span>🏛️</span>
+            <span><strong>Jurisdiction Scope:</strong> Authorized for content and member requests originating from <strong>{{ assigned_faculty }}</strong>.</span>
+        </div>
+
+        <div class="mod-nav-links">
+            <a href="{{ url_for('public_profile', username=user.username) }}" class="quick-link solid">
+                👤 View My Profile
+            </a>
+            <a href="{{ url_for('edit_profile') }}" class="quick-link outline">
+                ✏️ Edit Profile
+            </a>
+            <a href="{{ url_for('saved_questions') }}" class="quick-link outline">
+                🔖 Bookmarks
+            </a>
+            <a href="{{ url_for('username_requests_queue') }}" class="quick-link outline">
+                🏷️ Username Requests
+            </a>
+            {% if user.pending_follow_requests_count > 0 %}
+                <a href="{{ url_for('follow_requests') }}" class="quick-link outline">
+                    👥 Follow Requests <span class="counter-pill">{{ user.pending_follow_requests_count }}</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 2. Overview Metric Stats Grid -->
+    <div class="mod-stats-grid">
+        <div class="stat-glass-card">
+            <div class="stat-orb" style="background: rgba(254, 242, 242, 0.85); color: #dc2626;">🚨</div>
+            <div class="stat-meta">
+                <span class="stat-num" style="color: {% if pending_reports|length > 0 %}#dc2626{% else %}#059669{% endif %};">{{ pending_reports|length }}</span>
+                <span class="stat-label">Pending Reports</span>
+            </div>
+        </div>
+
+        <div class="stat-glass-card">
+            <div class="stat-orb" style="background: rgba(240, 253, 244, 0.85); color: #16a34a;">✅</div>
+            <div class="stat-meta">
+                <span class="stat-num">{{ resolved_reports|length }}</span>
+                <span class="stat-label">Handled Reports</span>
+            </div>
+        </div>
+
+        <div class="stat-glass-card">
+            <div class="stat-orb" style="background: rgba(238, 242, 255, 0.85); color: #4f46e5;">🏷️</div>
+            <div class="stat-meta">
+                <span class="stat-num">{{ pending_username_requests|length }}</span>
+                <span class="stat-label">Username Requests</span>
+            </div>
+        </div>
+
+        <div class="stat-glass-card">
+            <div class="stat-orb" style="background: rgba(240, 249, 255, 0.85); color: #0284c7;">🏛️</div>
+            <div class="stat-meta">
+                <span class="stat-num" style="font-size: 1.35rem;">{{ assigned_faculty }}</span>
+                <span class="stat-label">Active Jurisdiction</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Pending Reports Queue -->
+    <div class="glass-section-card">
+        <div class="section-header">
+            <h2 class="section-title">
+                <span>🚨 Pending Reports Queue ({{ assigned_faculty }})</span>
+                {% if pending_reports|length > 0 %}
+                    <span class="section-badge section-badge-warning">{{ pending_reports|length }} Action Required</span>
                 {% endif %}
-            </td>
-            <td>{{ r.reviewer.username if r.reviewer else 'Unknown' }}</td>
-            <td>{{ r.decision_note or '-' }}</td>
-            <td>{{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') if r.reviewed_at else '-' }}</td>
-            <td>
-                <a href="{{ url_for('report_detail', report_id=r.id) }}">View</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No handled reports recorded for {{ assigned_faculty }} yet.</p>
-{% endif %}
+            </h2>
+        </div>
 
-<hr>
+        {% if pending_reports %}
+            <div class="table-container">
+                <table class="mod-table">
+                    <thead>
+                        <tr>
+                            <th>Report ID</th>
+                            <th>Content Type</th>
+                            <th>Content Snippet</th>
+                            <th>Reason</th>
+                            <th>Reported By</th>
+                            <th>Submitted</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in pending_reports %}
+                        <tr>
+                            <td><span class="id-tag">#{{ r.id }}</span></td>
+                            <td>
+                                <span class="type-pill">
+                                    <strong>{{ r.content_type|capitalize }}</strong> (#{{ r.content_id }})
+                                </span>
+                            </td>
+                            <td>
+                                <div class="snippet-box" title="{{ r.content_snippet or '(No preview available)' }}">
+                                    {{ r.content_snippet or '(No preview)' }}
+                                </div>
+                            </td>
+                            <td><span class="reason-text">{{ r.reason }}</span></td>
+                            <td>
+                                {% if r.reporter %}
+                                    <a href="{{ url_for('public_profile', username=r.reporter.username) }}" class="username-link">
+                                        @{{ r.reporter.username }}
+                                    </a>
+                                {% else %}
+                                    <span style="color: #94a3b8;">Deleted User</span>
+                                {% endif %}
+                            </td>
+                            <td style="white-space: nowrap; font-size: 0.84rem; color: #64748b;">
+                                {{ r.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('report_detail', report_id=r.id) }}" class="btn-action-primary">
+                                    Review &amp; Act &rarr;
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="mod-empty-state">
+                <div class="mod-empty-icon">🛡️</div>
+                <div>
+                    <div class="mod-empty-title">All Caught Up!</div>
+                    <p class="mod-empty-desc">No pending reports in the {{ assigned_faculty }} queue right now. Great job keeping the community safe!</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
 
-<h3>Username Change Requests ({{ assigned_faculty }})</h3>
-<p>
-    <a href="{{ url_for('username_requests_queue') }}">View Full Requests Queue &rarr;</a>
-</p>
+    <!-- 4. Recently Handled Reports -->
+    <div class="glass-section-card">
+        <div class="section-header">
+            <h2 class="section-title">
+                <span>📋 Recently Handled Reports ({{ assigned_faculty }})</span>
+                <span class="section-badge section-badge-info">{{ resolved_reports|length }} Recorded</span>
+            </h2>
+        </div>
 
-{% if pending_username_requests %}
-<table class="table-bordered" style="width: 100%; margin-bottom: 25px;">
-    <thead style="background: #f3f4f6;">
-        <tr>
-            <th>ID</th>
-            <th>Requester</th>
-            <th>Desired New Username</th>
-            <th>Student Email</th>
-            <th>Reason</th>
-            <th>Submitted</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for r in pending_username_requests %}
-        <tr>
-            <td>#{{ r.id }}</td>
-            <td>
-                <a href="{{ url_for('public_profile', username=r.current_username) }}">@{{ r.current_username }}</a>
-                {% if r.user.is_moderator() %}
-                    <span style="background: #e0e7ff; color: #3730a3; font-weight: bold; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Moderator</span>
+        {% if resolved_reports %}
+            <div class="table-container">
+                <table class="mod-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Target Content</th>
+                            <th>Status</th>
+                            <th>Handled By</th>
+                            <th>Decision Note</th>
+                            <th>Resolved At</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in resolved_reports %}
+                        <tr>
+                            <td><span class="id-tag">#{{ r.id }}</span></td>
+                            <td>
+                                <span class="type-pill">
+                                    {{ r.content_type|capitalize }} (#{{ r.content_id }})
+                                </span>
+                            </td>
+                            <td>
+                                {% if r.status == 'resolved' %}
+                                    <span class="status-badge resolved">✔ Resolved</span>
+                                {% elif r.status == 'dismissed' %}
+                                    <span class="status-badge dismissed">✖ Dismissed</span>
+                                {% elif r.status == 'content_removed' %}
+                                    <span class="status-badge removed">🗑️ Removed</span>
+                                {% else %}
+                                    <span class="status-badge dismissed">{{ r.status|upper }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.reviewer %}
+                                    <a href="{{ url_for('public_profile', username=r.reviewer.username) }}" class="username-link">
+                                        @{{ r.reviewer.username }}
+                                    </a>
+                                {% else %}
+                                    <span style="color: #94a3b8;">Unknown</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="snippet-box" title="{{ r.decision_note or 'No notes recorded' }}">
+                                    {{ r.decision_note or '-' }}
+                                </div>
+                            </td>
+                            <td style="white-space: nowrap; font-size: 0.84rem; color: #64748b;">
+                                {{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') if r.reviewed_at else '-' }}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('report_detail', report_id=r.id) }}" class="btn-action-secondary">
+                                    View Audit &rarr;
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="mod-neutral-empty">
+                No handled reports recorded for {{ assigned_faculty }} yet.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- 5. Username Change Requests Queue -->
+    <div class="glass-section-card">
+        <div class="section-header">
+            <h2 class="section-title">
+                <span>🏷️ Username Change Requests ({{ assigned_faculty }})</span>
+                {% if pending_username_requests|length > 0 %}
+                    <span class="section-badge section-badge-warning">{{ pending_username_requests|length }} Pending</span>
                 {% endif %}
-            </td>
-            <td style="font-size: 1.05em; color: #1e3a8a;"><strong>@{{ r.new_username }}</strong></td>
-            <td><code>{{ r.user.email }}</code></td>
-            <td>{{ r.reason or '-' }}</td>
-            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
-                {% if r.user.is_moderator() %}
-                    <span style="color: #b45309; font-size: 0.85em; font-weight: bold; background: #fef3c7; padding: 4px 8px; border-radius: 4px; display: inline-block;">
-                        🔒 Admin Review Required
-                    </span>
-                {% else %}
-                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                        <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" onclick="return confirm('Approve username change to @{{ r.new_username }}?');" style="background: #059669; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                                ✔ Approve
-                            </button>
-                        </form>
-                        <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 4px;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <input type="text" name="reviewer_note" placeholder="Reason (opt)" style="font-size: 0.8em; padding: 2px 4px; width: 110px; border: 1px solid #cbd5e1; border-radius: 3px;"/>
-                            <button type="submit" onclick="return confirm('Disapprove username change request?');" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                                ✖ Disapprove
-                            </button>
-                        </form>
-                    </div>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p style="color: #16a34a;">✔ No pending username change requests in the {{ assigned_faculty }} queue.</p>
-{% endif %}
+            </h2>
+            <a href="{{ url_for('username_requests_queue') }}" class="section-link">
+                View Full Requests Queue &rarr;
+            </a>
+        </div>
+
+        {% if pending_username_requests %}
+            <div class="table-container">
+                <table class="mod-table">
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Current Requester</th>
+                            <th>Desired New Username</th>
+                            <th>Student Email</th>
+                            <th>Reason</th>
+                            <th>Submitted</th>
+                            <th>Decision &amp; Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in pending_username_requests %}
+                        <tr>
+                            <td><span class="id-tag">#{{ r.id }}</span></td>
+                            <td>
+                                <a href="{{ url_for('public_profile', username=r.current_username) }}" class="username-link">
+                                    @{{ r.current_username }}
+                                </a>
+                                {% if r.user.is_moderator() %}
+                                    <span class="moderator-tag">Moderator</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong style="color: #004FB6; font-size: 0.96rem;">@{{ r.new_username }}</strong>
+                            </td>
+                            <td>
+                                <code style="font-size: 0.82rem; background: rgba(241, 245, 249, 0.8); padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0;">{{ r.user.email }}</code>
+                            </td>
+                            <td>
+                                <div class="snippet-box" title="{{ r.reason or 'No reason provided' }}">
+                                    {{ r.reason or '-' }}
+                                </div>
+                            </td>
+                            <td style="white-space: nowrap; font-size: 0.84rem; color: #64748b;">
+                                {{ r.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </td>
+                            <td>
+                                {% if r.user.is_moderator() %}
+                                    <span class="status-badge lock">
+                                        🔒 Admin Review Required
+                                    </span>
+                                {% else %}
+                                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                        <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline; margin: 0;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" onclick="return confirm('Approve username change to @{{ r.new_username }}?');" class="btn-action-approve">
+                                                ✔ Approve
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <input type="text" name="reviewer_note" placeholder="Reason (opt)" class="input-reject-note"/>
+                                            <button type="submit" onclick="return confirm('Disapprove username change request?');" class="btn-action-reject">
+                                                ✖ Disapprove
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="mod-empty-state">
+                <div class="mod-empty-icon">✨</div>
+                <div>
+                    <div class="mod-empty-title">No Pending Requests</div>
+                    <p class="mod-empty-desc">There are no pending username change requests in the {{ assigned_faculty }} queue.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
 
 {% endblock %}

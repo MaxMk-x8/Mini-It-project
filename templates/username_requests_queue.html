@@ -1,134 +1,565 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div>
-    <h2>Username Change Requests Queue</h2>
-    <p>
+<style>
+    /* ============================================================
+       Modern Glassmorphic Username Requests Queue
+       Matches CodeNest Home & Moderator Dashboard Design System
+       ============================================================ */
+
+    .requests-queue-wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 6px 0 40px;
+    }
+
+    /* Glass Hero Banner */
+    .glass-hero-queue {
+        position: relative;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.68);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.88);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+        padding: 32px 30px 26px;
+        margin-bottom: 26px;
+    }
+    .glass-hero-queue::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 10%; right: 10%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.35), rgba(237, 28, 36, 0.35), transparent);
+    }
+
+    .glass-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 18px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(14px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.92);
+        box-shadow: 0 4px 16px -2px rgba(0, 51, 102, 0.06), inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+        margin-bottom: 14px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #334155;
+    }
+    .badge-sparkle { font-size: 0.9rem; }
+    .badge-highlight {
+        color: #003366;
+        font-weight: 700;
+    }
+
+    .queue-title {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0 0 8px 0;
+        letter-spacing: -0.02em;
+    }
+    .queue-subtitle {
+        color: #475569;
+        font-size: 0.98rem;
+        line-height: 1.6;
+        margin: 0 0 18px 0;
+    }
+
+    /* Navigation Links */
+    .queue-nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+    }
+    .quick-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 15px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 0.88rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .quick-link.solid {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        box-shadow: 0 4px 14px rgba(0, 51, 102, 0.25);
+    }
+    .quick-link.solid:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(0, 51, 102, 0.35);
+        color: #ffffff;
+    }
+    .quick-link.outline {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(8px);
+        color: #334155;
+        border: 1px solid rgba(203, 213, 225, 0.85);
+    }
+    .quick-link.outline:hover {
+        background: #ffffff;
+        color: #004FB6;
+        border-color: rgba(0, 79, 182, 0.4);
+        transform: translateY(-2px);
+    }
+
+    /* Filter Bar Card */
+    .glass-filter-card {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 16px;
+        padding: 16px 22px;
+        margin-bottom: 24px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        box-shadow: 0 8px 24px -6px rgba(0, 51, 102, 0.05);
+    }
+    .filter-group {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .filter-label {
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-right: 4px;
+    }
+    .filter-pill {
+        padding: 5px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #475569;
+        background: rgba(241, 245, 249, 0.8);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        transition: all 0.18s ease;
+    }
+    .filter-pill:hover {
+        background: #ffffff;
+        color: #004FB6;
+        border-color: rgba(0, 79, 182, 0.3);
+    }
+    .filter-pill.active {
+        background: #003366;
+        color: #ffffff;
+        border-color: #003366;
+        box-shadow: 0 2px 8px rgba(0, 51, 102, 0.25);
+    }
+
+    /* Main Table Container */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 16px;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(16px);
+        box-shadow: 0 10px 30px -8px rgba(0, 51, 102, 0.06);
+        margin-bottom: 30px;
+    }
+    .mod-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        text-align: left;
+    }
+    .mod-table thead {
+        background: rgba(241, 245, 249, 0.85);
+    }
+    .mod-table th {
+        padding: 13px 14px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        border-bottom: 1px solid rgba(203, 213, 225, 0.8);
+        white-space: nowrap;
+    }
+    .mod-table td {
+        padding: 13px 14px;
+        color: #334155;
+        border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+        vertical-align: middle;
+    }
+    .mod-table tbody tr:hover {
+        background: rgba(248, 250, 252, 0.95);
+    }
+    .mod-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .id-tag {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-weight: 700;
+        color: #004FB6;
+        background: rgba(224, 242, 254, 0.6);
+        padding: 2px 7px;
+        border-radius: 6px;
+        font-size: 0.82rem;
+    }
+    .faculty-tag {
+        font-weight: 700;
+        color: #003366;
+        background: rgba(241, 245, 249, 0.9);
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+    }
+    .username-link {
+        color: #003366;
+        text-decoration: none;
+        font-weight: 700;
+    }
+    .username-link:hover {
+        color: #004FB6;
+        text-decoration: underline;
+    }
+    .moderator-tag {
+        background: rgba(224, 231, 255, 0.9);
+        color: #3730a3;
+        font-weight: 700;
+        font-size: 0.72rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 4px;
+        border: 1px solid rgba(199, 210, 254, 0.8);
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .status-badge.pending {
+        background: rgba(254, 243, 199, 0.9);
+        color: #b45309;
+        border: 1px solid rgba(251, 191, 36, 0.6);
+    }
+    .status-badge.approved {
+        background: rgba(220, 252, 231, 0.9);
+        color: #15803d;
+        border: 1px solid rgba(134, 239, 172, 0.8);
+    }
+    .status-badge.rejected {
+        background: rgba(254, 226, 226, 0.9);
+        color: #b91c1c;
+        border: 1px solid rgba(254, 202, 202, 0.9);
+    }
+    .status-badge.cancelled {
+        background: rgba(241, 245, 249, 0.95);
+        color: #64748b;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+    }
+    .status-badge.lock {
+        background: rgba(254, 243, 199, 0.9);
+        color: #b45309;
+        border: 1px solid rgba(251, 191, 36, 0.6);
+    }
+
+    .btn-action-approve {
+        background: linear-gradient(135deg, #059669, #047857);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 0.84rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+        transition: all 0.18s ease;
+    }
+    .btn-action-approve:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(5, 150, 105, 0.35);
+    }
+    .btn-action-reject {
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 0.84rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+        transition: all 0.18s ease;
+    }
+    .btn-action-reject:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(220, 38, 38, 0.35);
+    }
+    .input-reject-note {
+        font-size: 0.82rem;
+        padding: 5px 8px;
+        width: 130px;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.9);
+        outline: none;
+        transition: border-color 0.18s ease;
+    }
+    .input-reject-note:focus {
+        border-color: #004FB6;
+        box-shadow: 0 0 0 2px rgba(0, 79, 182, 0.12);
+    }
+
+    .mod-neutral-empty {
+        padding: 32px;
+        text-align: center;
+        color: #64748b;
+        background: rgba(248, 250, 252, 0.7);
+        border: 1px dashed rgba(203, 213, 225, 0.9);
+        border-radius: 16px;
+        font-size: 0.95rem;
+    }
+
+    /* Dark Mode Theme */
+    [data-theme="dark"] .glass-hero-queue,
+    [data-theme="dark"] .glass-filter-card {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.18);
+        box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .queue-title { color: #38bdf8; }
+    [data-theme="dark"] .queue-subtitle { color: #94a3b8; }
+    [data-theme="dark"] .glass-badge {
+        background: rgba(30, 41, 59, 0.7);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #e2e8f0;
+    }
+    [data-theme="dark"] .badge-highlight { color: #38bdf8; }
+    [data-theme="dark"] .filter-label { color: #94a3b8; }
+    [data-theme="dark"] .filter-pill {
+        background: rgba(30, 41, 59, 0.75);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #cbd5e1;
+    }
+    [data-theme="dark"] .filter-pill.active {
+        background: linear-gradient(135deg, #0284c7, #004FB6);
+        border-color: #38bdf8;
+        color: #ffffff;
+    }
+    [data-theme="dark"] .table-container {
+        background: rgba(15, 23, 42, 0.8);
+        border-color: rgba(56, 189, 248, 0.18);
+    }
+    [data-theme="dark"] .mod-table thead { background: rgba(30, 41, 59, 0.9); }
+    [data-theme="dark"] .mod-table th {
+        color: #94a3b8;
+        border-bottom-color: rgba(56, 189, 248, 0.2);
+    }
+    [data-theme="dark"] .mod-table td {
+        color: #cbd5e1;
+        border-bottom-color: rgba(51, 65, 85, 0.6);
+    }
+    [data-theme="dark"] .mod-table tbody tr:hover { background: rgba(30, 41, 59, 0.65); }
+    [data-theme="dark"] .id-tag {
+        background: rgba(14, 116, 144, 0.3);
+        color: #38bdf8;
+    }
+    [data-theme="dark"] .faculty-tag {
+        background: rgba(30, 41, 59, 0.85);
+        color: #38bdf8;
+        border-color: rgba(56, 189, 248, 0.2);
+    }
+    [data-theme="dark"] .username-link { color: #38bdf8; }
+    [data-theme="dark"] .quick-link.outline {
+        background: rgba(30, 41, 59, 0.7);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #e2e8f0;
+    }
+    [data-theme="dark"] .quick-link.outline:hover {
+        background: rgba(30, 41, 59, 0.95);
+        color: #38bdf8;
+        border-color: #38bdf8;
+    }
+    [data-theme="dark"] .input-reject-note {
+        background: rgba(30, 41, 59, 0.85);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #f1f5f9;
+    }
+    [data-theme="dark"] .mod-neutral-empty {
+        background: rgba(30, 41, 59, 0.5);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #94a3b8;
+    }
+</style>
+
+<div class="requests-queue-wrap">
+    <!-- Header Hero Banner -->
+    <div class="glass-hero-queue">
+        <div>
+            <div class="glass-badge">
+                <span class="badge-sparkle">🏷️</span>
+                <span>Identity Governance &bull; <span class="badge-highlight">Username Change Requests</span></span>
+            </div>
+        </div>
+
+        <h1 class="queue-title">Username Change Requests Queue</h1>
+        <p class="queue-subtitle">
+            Reviewing as <strong>@{{ current_user.username }}</strong> ({{ current_user.role }}{% if current_user.is_moderator() %} &bull; {{ current_user.faculty }}{% endif %}). Verify and manage student identity modifications.
+        </p>
+
+        <div class="queue-nav-links">
+            {% if current_user.is_admin() %}
+                <a href="{{ url_for('admin_dashboard') }}" class="quick-link solid">← Back to Admin Dashboard</a>
+            {% else %}
+                <a href="{{ url_for('moderator_dashboard') }}" class="quick-link solid">← Back to Moderator Dashboard</a>
+            {% endif %}
+            <a href="{{ url_for('settings') }}" class="quick-link outline">⚙️ Settings</a>
+            <a href="{{ url_for('public_profile', username=current_user.username) }}" class="quick-link outline">👤 My Profile</a>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="glass-filter-card">
+        <div class="filter-group">
+            <span class="filter-label">Filter Status:</span>
+            <a href="{{ url_for('username_requests_queue', status='pending', faculty=selected_faculty) }}" class="filter-pill {% if status_filter == 'pending' %}active{% endif %}">⏳ Pending</a>
+            <a href="{{ url_for('username_requests_queue', status='handled', faculty=selected_faculty) }}" class="filter-pill {% if status_filter == 'handled' %}active{% endif %}">✅ Handled</a>
+            <a href="{{ url_for('username_requests_queue', status='all', faculty=selected_faculty) }}" class="filter-pill {% if status_filter == 'all' %}active{% endif %}">📋 All</a>
+        </div>
+
         {% if current_user.is_admin() %}
-            <a href="{{ url_for('admin_dashboard') }}">← Back to Admin Dashboard</a> |
-        {% else %}
-            <a href="{{ url_for('moderator_dashboard') }}">← Back to Moderator Dashboard</a> |
+        <div class="filter-group">
+            <span class="filter-label">Faculty:</span>
+            <a href="{{ url_for('username_requests_queue', status=status_filter, faculty='') }}" class="filter-pill {% if not selected_faculty %}active{% endif %}">All Faculties</a>
+            {% for code, name in faculties %}
+                <a href="{{ url_for('username_requests_queue', status=status_filter, faculty=code) }}" class="filter-pill {% if selected_faculty == code %}active{% endif %}">{{ code }}</a>
+            {% endfor %}
+        </div>
         {% endif %}
-        <a href="{{ url_for('settings') }}">Settings</a> |
-        <a href="{{ url_for('public_profile', username=current_user.username) }}">My Profile</a>
-    </p>
-</div>
+    </div>
 
-<p>
-    Reviewer: <strong>{{ current_user.username }}</strong> 
-    ({{ current_user.role }}{% if current_user.is_moderator() %} - {{ current_user.faculty }}{% endif %})
-</p>
+    <!-- Requests Table -->
+    {% if username_requests %}
+        <div class="table-container">
+            <table class="mod-table">
+                <thead>
+                    <tr>
+                        <th>Request ID</th>
+                        <th>Faculty</th>
+                        <th>Requester (Current)</th>
+                        <th>Desired New Username</th>
+                        <th>Student Email (Immutable)</th>
+                        <th>Reason</th>
+                        <th>Submitted At</th>
+                        <th>Status</th>
+                        <th>Review Decision / Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in username_requests %}
+                    <tr>
+                        <td><span class="id-tag">#{{ r.id }}</span></td>
+                        <td><span class="faculty-tag">{{ r.user.faculty }}</span></td>
+                        <td>
+                            <a href="{{ url_for('public_profile', username=r.current_username) }}" class="username-link">
+                                @{{ r.current_username }}
+                            </a>
+                            {% if r.user.is_moderator() %}
+                                <span class="moderator-tag">Moderator</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong style="color: #004FB6; font-size: 0.96rem;">@{{ r.new_username }}</strong>
+                        </td>
+                        <td>
+                            <code style="font-size: 0.82rem; background: rgba(241, 245, 249, 0.8); padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0;">{{ r.user.email }}</code>
+                        </td>
+                        <td>{{ r.reason or '-' }}</td>
+                        <td style="white-space: nowrap; font-size: 0.84rem; color: #64748b;">
+                            {{ r.created_at.strftime('%Y-%m-%d %H:%M') }}
+                        </td>
+                        <td>
+                            {% if r.status == 'pending' %}
+                                <span class="status-badge pending">⏳ Pending</span>
+                            {% elif r.status == 'approved' %}
+                                <span class="status-badge approved">✔ Approved</span>
+                            {% elif r.status == 'rejected' %}
+                                <span class="status-badge rejected">✖ Disapproved</span>
+                            {% elif r.status == 'cancelled' %}
+                                <span class="status-badge cancelled">Cancelled</span>
+                            {% else %}
+                                <span class="status-badge cancelled">{{ r.status|upper }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if r.status == 'pending' %}
+                                {% if r.user.is_moderator() and not current_user.is_admin() %}
+                                    <span class="status-badge lock">
+                                        🔒 Admin Review Required
+                                    </span>
+                                {% else %}
+                                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                        <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline; margin: 0;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" onclick="return confirm('Approve username change for @{{ r.current_username }} to @{{ r.new_username }}?');" class="btn-action-approve">
+                                                ✔ Approve
+                                            </button>
+                                        </form>
 
-<hr>
-
-<div style="margin-bottom: 20px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
-    <strong>Filter Status:</strong>
-    <a href="{{ url_for('username_requests_queue', status='pending', faculty=selected_faculty) }}" style="margin: 0 6px; {% if status_filter == 'pending' %}font-weight: bold; text-decoration: underline;{% endif %}">Pending</a> |
-    <a href="{{ url_for('username_requests_queue', status='handled', faculty=selected_faculty) }}" style="margin: 0 6px; {% if status_filter == 'handled' %}font-weight: bold; text-decoration: underline;{% endif %}">Handled</a> |
-    <a href="{{ url_for('username_requests_queue', status='all', faculty=selected_faculty) }}" style="margin: 0 6px; {% if status_filter == 'all' %}font-weight: bold; text-decoration: underline;{% endif %}">All</a>
-
-    {% if current_user.is_admin() %}
-    <span style="margin-left: 20px;"><strong>Faculty:</strong></span>
-    <a href="{{ url_for('username_requests_queue', status=status_filter, faculty='') }}" style="margin: 0 6px; {% if not selected_faculty %}font-weight: bold; text-decoration: underline;{% endif %}">All Faculties</a> |
-    {% for code, name in faculties %}
-        <a href="{{ url_for('username_requests_queue', status=status_filter, faculty=code) }}" style="margin: 0 6px; {% if selected_faculty == code %}font-weight: bold; text-decoration: underline;{% endif %}">{{ code }}</a> |
-    {% endfor %}
+                                        <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 6px; margin: 0;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <input type="text" name="reviewer_note" placeholder="Reason (opt)" class="input-reject-note"/>
+                                            <button type="submit" onclick="return confirm('Disapprove username change request for @{{ r.current_username }}?');" class="btn-action-reject">
+                                                ✖ Disapprove
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <small style="color: #64748b; font-size: 0.82rem;">
+                                    {% if r.reviewer %}
+                                        By <strong>@{{ r.reviewer.username }}</strong>
+                                    {% endif %}
+                                    {% if r.reviewer_note %}
+                                        <br><em>"{{ r.reviewer_note }}"</em>
+                                    {% endif %}
+                                    {% if r.reviewed_at %}
+                                        <br>{{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% endif %}
+                                </small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="mod-neutral-empty">
+            No username change requests found for the selected filter.
+        </div>
     {% endif %}
 </div>
-
-{% if username_requests %}
-<table class="table-bordered" style="width: 100%; margin-bottom: 30px;">
-    <thead style="background: #f3f4f6;">
-        <tr>
-            <th>ID</th>
-            <th>Faculty</th>
-            <th>Requester (Current)</th>
-            <th>Desired New Username</th>
-            <th>Student Email (Immutable)</th>
-            <th>Reason</th>
-            <th>Submitted At</th>
-            <th>Status</th>
-            <th>Review Decision / Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for r in username_requests %}
-        <tr>
-            <td>#{{ r.id }}</td>
-            <td><strong>{{ r.user.faculty }}</strong></td>
-            <td>
-                <a href="{{ url_for('public_profile', username=r.current_username) }}">
-                    @{{ r.current_username }}
-                </a>
-                {% if r.user.is_moderator() %}
-                    <span style="background: #e0e7ff; color: #3730a3; font-weight: bold; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Moderator</span>
-                {% endif %}
-            </td>
-            <td style="font-size: 1.05em; color: #1e3a8a;">
-                <strong>@{{ r.new_username }}</strong>
-            </td>
-            <td><code>{{ r.user.email }}</code></td>
-            <td>{{ r.reason or '-' }}</td>
-            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
-                {% if r.status == 'pending' %}
-                    <span style="color: #d97706; font-weight: bold;">PENDING</span>
-                {% elif r.status == 'approved' %}
-                    <span style="color: #059669; font-weight: bold;">APPROVED</span>
-                {% elif r.status == 'rejected' %}
-                    <span style="color: #dc2626; font-weight: bold;">DISAPPROVED</span>
-                {% elif r.status == 'cancelled' %}
-                    <span style="color: #64748b; font-weight: bold;">CANCELLED</span>
-                {% else %}
-                    {{ r.status }}
-                {% endif %}
-            </td>
-            <td>
-                {% if r.status == 'pending' %}
-                    {% if r.user.is_moderator() and not current_user.is_admin() %}
-                        <span style="color: #b45309; font-size: 0.85em; font-weight: bold; background: #fef3c7; padding: 4px 8px; border-radius: 4px; display: inline-block;">
-                            🔒 Admin Review Required
-                        </span>
-                    {% else %}
-                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                            <!-- Approve Form -->
-                            <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                <button type="submit" onclick="return confirm('Approve username change for @{{ r.current_username }} to @{{ r.new_username }}?');" style="background: #059669; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
-                                    ✔ Approve
-                                </button>
-                            </form>
-
-                            <!-- Reject Form with Note -->
-                            <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 4px;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                <input type="text" name="reviewer_note" placeholder="Reason (optional)" style="font-size: 0.85em; padding: 3px 6px; width: 140px; border: 1px solid #cbd5e1; border-radius: 3px;"/>
-                                <button type="submit" onclick="return confirm('Disapprove username change request for @{{ r.current_username }}?');" style="background: #dc2626; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
-                                    ✖ Disapprove
-                                </button>
-                            </form>
-                        </div>
-                    {% endif %}
-                {% else %}
-                    <small style="color: #64748b;">
-                        {% if r.reviewer %}
-                            By <strong>{{ r.reviewer.username }}</strong>
-                        {% endif %}
-                        {% if r.reviewer_note %}
-                            <br><em>"{{ r.reviewer_note }}"</em>
-                        {% endif %}
-                        {% if r.reviewed_at %}
-                            <br>{{ r.reviewed_at.strftime('%Y-%m-%d %H:%M') }}
-                        {% endif %}
-                    </small>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p style="color: #64748b;">No username change requests found for the selected filter.</p>
-{% endif %}
 
 {% endblock %}
