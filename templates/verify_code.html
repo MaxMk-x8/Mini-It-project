@@ -1,22 +1,299 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Verify Your Account</h2>
-<p>A 6-digit code has been sent to <strong>{{ user.email }}</strong>. Check your inbox (and spam folder).</p>
-<p style="color: #64748b; font-size: 0.9rem;">
-    ⏱ <strong>Validity:</strong> 5 minutes from generation. &bull; 
-    🎯 <strong>Attempts remaining:</strong> <span style="font-weight: bold; color: {% if (user.verification_attempts or 0) >= 3 %}#dc2626{% else %}#16a34a{% endif %};">{{ 5 - (user.verification_attempts or 0) }} / 5</span>
-</p>
-<form method="POST">
-    {{ form.hidden_tag() }}
-    <p>
-        {{ form.code.label }}<br>
-        {{ form.code(style="font-family: monospace; font-size: 1.1rem; letter-spacing: 2px;", maxlength=6) }}
-        {% for error in form.code.errors %}
-            <br><span style="color: red;">{{ error }}</span>
-        {% endfor %}
-    </p>
-    <p>{{ form.submit() }}</p>
-</form>
-<p>Didn't receive the code or need a fresh one? <a href="{{ url_for('resend_code', user_id=user.id) }}" style="font-weight: bold;">Resend Code</a> <small style="color: #64748b;">(30-second cooldown)</small></p>
-{% endblock %}
+<style>
+    /* Verify Code - Harmonized with Home Page (index.html) */
+    .verify-container {
+        max-width: 500px;
+        margin: 44px auto;
+        position: relative;
+    }
+    .glass-hero-card {
+        text-align: center;
+        padding: 42px 32px 36px;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .glass-hero-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 24px 50px -10px rgba(0, 51, 102, 0.12);
+    }
+    .glass-hero-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 15%; right: 15%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.4), rgba(0, 79, 182, 0.4), transparent);
+    }
+    .hero-logo-small {
+        max-width: 220px;
+        width: 60%;
+        height: auto;
+        filter: drop-shadow(0 10px 20px rgba(0, 51, 102, 0.12));
+        margin-bottom: 18px;
+        transition: transform 0.3s ease;
+    }
+    .hero-logo-small:hover { transform: scale(1.02); }
 
+    /* Frosted Glass Badge from Home Page */
+    .glass-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 18px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 4px 16px -2px rgba(0, 51, 102, 0.06), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+        margin-bottom: 16px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #334155;
+        letter-spacing: 0.3px;
+        transition: all 0.25s ease;
+    }
+    .glass-badge:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 8px 20px -2px rgba(0, 51, 102, 0.1), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
+    }
+    .badge-sparkle { font-size: 0.85rem; }
+    .badge-highlight { color: #003366; font-weight: 700; }
+
+    /* Icon Orb from Home Page */
+    .glass-icon-orb-mail {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        margin: 0 auto 14px;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 6px 18px rgba(0, 51, 102, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.95);
+    }
+
+    .verify-title {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: #003366;
+        margin: 0 0 10px 0;
+        letter-spacing: -0.02em;
+    }
+    .verify-subtitle {
+        color: #64748b;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin: 0 0 16px 0;
+    }
+
+    /* Chips from Home Page */
+    .user-chip {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin: 0 3px 6px;
+    }
+    .chip-role { background: rgba(224, 242, 254, 0.85); color: #0369a1; border: 1px solid rgba(186, 230, 253, 0.8); }
+    .chip-faculty { background: rgba(241, 245, 249, 0.85); color: #475569; border: 1px solid rgba(226, 232, 240, 0.8); }
+    .chip-pts { background: rgba(254, 226, 226, 0.85); color: #b91c1c; border: 1px solid rgba(254, 202, 202, 0.8); font-weight: 700; }
+
+    /* OTP Code Input Box */
+    .otp-input-box {
+        margin: 22px 0 16px;
+    }
+    .otp-input-field {
+        font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace !important;
+        font-size: 1.85rem !important;
+        letter-spacing: 12px !important;
+        text-align: center !important;
+        width: 250px !important;
+        max-width: 100% !important;
+        padding: 12px 14px !important;
+        border: 2px solid rgba(0, 51, 102, 0.2) !important;
+        border-radius: 14px !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        color: #003366 !important;
+        font-weight: 800 !important;
+        outline: none !important;
+        box-shadow: 0 4px 14px rgba(0, 51, 102, 0.06) !important;
+        transition: all 0.2s ease !important;
+    }
+    .otp-input-field:focus {
+        border-color: #004FB6 !important;
+        box-shadow: 0 0 0 4px rgba(0, 79, 182, 0.18), 0 4px 20px rgba(0, 79, 182, 0.12) !important;
+        background: #ffffff !important;
+    }
+    .otp-error-msg {
+        color: #dc2626;
+        font-size: 0.88rem;
+        font-weight: 600;
+        margin-top: 8px;
+    }
+
+    /* Glass Buttons from Home Page */
+    .btn-glass {
+        padding: 12px 22px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 0;
+        cursor: pointer;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        box-shadow: 0 6px 20px rgba(0, 51, 102, 0.28);
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 26px rgba(0, 51, 102, 0.38);
+        color: #ffffff;
+    }
+
+    .verify-divider {
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(0, 51, 102, 0.14), transparent);
+        margin: 26px 0 18px;
+    }
+    .verify-resend {
+        font-size: 0.9rem;
+        color: #64748b;
+        margin: 0;
+    }
+    .verify-resend a {
+        color: #004FB6;
+        font-weight: 700;
+        text-decoration: none;
+        transition: color 0.15s ease;
+    }
+    .verify-resend a:hover {
+        color: #003366;
+        text-decoration: underline;
+    }
+
+    /* Dark Mode Parity with Home Page */
+    [data-theme="dark"] .glass-hero-card {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.2);
+        box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .verify-title {
+        color: #7dd3fc;
+    }
+    [data-theme="dark"] .verify-subtitle {
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .glass-badge {
+        background: rgba(15, 23, 42, 0.6);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .badge-highlight {
+        color: #38bdf8;
+    }
+    [data-theme="dark"] .glass-icon-orb-mail {
+        background: rgba(15, 23, 42, 0.85);
+        border-color: rgba(56, 189, 248, 0.25);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+    }
+    [data-theme="dark"] .chip-role {
+        background: rgba(56, 189, 248, 0.12);
+        color: #7dd3fc;
+        border-color: rgba(56, 189, 248, 0.25);
+    }
+    [data-theme="dark"] .chip-faculty {
+        background: rgba(30, 41, 59, 0.8);
+        color: #94a3b8;
+        border-color: rgba(56, 189, 248, 0.15);
+    }
+    [data-theme="dark"] .otp-input-field {
+        background: rgba(15, 23, 42, 0.9) !important;
+        border-color: rgba(56, 189, 248, 0.3) !important;
+        color: #38bdf8 !important;
+    }
+    [data-theme="dark"] .otp-input-field:focus {
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.2) !important;
+        background: #0f172a !important;
+    }
+    [data-theme="dark"] .verify-resend {
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .verify-resend a {
+        color: #38bdf8;
+    }
+</style>
+
+<div class="verify-container">
+    <div class="glass-hero-card">
+        <div>
+            <a href="{{ url_for('home') }}" title="CodeNest Home">
+                <img src="{{ url_for('static', filename='images/codenest_logo_transparent.png') }}" alt="CodeNest" class="hero-logo-small">
+            </a>
+        </div>
+
+        <div>
+            <div class="glass-badge">
+                <span class="badge-sparkle">✨</span>
+                <span>Two-Factor <span class="badge-highlight">Authentication</span></span>
+            </div>
+        </div>
+
+        <div class="glass-icon-orb-mail">✉️</div>
+
+        <h2 class="verify-title">Verify Your Account</h2>
+        <p class="verify-subtitle">
+            Enter the 6-digit verification code sent to your registered academic email address:
+        </p>
+
+        <div style="margin-bottom: 14px;">
+            <span class="user-chip chip-role">{{ user.email }}</span>
+            <span class="user-chip chip-faculty">{{ user.faculty or 'MMU' }}</span>
+            <span class="user-chip chip-pts">
+                🎯 {{ 5 - (user.verification_attempts or 0) }} attempts left
+            </span>
+        </div>
+
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <div class="otp-input-box">
+                {{ form.code(class="otp-input-field", maxlength=6, placeholder="------", autofocus=True) }}
+                {% for error in form.code.errors %}
+                    <div class="otp-error-msg">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div style="margin-top: 20px;">
+                {{ form.submit(value="Verify & Activate ➔", class="btn-glass btn-primary", style="width: 250px; max-width: 100%;") }}
+            </div>
+        </form>
+
+        <div class="verify-divider"></div>
+
+        <p class="verify-resend">
+            Didn't receive the code? 
+            <a href="{{ url_for('resend_code', user_id=user.id) }}">Resend Code</a> 
+            <small style="color: #94a3b8;">(30s cooldown)</small>
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -1,387 +1,974 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Admin Dashboard</h2>
-<p>Welcome, <strong>{{ user.username }}</strong>. You have full platform access across all faculties.</p>
-<p>Total Users: {{ total_users }}</p>
-<p>
-    <a href="{{ url_for('public_profile', username=user.username) }}">View My Profile</a> |
-    <a href="{{ url_for('edit_profile') }}">Edit Profile</a> |
-    <a href="{{ url_for('saved_questions') }}">Bookmarks</a> |
-    <a href="{{ url_for('username_requests_queue') }}">Username Requests</a>
-    {% if user.pending_follow_requests_count > 0 %}
-        | <a href="{{ url_for('follow_requests') }}">Follow Requests (<strong>{{ user.pending_follow_requests_count }}</strong>)</a>
-    {% endif %}
-</p>
-
-<hr>
-
-<h3>Platform Moderation &amp; Reports Queue</h3>
-
-<div style="margin-bottom: 15px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
-    <strong>Filter by Faculty:</strong>
-    <a href="{{ url_for('admin_dashboard', faculty='', status=status_filter) }}" style="margin: 0 5px; {% if not selected_faculty %}font-weight: bold; text-decoration: underline;{% endif %}">All Faculties</a> |
-    {% for code, name in faculties %}
-        <a href="{{ url_for('admin_dashboard', faculty=code, status=status_filter) }}" style="margin: 0 5px; {% if selected_faculty == code %}font-weight: bold; text-decoration: underline;{% endif %}">{{ code }} ({{ name }})</a> |
-    {% endfor %}
+<style>
+    /* Admin Dashboard - Fully Harmonized with Home Page (index.html) */
     
-    <span style="margin-left: 20px;"><strong>Status:</strong></span>
-    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status='pending') }}" style="margin: 0 5px; {% if status_filter == 'pending' %}font-weight: bold; text-decoration: underline;{% endif %}">Pending</a> |
-    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status='handled') }}" style="margin: 0 5px; {% if status_filter == 'handled' %}font-weight: bold; text-decoration: underline;{% endif %}">Handled</a> |
-    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status='all') }}" style="margin: 0 5px; {% if status_filter == 'all' %}font-weight: bold; text-decoration: underline;{% endif %}">All</a>
-</div>
-
-{% if reports %}
-<table class="table-bordered" style="margin-bottom: 25px;">
-    <thead style="background: #f3f4f6;">
-        <tr>
-            <th>ID</th>
-            <th>Faculty</th>
-            <th>Type</th>
-            <th>Snippet</th>
-            <th>Reason</th>
-            <th>Reported By</th>
-            <th>Status</th>
-            <th>Submitted</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for r in reports %}
-        <tr>
-            <td>#{{ r.id }}</td>
-            <td><strong>{{ r.faculty }}</strong></td>
-            <td>{{ r.content_type|capitalize }} (#{{ r.content_id }})</td>
-            <td>{{ r.content_snippet or '-' }}</td>
-            <td><span style="color: #b91c1c;">{{ r.reason }}</span></td>
-            <td>{{ r.reporter.username if r.reporter else 'Deleted User' }}</td>
-            <td>
-                {% if r.status == 'pending' %}
-                    <span style="color: #d97706; font-weight: bold;">PENDING</span>
-                {% elif r.status == 'resolved' %}
-                    <span style="color: #059669; font-weight: bold;">RESOLVED</span>
-                {% elif r.status == 'dismissed' %}
-                    <span style="color: #6b7280; font-weight: bold;">DISMISSED</span>
-                {% elif r.status == 'content_removed' %}
-                    <span style="color: #dc2626; font-weight: bold;">REMOVED</span>
-                {% else %}
-                    {{ r.status }}
-                {% endif %}
-            </td>
-            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
-                <a href="{{ url_for('report_detail', report_id=r.id) }}" style="font-weight: bold;">
-                    {% if r.status == 'pending' %}Review &amp; Act &rarr;{% else %}View Audit &rarr;{% endif %}
-                </a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No reports found for the selected filter.</p>
-{% endif %}
-
-<hr>
-
-<h3>Community Moderator Applications Queue</h3>
-
-<div style="margin-bottom: 15px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
-    <strong>Filter Applications:</strong>
-    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status='pending') }}" style="margin: 0 5px; {% if app_status_filter == 'pending' %}font-weight: bold; text-decoration: underline;{% endif %}">Pending</a> |
-    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status='handled') }}" style="margin: 0 5px; {% if app_status_filter == 'handled' %}font-weight: bold; text-decoration: underline;{% endif %}">Handled</a> |
-    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status='all') }}" style="margin: 0 5px; {% if app_status_filter == 'all' %}font-weight: bold; text-decoration: underline;{% endif %}">All</a>
-</div>
-
-{% if moderator_applications %}
-<table class="table-bordered" style="margin-bottom: 25px;">
-    <thead style="background: #f3f4f6;">
-        <tr>
-            <th>ID</th>
-            <th>Faculty</th>
-            <th>Applicant</th>
-            <th>Full Name</th>
-            <th>Student ID / Matric</th>
-            <th>Submitted</th>
-            <th>Status</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for app in moderator_applications %}
-        <tr>
-            <td>#{{ app.id }}</td>
-            <td><strong>{{ app.faculty }}</strong></td>
-            <td>{{ app.applicant.username if app.applicant else 'Unknown' }} ({{ app.applicant.email if app.applicant else 'Unknown' }})</td>
-            <td>{{ app.full_name }}</td>
-            <td><code>{{ app.matric_number }}</code></td>
-            <td>{{ app.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
-                {% if app.status == 'pending' %}
-                    <span style="color: #d97706; font-weight: bold;">PENDING</span>
-                {% elif app.status == 'approved' %}
-                    <span style="color: #059669; font-weight: bold;">APPROVED</span>
-                {% elif app.status == 'rejected' %}
-                    <span style="color: #dc2626; font-weight: bold;">REJECTED</span>
-                {% endif %}
-            </td>
-            <td>
-                <a href="{{ url_for('moderator_application_detail', app_id=app.id) }}" style="font-weight: bold;">
-                    {% if app.status == 'pending' %}Review &amp; Decide &rarr;{% else %}View Audit &rarr;{% endif %}
-                </a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No moderator applications found for the selected filter.</p>
-{% endif %}
-
-<hr>
-
-<h3>Username Change Requests Queue</h3>
-
-<div style="margin-bottom: 15px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
-    <strong>Filter Requests:</strong>
-    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status=app_status_filter, username_status='pending') }}" style="margin: 0 5px; {% if username_status_filter == 'pending' %}font-weight: bold; text-decoration: underline;{% endif %}">Pending</a> |
-    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status=app_status_filter, username_status='handled') }}" style="margin: 0 5px; {% if username_status_filter == 'handled' %}font-weight: bold; text-decoration: underline;{% endif %}">Handled</a> |
-    <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status=app_status_filter, username_status='all') }}" style="margin: 0 5px; {% if username_status_filter == 'all' %}font-weight: bold; text-decoration: underline;{% endif %}">All</a>
+    /* 1. Frosted Glass Hero Card */
+    .admin-hero {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        padding: 32px 32px 28px;
+        margin-bottom: 28px;
+        position: relative;
+        overflow: hidden;
+    }
+    .admin-hero::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 15%; right: 15%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.4), rgba(237, 28, 36, 0.4), transparent);
+    }
+    .admin-hero-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    .admin-title-wrap h2 {
+        margin: 4px 0 8px 0;
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #003366;
+        letter-spacing: -0.02em;
+    }
     
-    <span style="margin-left: 20px;">
-        <a href="{{ url_for('username_requests_queue') }}">Open Dedicated Queue Page &rarr;</a>
-    </span>
+    /* Refined Frosted Glass Badge from Home Page */
+    .glass-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 18px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 4px 16px -2px rgba(0, 51, 102, 0.06), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+        margin-bottom: 8px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #334155;
+        letter-spacing: 0.3px;
+        transition: all 0.25s ease;
+    }
+    .glass-badge:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 8px 20px -2px rgba(0, 51, 102, 0.1), 
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
+    }
+    .badge-sparkle { font-size: 0.85rem; }
+    .badge-highlight { color: #003366; font-weight: 700; }
+
+    /* User Chips from Home Page */
+    .user-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        margin-right: 6px;
+    }
+    .chip-role { background: rgba(224, 242, 254, 0.85); color: #0369a1; border: 1px solid rgba(186, 230, 253, 0.8); }
+    .chip-faculty { background: rgba(241, 245, 249, 0.85); color: #475569; border: 1px solid rgba(226, 232, 240, 0.8); }
+    .chip-pts { background: rgba(254, 226, 226, 0.85); color: #b91c1c; border: 1px solid rgba(254, 202, 202, 0.8); font-weight: 700; }
+
+    /* Quick Links Navigation from Home Page */
+    .admin-quick-links {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding-top: 18px;
+        border-top: 1px solid rgba(0, 51, 102, 0.08);
+    }
+    .quick-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.88rem;
+        font-weight: 600;
+        transition: all 0.18s ease;
+    }
+    .quick-link.solid {
+        background: #003366;
+        color: #ffffff;
+    }
+    .quick-link.solid:hover { 
+        background: #004FB6; 
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.2);
+    }
+    .quick-link.outline {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(8px);
+        color: #334155;
+        border: 1px solid rgba(203, 213, 225, 0.8);
+    }
+    .quick-link.outline:hover { 
+        background: #ffffff; 
+        color: #003366; 
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.08);
+    }
+    .quick-link.accent {
+        background: linear-gradient(135deg, #ED1C24, #c9141b);
+        color: #ffffff;
+        box-shadow: 0 4px 14px rgba(237, 28, 36, 0.28);
+    }
+    .quick-link.accent:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 18px rgba(237, 28, 36, 0.38);
+    }
+
+    /* 2. Glass Card Sections from Home Page */
+    .admin-section {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 20px;
+        padding: 26px 28px;
+        margin-bottom: 26px;
+        box-shadow: 0 10px 30px -8px rgba(0, 51, 102, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.85);
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease;
+    }
+    .admin-section:hover {
+        background: rgba(255, 255, 255, 0.75);
+        border-color: rgba(0, 79, 182, 0.25);
+        box-shadow: 0 16px 36px -10px rgba(0, 51, 102, 0.09);
+    }
+
+    /* Section Header with Glass Icon Orb from Home Page */
+    .section-header-wrap {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .section-header-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .glass-icon-orb {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.45rem;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.95);
+        flex-shrink: 0;
+    }
+    .card-title {
+        font-size: 1.22rem;
+        font-weight: 700;
+        margin: 0 0 4px 0;
+        color: #003366;
+    }
+    .card-desc {
+        font-size: 0.88rem;
+        color: #64748b;
+        margin: 0;
+    }
+
+    /* 3. Filter Bar & Pills */
+    .filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        border-radius: 12px;
+    }
+    .filter-label {
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #475569;
+        margin-right: 4px;
+    }
+    .filter-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.84rem;
+        font-weight: 600;
+        transition: all 0.18s ease;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(8px);
+        color: #334155;
+        border: 1px solid rgba(203, 213, 225, 0.8);
+    }
+    .filter-pill:hover {
+        background: #ffffff;
+        color: #003366;
+        transform: translateY(-1px);
+    }
+    .filter-pill.active {
+        background: #003366;
+        color: #ffffff;
+        border-color: #003366;
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.22);
+    }
+
+    /* 4. Frosted Glass Responsive Tables */
+    .table-container {
+        overflow-x: auto;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px -10px rgba(0, 51, 102, 0.08);
+    }
+    .styled-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 16px;
+        font-size: 0.9rem;
+    }
+    .styled-table th {
+        background: rgba(0, 51, 102, 0.06);
+        color: #003366;
+        font-weight: 700;
+        padding: 12px 14px;
+        text-align: left;
+        border-bottom: 1px solid rgba(0, 51, 102, 0.08);
+        white-space: nowrap;
+    }
+    .styled-table td {
+        padding: 11px 14px;
+        border-bottom: 1px solid rgba(0, 51, 102, 0.06);
+        color: #334155;
+        vertical-align: middle;
+    }
+    .styled-table tbody tr:hover {
+        background: rgba(0, 79, 182, 0.045);
+    }
+    .styled-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+    }
+    .status-badge.pending {
+        background: rgba(245, 158, 11, 0.12);
+        color: #b45309;
+        border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+    .status-badge.approved, .status-badge.active {
+        background: rgba(16, 185, 129, 0.12);
+        color: #047857;
+        border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .status-badge.rejected, .status-badge.banned {
+        background: rgba(239, 68, 68, 0.12);
+        color: #b91c1c;
+        border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+    .status-badge.suspended {
+        background: rgba(249, 115, 22, 0.12);
+        color: #c2410c;
+        border: 1px solid rgba(249, 115, 22, 0.25);
+    }
+    .status-badge.cancelled {
+        background: rgba(148, 163, 184, 0.14);
+        color: #475569;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    /* Action Micro-Buttons */
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+    .btn-action-primary {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 51, 102, 0.2);
+    }
+    .btn-action-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.3);
+        color: #ffffff;
+    }
+    .btn-action-success {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+    }
+    .btn-action-success:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .btn-action-danger {
+        background: linear-gradient(135deg, #ED1C24, #b91c1c);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(237, 28, 36, 0.2);
+    }
+    .btn-action-danger:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(237, 28, 36, 0.3);
+    }
+    .btn-action-warning {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: #ffffff;
+    }
+    .btn-action-warning:hover {
+        transform: translateY(-1px);
+    }
+    .btn-action-orange {
+        background: linear-gradient(135deg, #f97316, #ea580c);
+        color: #ffffff;
+    }
+    .btn-action-orange:hover {
+        transform: translateY(-1px);
+    }
+
+    /* Modal Dialogs */
+    dialog {
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        padding: 28px 30px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.25);
+        max-width: 480px;
+        width: 90%;
+    }
+    dialog::backdrop {
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(4px);
+    }
+
+    /* Dark Mode Parity with Home Page */
+    [data-theme="dark"] .admin-hero {
+        background: rgba(15, 23, 42, 0.7);
+        border-color: rgba(56, 189, 248, 0.2);
+        box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .admin-title-wrap h2 {
+        color: #7dd3fc;
+    }
+    [data-theme="dark"] .glass-badge {
+        background: rgba(15, 23, 42, 0.6);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .badge-highlight {
+        color: #38bdf8;
+    }
+    [data-theme="dark"] .quick-link.outline {
+        background: rgba(15, 23, 42, 0.7);
+        color: #7dd3fc;
+        border-color: rgba(56, 189, 248, 0.25);
+    }
+    [data-theme="dark"] .quick-link.outline:hover {
+        background: rgba(30, 41, 59, 0.8);
+        color: #38bdf8;
+    }
+    [data-theme="dark"] .admin-section {
+        background: rgba(15, 23, 42, 0.6);
+        border-color: rgba(56, 189, 248, 0.18);
+        box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .admin-section:hover {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.3);
+    }
+    [data-theme="dark"] .card-title {
+        color: #7dd3fc;
+    }
+    [data-theme="dark"] .card-desc {
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .glass-icon-orb {
+        background: rgba(15, 23, 42, 0.85);
+        border-color: rgba(56, 189, 248, 0.25);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    [data-theme="dark"] .filter-bar {
+        background: rgba(15, 23, 42, 0.5);
+        border-color: rgba(56, 189, 248, 0.2);
+    }
+    [data-theme="dark"] .filter-label {
+        color: #94a3b8;
+    }
+    [data-theme="dark"] .filter-pill {
+        background: rgba(15, 23, 42, 0.7);
+        color: #94a3b8;
+        border-color: rgba(56, 189, 248, 0.2);
+    }
+    [data-theme="dark"] .filter-pill:hover {
+        color: #7dd3fc;
+        border-color: rgba(56, 189, 248, 0.35);
+    }
+    [data-theme="dark"] .styled-table {
+        background: rgba(15, 23, 42, 0.65);
+        border-color: rgba(56, 189, 248, 0.18);
+    }
+    [data-theme="dark"] .styled-table th {
+        background: rgba(56, 189, 248, 0.1);
+        color: #7dd3fc;
+        border-bottom-color: rgba(56, 189, 248, 0.14);
+    }
+    [data-theme="dark"] .styled-table td {
+        border-bottom-color: rgba(56, 189, 248, 0.1);
+        color: #e2e8f0;
+    }
+    [data-theme="dark"] .styled-table tbody tr:hover {
+        background: rgba(56, 189, 248, 0.06);
+    }
+    [data-theme="dark"] dialog {
+        background: #0f172a;
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #f1f5f9;
+    }
+    [data-theme="dark"] .chip-role {
+        background: rgba(56, 189, 248, 0.12);
+        color: #7dd3fc;
+        border-color: rgba(56, 189, 248, 0.25);
+    }
+    [data-theme="dark"] .chip-faculty {
+        background: rgba(30, 41, 59, 0.8);
+        color: #94a3b8;
+        border-color: rgba(56, 189, 248, 0.15);
+    }
+</style>
+
+<!-- Admin Hero Banner Harmonized with Home Page -->
+<div class="admin-hero">
+    <div class="admin-hero-top">
+        <div class="admin-title-wrap">
+            <div class="glass-badge">
+                <span class="badge-sparkle">✨</span>
+                <span>Platform <span class="badge-highlight">Administration</span></span>
+            </div>
+            <h2>Admin Dashboard</h2>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px;">
+                <span class="user-chip chip-role">@{{ user.username }}</span>
+                <span class="user-chip chip-faculty">All Faculties</span>
+                <span class="user-chip chip-pts">👥 Total Users: {{ total_users }}</span>
+            </div>
+        </div>
+        <div>
+            <a href="{{ url_for('home') }}" title="CodeNest Home">
+                <img src="{{ url_for('static', filename='images/codenest_logo_transparent.png') }}" alt="CodeNest" style="height: 42px; filter: drop-shadow(0 6px 14px rgba(0, 51, 102, 0.12));">
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Navigation Bar with Home Page Button Styles -->
+    <div class="admin-quick-links">
+        <a href="{{ url_for('public_profile', username=user.username) }}" class="quick-link solid">
+            <span>👤</span> View My Profile
+        </a>
+        <a href="{{ url_for('edit_profile') }}" class="quick-link outline">
+            <span>✏️</span> Edit Profile
+        </a>
+        <a href="{{ url_for('saved_questions') }}" class="quick-link outline">
+            <span>🔖</span> Bookmarks
+        </a>
+        <a href="{{ url_for('username_requests_queue') }}" class="quick-link outline">
+            <span>🏷️</span> Username Requests
+        </a>
+        {% if user.pending_follow_requests_count > 0 %}
+            <a href="{{ url_for('follow_requests') }}" class="quick-link accent">
+                <span>🔔</span> Follow Requests (<strong>{{ user.pending_follow_requests_count }}</strong>)
+            </a>
+        {% endif %}
+    </div>
 </div>
 
-{% if username_requests %}
-<table class="table-bordered" style="margin-bottom: 25px; width: 100%;">
-    <thead style="background: #f3f4f6;">
-        <tr>
-            <th>ID</th>
-            <th>Faculty</th>
-            <th>Requester</th>
-            <th>Desired New Username</th>
-            <th>Student Email (Immutable)</th>
-            <th>Reason</th>
-            <th>Submitted</th>
-            <th>Status</th>
-            <th>Review Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for r in username_requests %}
-        <tr>
-            <td>#{{ r.id }}</td>
-            <td><strong>{{ r.user.faculty }}</strong></td>
-            <td>
-                <a href="{{ url_for('public_profile', username=r.current_username) }}">@{{ r.current_username }}</a>
-                {% if r.user.is_moderator() %}
-                    <span style="background: #e0e7ff; color: #3730a3; font-weight: bold; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Moderator</span>
-                {% endif %}
-            </td>
-            <td style="font-size: 1.05em; color: #1e3a8a;"><strong>@{{ r.new_username }}</strong></td>
-            <td><code>{{ r.user.email }}</code></td>
-            <td>{{ r.reason or '-' }}</td>
-            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
-                {% if r.status == 'pending' %}
-                    <span style="color: #d97706; font-weight: bold;">PENDING</span>
-                {% elif r.status == 'approved' %}
-                    <span style="color: #059669; font-weight: bold;">APPROVED</span>
-                {% elif r.status == 'rejected' %}
-                    <span style="color: #dc2626; font-weight: bold;">DISAPPROVED</span>
-                {% elif r.status == 'cancelled' %}
-                    <span style="color: #64748b; font-weight: bold;">CANCELLED</span>
-                {% else %}
-                    {{ r.status }}
-                {% endif %}
-            </td>
-            <td>
-                {% if r.status == 'pending' %}
-                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                        <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" onclick="return confirm('Approve username change to @{{ r.new_username }}?');" style="background: #059669; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                                ✔ Approve
-                            </button>
-                        </form>
-                        <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 4px;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <input type="text" name="reviewer_note" placeholder="Reason (opt)" style="font-size: 0.8em; padding: 2px 4px; width: 110px; border: 1px solid #cbd5e1; border-radius: 3px;"/>
-                            <button type="submit" onclick="return confirm('Disapprove username change request?');" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                                ✖ Disapprove
-                            </button>
-                        </form>
-                    </div>
-                {% else %}
-                    <small style="color: #64748b;">
-                        {% if r.reviewer %}By {{ r.reviewer.username }}{% endif %}
-                        {% if r.reviewer_note %}<br><em>"{{ r.reviewer_note }}"</em>{% endif %}
-                    </small>
-                {% endif %}
-            </td>
-        </tr>
+<!-- SECTION 1: Moderation & Reports Queue -->
+<div class="admin-section">
+    <div class="section-header-wrap">
+        <div class="section-header-left">
+            <div class="glass-icon-orb">🚩</div>
+            <div>
+                <h3 class="card-title">Platform Moderation &amp; Reports Queue</h3>
+                <p class="card-desc">Review and audit reported coursework solutions, questions, and peer content.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <span class="filter-label">Faculty:</span>
+        <a href="{{ url_for('admin_dashboard', faculty='', status=status_filter) }}" class="filter-pill {% if not selected_faculty %}active{% endif %}">All Faculties</a>
+        {% for code, name in faculties %}
+            <a href="{{ url_for('admin_dashboard', faculty=code, status=status_filter) }}" class="filter-pill {% if selected_faculty == code %}active{% endif %}">{{ code }} ({{ name }})</a>
         {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No username change requests found for the selected filter.</p>
-{% endif %}
 
-<hr>
+        <span class="filter-label" style="margin-left: 12px;">Status:</span>
+        <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status='pending') }}" class="filter-pill {% if status_filter == 'pending' %}active{% endif %}">Pending</a>
+        <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status='handled') }}" class="filter-pill {% if status_filter == 'handled' %}active{% endif %}">Handled</a>
+        <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status='all') }}" class="filter-pill {% if status_filter == 'all' %}active{% endif %}">All</a>
+    </div>
 
-<h3>All Users &amp; Discipline Management</h3>
-<table class="table-bordered" style="margin-bottom: 25px;">
-    <thead style="background: #f3f4f6;">
-        <tr>
-            <th>ID</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Faculty</th>
-            <th>Account Status</th>
-            <th>Discipline Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for u in all_users %}
-        <tr>
-            <td>{{ u.id }}</td>
-            <td><strong>{{ u.username }}</strong></td>
-            <td>{{ u.email }}</td>
-            <td>
-                {% if u.role == 'Admin' %}
-                    <span style="color: #6366f1; font-weight: bold;">Admin</span>
-                {% elif u.role in ('Community Moderator', 'Moderator') %}
-                    <span style="color: #0284c7; font-weight: bold;">Community Moderator</span>
-                {% elif u.role == 'Professor' %}
-                    <span style="color: #0d9488; font-weight: bold;">Professor</span>
-                {% else %}
-                    <span>Student</span>
-                {% endif %}
-            </td>
-            <td>{{ u.faculty }}</td>
-            <td>
-                {% if u.is_banned %}
-                    <span style="background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">BANNED</span>
-                {% elif u.is_suspended() %}
-                    <span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">SUSPENDED (30d)</span><br>
-                    <small style="color: #6b7280;">Until {{ u.suspended_until.strftime('%Y-%m-%d %H:%M') }} UTC</small>
-                {% else %}
-                    <span style="background: #d1fae5; color: #047857; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">ACTIVE</span>
-                {% endif %}
-            </td>
-            <td>
-                {% if u.is_admin() %}
-                    <span style="color: #9ca3af; font-size: 0.85rem; font-style: italic;">Protected (Admin)</span>
-                {% else %}
-                    <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
-                        {% if u.is_banned %}
-                            <form method="POST" action="{{ url_for('admin_unban_user', user_id=u.id) }}" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" style="background: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;" onclick="return confirm('Lift permanent ban for {{ u.username }} and restore their account?');">Unban User</button>
-                            </form>
+    {% if reports %}
+    <div class="table-container">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Faculty</th>
+                    <th>Type</th>
+                    <th>Content Snippet</th>
+                    <th>Reason</th>
+                    <th>Reported By</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reports %}
+                <tr>
+                    <td><strong>#{{ r.id }}</strong></td>
+                    <td><span class="user-chip chip-role">{{ r.faculty }}</span></td>
+                    <td><strong>{{ r.content_type|capitalize }}</strong> (#{{ r.content_id }})</td>
+                    <td style="max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {{ r.content_snippet or '(No preview)' }}
+                    </td>
+                    <td><span style="color: #b91c1c; font-weight: 600;">{{ r.reason }}</span></td>
+                    <td>{{ r.reporter.username if r.reporter else 'Deleted User' }}</td>
+                    <td><small style="color: #64748b;">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</small></td>
+                    <td>
+                        {% if r.status == 'pending' %}
+                            <span class="status-badge pending">● PENDING</span>
+                        {% elif r.status == 'resolved' %}
+                            <span class="status-badge approved">✔ RESOLVED</span>
+                        {% elif r.status == 'removed' %}
+                            <span class="status-badge rejected">REMOVED</span>
+                        {% elif r.status == 'dismissed' %}
+                            <span class="status-badge cancelled">DISMISSED</span>
                         {% else %}
-                            {% if u.is_suspended() %}
-                                <form method="POST" action="{{ url_for('admin_unsuspend_user', user_id=u.id) }}" style="display: inline;">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" style="background: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;" onclick="return confirm('Lift 30-day suspension for {{ u.username }}?');">Lift Suspension</button>
-                                </form>
-                            {% else %}
-                                <form method="POST" action="{{ url_for('admin_suspend_user', user_id=u.id) }}" style="display: inline;">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <input type="hidden" name="days" value="30">
-                                    <input type="hidden" name="reason" value="30-day temporary suspension imposed by administration.">
-                                    <button type="submit" style="background: #f59e0b; color: #1f2937; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;" onclick="return confirm('Suspend {{ u.username }} for 30 days? They will not be able to log in.');">Suspend (30d)</button>
-                                </form>
-                            {% endif %}
-
-                            <button type="button" data-user-id="{{ u.id }}" data-username="{{ u.username }}" onclick="openBanModal(this.dataset.userId, this.dataset.username)" style="background: #dc2626; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Ban</button>
-
-                            <button type="button" data-user-id="{{ u.id }}" data-username="{{ u.username }}" onclick="openWarnModal(this.dataset.userId, this.dataset.username)" style="background: #ea580c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Warn</button>
+                            <span class="status-badge">{{ r.status }}</span>
                         {% endif %}
-                    </div>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('report_detail', report_id=r.id) }}" class="btn-action btn-action-primary">
+                            {% if r.status == 'pending' %}Review &rarr;{% else %}Audit &rarr;{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #64748b; font-style: italic; margin: 8px 0 0 0;">✔ No reports found matching the selected filter.</p>
+    {% endif %}
+</div>
 
-<hr>
+<!-- SECTION 2: Community Moderator Applications Queue -->
+<div class="admin-section">
+    <div class="section-header-wrap">
+        <div class="section-header-left">
+            <div class="glass-icon-orb">🎓</div>
+            <div>
+                <h3 class="card-title">Community Moderator Applications Queue</h3>
+                <p class="card-desc">Review student submissions and assign faculty moderation privileges.</p>
+            </div>
+        </div>
+    </div>
 
-<h3>Permanently Banned Emails Blacklist</h3>
-<p style="color: #4b5563;">Emails listed below are blacklisted permanently. Users cannot log in or register a new account using any of these emails.</p>
+    <div class="filter-bar">
+        <span class="filter-label">Filter:</span>
+        <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status='pending') }}" class="filter-pill {% if app_status_filter == 'pending' %}active{% endif %}">Pending</a>
+        <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status='handled') }}" class="filter-pill {% if app_status_filter == 'handled' %}active{% endif %}">Handled</a>
+        <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status='all') }}" class="filter-pill {% if app_status_filter == 'all' %}active{% endif %}">All</a>
+    </div>
 
-{% if banned_emails %}
-<table class="table-bordered" style="margin-bottom: 25px;">
-    <thead style="background: #fee2e2;">
-        <tr>
-            <th>ID</th>
-            <th>Blacklisted Email</th>
-            <th>Username Snapshot</th>
-            <th>Reason</th>
-            <th>Banned By</th>
-            <th>Date Blacklisted</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for b in banned_emails %}
-        <tr>
-            <td>#{{ b.id }}</td>
-            <td><strong>{{ b.email }}</strong></td>
-            <td>{{ b.username_snapshot or '-' }}</td>
-            <td>{{ b.reason or 'Policy violation' }}</td>
-            <td>{{ b.banned_by_admin.username if b.banned_by_admin else 'Admin' }}</td>
-            <td>{{ b.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</td>
-            <td>
-                <form method="POST" action="{{ url_for('admin_unban_email', banned_id=b.id) }}" style="display: inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" style="background: #16a34a; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;" onclick="return confirm('Remove {{ b.email }} from permanent ban blacklist?');">Unban Email</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p style="color: #059669;">✔ No banned emails currently blacklisted.</p>
-{% endif %}
+    {% if moderator_applications %}
+    <div class="table-container">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Faculty</th>
+                    <th>Applicant</th>
+                    <th>Full Name</th>
+                    <th>Matric / Student ID</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in moderator_applications %}
+                <tr>
+                    <td><strong>#{{ app.id }}</strong></td>
+                    <td><span class="user-chip chip-role">{{ app.faculty }}</span></td>
+                    <td>
+                        <strong>{{ app.applicant.username if app.applicant else 'Unknown' }}</strong><br>
+                        <small style="color: #64748b;">{{ app.applicant.email if app.applicant else 'Unknown' }}</small>
+                    </td>
+                    <td>{{ app.full_name }}</td>
+                    <td><code style="background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px;">{{ app.matric_number }}</code></td>
+                    <td><small style="color: #64748b;">{{ app.created_at.strftime('%Y-%m-%d %H:%M') }}</small></td>
+                    <td>
+                        {% if app.status == 'pending' %}
+                            <span class="status-badge pending">● PENDING</span>
+                        {% elif app.status == 'approved' %}
+                            <span class="status-badge approved">✔ APPROVED</span>
+                        {% elif app.status == 'rejected' %}
+                            <span class="status-badge rejected">✖ REJECTED</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('moderator_application_detail', app_id=app.id) }}" class="btn-action btn-action-primary">
+                            {% if app.status == 'pending' %}Decide &rarr;{% else %}Audit &rarr;{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #64748b; font-style: italic; margin: 8px 0 0 0;">✔ No moderator applications found matching this filter.</p>
+    {% endif %}
+</div>
+
+<!-- SECTION 3: Username Change Requests Queue -->
+<div class="admin-section">
+    <div class="section-header-wrap">
+        <div class="section-header-left">
+            <div class="glass-icon-orb">🏷️</div>
+            <div>
+                <h3 class="card-title">Username Change Requests Queue</h3>
+                <p class="card-desc">Review and decide on student identity modifications.</p>
+            </div>
+        </div>
+        <a href="{{ url_for('username_requests_queue') }}" class="btn-action btn-action-primary" style="font-size: 0.85rem; padding: 7px 14px;">
+            Open Dedicated Queue &rarr;
+        </a>
+    </div>
+
+    <div class="filter-bar">
+        <span class="filter-label">Filter:</span>
+        <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status=app_status_filter, username_status='pending') }}" class="filter-pill {% if username_status_filter == 'pending' %}active{% endif %}">Pending</a>
+        <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status=app_status_filter, username_status='handled') }}" class="filter-pill {% if username_status_filter == 'handled' %}active{% endif %}">Handled</a>
+        <a href="{{ url_for('admin_dashboard', faculty=selected_faculty, status=status_filter, app_status=app_status_filter, username_status='all') }}" class="filter-pill {% if username_status_filter == 'all' %}active{% endif %}">All</a>
+    </div>
+
+    {% if username_requests %}
+    <div class="table-container">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Faculty</th>
+                    <th>Requester</th>
+                    <th>Requested Username</th>
+                    <th>Immutable Email</th>
+                    <th>Reason</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in username_requests %}
+                <tr>
+                    <td><strong>#{{ r.id }}</strong></td>
+                    <td><span class="user-chip chip-faculty">{{ r.user.faculty }}</span></td>
+                    <td>
+                        <a href="{{ url_for('public_profile', username=r.current_username) }}" style="font-weight: 700; color: #003366; text-decoration: none;">
+                            @{{ r.current_username }}
+                        </a>
+                        {% if r.user.is_moderator() %}
+                            <span class="user-chip chip-role" style="margin-left: 4px;">Mod</span>
+                        {% endif %}
+                    </td>
+                    <td><strong style="color: #004FB6; font-size: 1.02rem;">@{{ r.new_username }}</strong></td>
+                    <td><code style="font-size: 0.85rem; color: #475569;">{{ r.user.email }}</code></td>
+                    <td><span style="font-size: 0.88rem; color: #475569;">{{ r.reason or '-' }}</span></td>
+                    <td><small style="color: #64748b;">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</small></td>
+                    <td>
+                        {% if r.status == 'pending' %}
+                            <span class="status-badge pending">● PENDING</span>
+                        {% elif r.status == 'approved' %}
+                            <span class="status-badge approved">✔ APPROVED</span>
+                        {% elif r.status == 'rejected' %}
+                            <span class="status-badge rejected">DISAPPROVED</span>
+                        {% elif r.status == 'cancelled' %}
+                            <span class="status-badge cancelled">CANCELLED</span>
+                        {% else %}
+                            <span class="status-badge">{{ r.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.status == 'pending' %}
+                            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                                <form method="POST" action="{{ url_for('approve_username_request', request_id=r.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" onclick="return confirm('Approve username change to @{{ r.new_username }}?');" class="btn-action btn-action-success">
+                                        ✔ Approve
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('reject_username_request', request_id=r.id) }}" style="display: inline-flex; align-items: center; gap: 4px;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="text" name="reviewer_note" placeholder="Reason (opt)" style="font-size: 0.8rem; padding: 4px 6px; width: 110px; border: 1px solid #cbd5e1; border-radius: 6px;"/>
+                                    <button type="submit" onclick="return confirm('Disapprove username change request?');" class="btn-action btn-action-danger">
+                                        ✖ Reject
+                                    </button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <small style="color: #64748b;">
+                                {% if r.reviewer %}By {{ r.reviewer.username }}{% endif %}
+                                {% if r.reviewer_note %}<br><em>"{{ r.reviewer_note }}"</em>{% endif %}
+                            </small>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #64748b; font-style: italic; margin: 8px 0 0 0;">✔ No username change requests found for the selected filter.</p>
+    {% endif %}
+</div>
+
+<!-- SECTION 4: All Users & Discipline Management -->
+<div class="admin-section">
+    <div class="section-header-wrap">
+        <div class="section-header-left">
+            <div class="glass-icon-orb">⚖️</div>
+            <div>
+                <h3 class="card-title">All Users &amp; Discipline Management</h3>
+                <p class="card-desc">Governance across all university accounts with ban, suspend, and warning tools.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Faculty</th>
+                    <th>Account Status</th>
+                    <th>Discipline Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in all_users %}
+                <tr>
+                    <td><strong>#{{ u.id }}</strong></td>
+                    <td>
+                        <a href="{{ url_for('public_profile', username=u.username) }}" style="font-weight: 700; color: #003366; text-decoration: none;">
+                            @{{ u.username }}
+                        </a>
+                    </td>
+                    <td><small style="color: #475569;">{{ u.email }}</small></td>
+                    <td>
+                        {% if u.role == 'Admin' %}
+                            <span class="user-chip chip-role" style="background: rgba(99, 102, 241, 0.12); color: #4338ca; border-color: rgba(99, 102, 241, 0.25);">Admin</span>
+                        {% elif u.role in ('Community Moderator', 'Moderator') %}
+                            <span class="user-chip chip-role">Moderator</span>
+                        {% elif u.role == 'Professor' %}
+                            <span class="user-chip chip-role" style="background: rgba(20, 184, 166, 0.12); color: #0f766e; border-color: rgba(20, 184, 166, 0.25);">Professor</span>
+                        {% else %}
+                            <span class="user-chip chip-faculty">Student</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="user-chip chip-faculty">{{ u.faculty }}</span></td>
+                    <td>
+                        {% if u.is_banned %}
+                            <span class="status-badge banned">🚫 BANNED</span>
+                        {% elif u.is_suspended() %}
+                            <span class="status-badge suspended">⏳ SUSPENDED</span><br>
+                            <small style="color: #64748b; font-size: 0.76rem;">Until {{ u.suspended_until.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% else %}
+                            <span class="status-badge active">✔ ACTIVE</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.is_admin() %}
+                            <span style="color: #94a3b8; font-size: 0.82rem; font-style: italic;">Protected (Admin)</span>
+                        {% else %}
+                            <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                                {% if u.is_banned %}
+                                    <form method="POST" action="{{ url_for('admin_unban_user', user_id=u.id) }}" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn-action btn-action-success" onclick="return confirm('Lift permanent ban for {{ u.username }}?');">
+                                            ✔ Unban
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    {% if u.is_suspended() %}
+                                        <form method="POST" action="{{ url_for('admin_unsuspend_user', user_id=u.id) }}" style="display: inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn-action btn-action-primary" onclick="return confirm('Lift suspension for {{ u.username }}?');">
+                                                Lift Suspension
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <form method="POST" action="{{ url_for('admin_suspend_user', user_id=u.id) }}" style="display: inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="days" value="30">
+                                            <input type="hidden" name="reason" value="30-day temporary suspension imposed by administration.">
+                                            <button type="submit" class="btn-action btn-action-warning" onclick="return confirm('Suspend {{ u.username }} for 30 days?');">
+                                                Suspend
+                                            </button>
+                                        </form>
+                                    {% endif %}
+
+                                    <button type="button" data-user-id="{{ u.id }}" data-username="{{ u.username }}" onclick="openBanModal(this.dataset.userId, this.dataset.username)" class="btn-action btn-action-danger">
+                                        Ban
+                                    </button>
+
+                                    <button type="button" data-user-id="{{ u.id }}" data-username="{{ u.username }}" onclick="openWarnModal(this.dataset.userId, this.dataset.username)" class="btn-action btn-action-orange">
+                                        Warn
+                                    </button>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SECTION 5: Permanently Banned Emails Blacklist -->
+<div class="admin-section">
+    <div class="section-header-wrap">
+        <div class="section-header-left">
+            <div class="glass-icon-orb">🚫</div>
+            <div>
+                <h3 class="card-title">Permanently Banned Emails Blacklist</h3>
+                <p class="card-desc">Restricted academic email domains and banned addresses prevented from logging in.</p>
+            </div>
+        </div>
+    </div>
+
+    {% if banned_emails %}
+    <div class="table-container">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Blacklisted Email</th>
+                    <th>Username Snapshot</th>
+                    <th>Reason</th>
+                    <th>Banned By</th>
+                    <th>Date Blacklisted</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in banned_emails %}
+                <tr>
+                    <td><strong>#{{ b.id }}</strong></td>
+                    <td><strong style="color: #dc2626;">{{ b.email }}</strong></td>
+                    <td>{{ b.username_snapshot or '-' }}</td>
+                    <td><span style="color: #475569;">{{ b.reason or 'Policy violation' }}</span></td>
+                    <td>{{ b.banned_by_admin.username if b.banned_by_admin else 'Admin' }}</td>
+                    <td><small style="color: #64748b;">{{ b.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</small></td>
+                    <td>
+                        <form method="POST" action="{{ url_for('admin_unban_email', banned_id=b.id) }}" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-action btn-action-success" onclick="return confirm('Remove {{ b.email }} from permanent blacklist?');">
+                                Unban Email
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #059669; font-weight: 600; margin: 0;">✔ No banned emails currently blacklisted.</p>
+    {% endif %}
+</div>
 
 <!-- Permanent Ban Modal Dialog -->
-<dialog id="banModal" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; max-width: 480px; width: 90%; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);">
+<dialog id="banModal">
     <form method="POST" id="banForm">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <h4 style="margin-top: 0; color: #b91c1c;">Permanently Ban User: <span id="banUsername"></span></h4>
-        <p style="color: #64748b; font-size: 0.9rem;">
-            This will immediately prevent this user from logging in, lock their account, and blacklist their email address from ever registering again on CodeNest.
+        <h4 style="margin-top: 0; color: #dc2626; font-size: 1.25rem;">🚫 Permanently Ban User: <span id="banUsername"></span></h4>
+        <p style="color: #64748b; font-size: 0.92rem; line-height: 1.5;">
+            This will immediately terminate active sessions, lock the account permanently, and blacklist their email from ever registering on CodeNest.
         </p>
-        <div style="margin-bottom: 15px;">
-            <label for="ban_reason" style="font-weight: bold; font-size: 0.9rem;">Reason for Permanent Ban:</label><br>
-            <textarea id="ban_reason" name="reason" rows="3" style="width: 100%; box-sizing: border-box; margin-top: 5px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;"></textarea>
+        <div style="margin: 16px 0;">
+            <label for="ban_reason" style="font-weight: 700; font-size: 0.9rem; display: block; margin-bottom: 6px;">Reason for Ban:</label>
+            <textarea id="ban_reason" name="reason" rows="3" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.92rem;"></textarea>
         </div>
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-            <button type="button" onclick="document.getElementById('banModal').close();" style="padding: 6px 14px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
-            <button type="submit" style="padding: 6px 14px; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Confirm Ban</button>
+            <button type="button" onclick="document.getElementById('banModal').close();" class="btn-action" style="background: #e2e8f0; color: #334155; padding: 8px 16px;">Cancel</button>
+            <button type="submit" class="btn-action btn-action-danger" style="padding: 8px 18px;">Confirm Ban</button>
         </div>
     </form>
 </dialog>
 
 <!-- Issue Warning Modal Dialog -->
-<dialog id="warnModal" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; max-width: 480px; width: 90%; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);">
+<dialog id="warnModal">
     <form method="POST" id="warnForm">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <h4 style="margin-top: 0; color: #c2410c;">Issue Official Warning: <span id="warnUsername"></span></h4>
-        <p style="color: #64748b; font-size: 0.9rem;">
-            This warning will be delivered directly to the user's Inbox in the navigation bar and flagged prominently.
+        <h4 style="margin-top: 0; color: #ea580c; font-size: 1.25rem;">⚠️ Issue Disciplinary Warning: <span id="warnUsername"></span></h4>
+        <p style="color: #64748b; font-size: 0.92rem; line-height: 1.5;">
+            This warning notification will be delivered directly to the user's Inbox and recorded in their audit trail.
         </p>
-        <div style="margin-bottom: 15px;">
-            <label for="warn_message" style="font-weight: bold; font-size: 0.9rem;">Warning Message:</label><br>
-            <textarea id="warn_message" name="message" rows="4" style="width: 100%; box-sizing: border-box; margin-top: 5px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;" placeholder="Describe the violation and required behavior..." required></textarea>
+        <div style="margin: 16px 0;">
+            <label for="warn_message" style="font-weight: 700; font-size: 0.9rem; display: block; margin-bottom: 6px;">Warning Message:</label>
+            <textarea id="warn_message" name="message" rows="4" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.92rem;" placeholder="State the policy violation and expected conduct..." required></textarea>
         </div>
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-            <button type="button" onclick="document.getElementById('warnModal').close();" style="padding: 6px 14px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
-            <button type="submit" style="padding: 6px 14px; background: #ea580c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Send Warning</button>
+            <button type="button" onclick="document.getElementById('warnModal').close();" class="btn-action" style="background: #e2e8f0; color: #334155; padding: 8px 16px;">Cancel</button>
+            <button type="submit" class="btn-action btn-action-orange" style="padding: 8px 18px;">Send Warning</button>
         </div>
     </form>
 </dialog>

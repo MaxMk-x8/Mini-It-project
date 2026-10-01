@@ -142,6 +142,31 @@
 
         .table-bordered { width: 100%; border-collapse: collapse; }
         .table-bordered th, .table-bordered td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; }
+
+        /* Shared surfaces, matched to the landing page glass look */
+        .glass-card { background: rgba(255,255,255,0.65); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(255,255,255,0.85); border-radius: 20px; box-shadow: 0 20px 50px -10px rgba(0,51,102,0.08), inset 0 1px 1px rgba(255,255,255,0.9); padding: 32px 26px; margin-bottom: 24px; }
+        .content-wrap h2 { color: #003366; letter-spacing: -0.3px; }
+        .content-wrap h3 { color: #004FB6; margin-top: 30px; }
+        .content-wrap table.table-bordered { width: 100%; border-collapse: separate; border-spacing: 0; background: rgba(255,255,255,0.7); backdrop-filter: blur(14px) saturate(180%); border: 1px solid rgba(255,255,255,0.85); border-radius: 16px; overflow: hidden; box-shadow: 0 12px 32px -14px rgba(0,51,102,0.16); font-size: 0.9rem; margin-bottom: 25px; }
+        .content-wrap .table-bordered th { background: rgba(0,51,102,0.06); color: #003366; font-weight: 700; white-space: nowrap; }
+        .content-wrap .table-bordered th, .content-wrap .table-bordered td { padding: 10px 12px; text-align: left; border: 0; border-bottom: 1px solid rgba(0,51,102,0.08); }
+        .content-wrap .table-bordered tbody tr:hover { background: rgba(0,79,182,0.045); }
+        .content-wrap :where(input, select, textarea) { padding: 9px 12px; border: 1px solid rgba(0,51,102,0.15); border-radius: 10px; background: rgba(255,255,255,0.8); font: inherit; color: inherit; }
+        .content-wrap :where(button, input[type="submit"]) { padding: 10px 18px; border: 0; border-radius: 12px; background: linear-gradient(135deg,#003366,#004FB6); color: #fff; font-weight: 700; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }
+        .content-wrap :where(button:hover, input[type="submit"]:hover) { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,51,102,0.28); }
+        .btn-glass { padding: 11px 20px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 0.93rem; display: inline-flex; align-items: center; gap: 8px; transition: all .2s ease; }
+        .btn-primary { background: linear-gradient(135deg,#003366,#004FB6); color: #fff; box-shadow: 0 6px 20px rgba(0,51,102,0.28); }
+        .btn-secondary { background: rgba(255,255,255,0.75); color: #003366; border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 4px 14px rgba(0,0,0,0.04); }
+        .btn-glass:hover { transform: translateY(-2px); }
+        [data-theme="dark"] .glass-card { background: rgba(15,23,42,0.6); border-color: rgba(56,189,248,0.18); box-shadow: 0 20px 50px -10px rgba(0,0,0,0.5); }
+        [data-theme="dark"] .content-wrap h2 { color: #7dd3fc; }
+        [data-theme="dark"] .content-wrap h3 { color: #38bdf8; }
+        [data-theme="dark"] .content-wrap table.table-bordered { background: rgba(15,23,42,0.6); border-color: rgba(56,189,248,0.18); }
+        [data-theme="dark"] .content-wrap .table-bordered th { background: rgba(56,189,248,0.1); color: #7dd3fc; }
+        [data-theme="dark"] .content-wrap .table-bordered th, [data-theme="dark"] .content-wrap .table-bordered td { border-bottom-color: rgba(56,189,248,0.12); }
+        [data-theme="dark"] .content-wrap .table-bordered tbody tr:hover { background: rgba(56,189,248,0.07); }
+        [data-theme="dark"] .content-wrap :where(input, select, textarea) { background: rgba(15,23,42,0.7); border-color: rgba(56,189,248,0.25); color: #f1f5f9; }
+        [data-theme="dark"] .btn-secondary { background: rgba(15,23,42,0.7); color: #7dd3fc; border-color: rgba(56,189,248,0.25); }
     </style>
     <script>
         // Security: Prevent back-button viewing of cached authenticated pages after logout

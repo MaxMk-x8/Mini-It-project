@@ -1,104 +1,202 @@
 # CodeNest
 
-CodeNest is an academic collaboration web app for MMU students and lecturers to ask and answer questions, share study resources, and interact by faculty.
+An academic collaboration platform for Multimedia University (MMU) students and lecturers — ask questions, share study resources, find project teammates, and message each other, all behind MMU-verified accounts.
+
+Built as a foundation-year Mini IT Project by a team of three.
 
 ---
 
-## 1. User Roles & Access Control
+## Features
 
-* **Student:**
-  * Automatically assigned when registering with an `@student.mmu.edu.my` email.
-  * Can post questions, write answers, view the student dashboard, and browse resources.
-* **Professor:**
-  * Automatically assigned when registering with an `@mmu.edu.my` email.
-  * Answers are prioritized and highlighted in the Q&A section as official faculty answers.
-* **Community Moderator:**
-  * Assigned by admins/system for content moderation.
-  * Access to the moderator dashboard.
-* **Admin:**
-  * Created via backend seed script (`python seed_admin.py`).
-  * Access to the admin dashboard with user management and statistics.
+### Authentication & Accounts
+- Registration restricted to official MMU domains (`@student.mmu.edu.my`, `@mmu.edu.my`)
+- Role assigned automatically from the email domain
+- Email verification with a 6-digit OTP (5-minute expiry, 30-second resend cooldown, 5 attempts)
+- Login with username **or** email, with a 60-second lockout after 5 failed attempts
+- Password reset over a two-step OTP flow
+- Profile editing, avatar upload, and admin-reviewed username changes
 
----
+### Q&A Forum
+- Post questions by faculty and category, with optional screenshot attachments
+- Drafts, editing, and deletion for your own posts
+- Answer sorting: pinned best answer first, then verified professor answers, then the rest
+- Question author marks the best answer
+- `@username` mentions with hover cards and in-app notifications
+- Post visibility: public or friends-only
+- Search across titles and details, filter by faculty and category
 
-## 2. Authentication & Security
+### Resource Hub
+- Upload study materials (PDF, DOCX, PPTX, TXT, ZIP — 10 MB per file)
+- Collections that group files, with ZIP download
+- Star ratings and professor reviews
+- Bookmarks, keyword search, faculty and category filters
+- In-browser preview for PDF and TXT
 
-* **Restricted MMU Registration:**
-  * Only official MMU email domains allowed (`@student.mmu.edu.my` and `@mmu.edu.my`).
-  * Auto role assignment based on domain.
-  * Password hashing using Werkzeug.
-* **Email Verification (OTP):**
-  * 6-digit verification code sent on registration.
-  * Accounts must be verified before login.
-  * Option to resend verification code.
-* **Login & Session:**
-  * Login with either Username or Email + Password.
-  * Session management handled with Flask-Login.
+### Idea Lab
+- Post project ideas with category, faculty, course code and team size (2–10)
+- Browse, search and filter open ideas
+- Express interest with a pitch message; owner accepts or rejects
+- Automatic team-full handling and manual open/close toggle
+- Personal dashboard of ideas you posted and ideas you applied to
 
----
+### Chat & Social
+- One-to-one direct messaging with edit, pin and block
+- Follow system with accept/decline requests
+- Public profiles, user search, saved questions and answers
+- Notification inbox
 
-## 3. Dashboard System
-
-* **Smart Dashboard Route (`/dashboard`):**
-  * Single navbar link that automatically redirects each user to their specific dashboard based on their role.
-* **Student Dashboard (`/dashboard/student`):**
-  * Profile overview, activity links to Q&A and study materials.
-* **Professor Dashboard (`/dashboard/professor`):**
-  * Profile overview and faculty portal links.
-* **Moderator Dashboard (`/dashboard/moderator`):**
-  * Moderator status and oversight links.
-* **Admin Dashboard (`/dashboard/admin`):**
-  * Total user count metric and user list table (ID, username, email, role, faculty).
-
----
-
-## 4. Q&A Forum Module
-
-* **Question Feed (`/qa`):**
-  * View all posted questions sorted by newest first.
-  * Search bar (searches question titles and details).
-  * Filter by Faculty (FCI, FOM).
-  * Filter by Category (General, Assignments, Exams, Projects, Coding, Administrative).
-* **Ask Question (`/qa/ask`):**
-  * Logged-in users can post questions with title, details, faculty, and category.
-* **Question Discussion Page (`/qa/<id>`):**
-  * View question details, author, faculty, and timestamp.
-  * Logged-in users can submit answers.
-* **Smart Answer Sorting:**
-  * Pinned "Best Answer" always stays at the top.
-  * Verified Professor answers are ranked second for quick faculty help.
-  * Community/student answers sorted chronologically.
-* **Best Answer System:**
-  * Question author can mark/unmark an answer as the "Best Answer".
-* **Answer Management:**
-  * Users can edit or delete their own answers.
+### Moderation & Administration
+- Report any post or user; moderator queue with actions
+- Warnings delivered to the user's inbox
+- Temporary suspensions and permanent bans, re-checked on every request
+- Moderator applications reviewed by admins
+- Admin dashboard with user statistics and management
 
 ---
 
-## 5. Resource Hub Module
+## Tech Stack
 
-* **Resource Feed (`/resources`):**
-  * Browse all shared academic resources ordered newest first.
-  * Keyword search across title, description, and filename.
-  * Faculty filtering (FCI, FOM).
-  * Category filtering (Lecture Notes, Past Year Papers, Lab Sheets, Textbooks & References, Cheatsheets & Summaries, Other).
-* **Upload Resource (`/resources/upload`):**
-  * Logged-in users can upload study resources.
-  * File validation: Allowed formats (`PDF`, `DOCX`, `PPTX`, `TXT`, `ZIP`) and 10MB size limit.
-  * Secure server-side timestamped unique naming preventing collision and path traversal.
-* **Download Resource (`/resources/download/<id>`):**
-  * Secure file downloading using `send_from_directory` with original filename preservation.
-* **Resource Management (`/resources/<id>/edit`, `/resources/<id>/delete`):**
-  * Resource uploaders and admins can edit resource metadata (title, category, faculty, description).
-  * Resource uploaders and admins can delete resources with automated database and physical file cleanup.
+| Layer | Technology |
+|---|---|
+| Backend | Python, Flask 3.1 |
+| Database | SQLite, Flask-SQLAlchemy 3.1 |
+| Auth & sessions | Flask-Login |
+| Forms & CSRF | Flask-WTF, WTForms |
+| Email | Resend HTTPS API (Flask-Mail SMTP fallback) |
+| Images | Pillow |
+| Frontend | Jinja2 templates, vanilla CSS and JavaScript |
+
+**Scale:** 119 routes · 24 models · 36 forms · 56 templates · ~7,800 lines of Python
 
 ---
 
-## 6. Tech Stack
+## Getting Started
 
-* **Backend:** Python, Flask
-* **Database:** SQLite, Flask-SQLAlchemy
-* **Auth & Forms:** Flask-Login, Flask-WTF, WTForms, email_validator
-* **Mailing:** Flask-Mail (SMTP OTP delivery)
-* **Frontend:** HTML5, Jinja2 Templates
+### Requirements
+- Python 3.11 or newer
+- pip
 
+### Installation
+
+```bash
+git clone https://github.com/MaxMk-x8/Mini-It-project.git
+cd Mini-It-project
+
+python -m venv venv
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # macOS / Linux
+
+pip install -r requirements.txt
+```
+
+### Configuration
+
+Create a `.env` file in the project root:
+
+```env
+SECRET_KEY=your-secret-key-here
+PORT=5050
+
+# Email delivery (optional locally — OTP codes also print to the console)
+RESEND_API_KEY=re_xxxxxxxxxx
+```
+
+### Run
+
+```bash
+python app.py
+```
+
+Open http://127.0.0.1:5050
+
+Tables are created automatically on first run, and any new model columns are added on startup.
+
+### Create an admin account
+
+```bash
+python seed_admin.py
+```
+
+Prompts for a username, email and password, and seeds an Admin directly into the database.
+
+---
+
+## Project Structure
+
+```
+Mini-It-project/
+├── app.py                  # Routes, configuration, email dispatch
+├── models.py               # SQLAlchemy models and schema migration
+├── forms.py                # WTForms definitions and validators
+├── constants.py            # Faculty constants, profanity filter
+├── seed_admin.py           # Admin account seeder
+├── requirements.txt
+├── Procfile                # Gunicorn entry point for deployment
+├── static/
+│   ├── images/             # Logo and favicons
+│   └── resources.css
+├── templates/
+│   ├── base.html           # Layout, navigation, theme variables
+│   ├── index.html          # Landing page
+│   ├── qa/                 # Q&A forum pages
+│   ├── resources/          # Resource hub pages
+│   ├── ideas/              # Idea Lab pages
+│   └── ...                 # Auth, dashboards, chat, moderation
+├── uploads/                # User uploads (gitignored)
+│   ├── avatars/
+│   ├── resources/
+│   └── screenshots/
+└── instance/
+    └── codenest.db         # SQLite database (gitignored)
+```
+
+---
+
+## Module Ownership
+
+| Module | Owner |
+|---|---|
+| Authentication, Dashboards, Moderation | Mohammad Khan |
+| Q&A Forum | Anik Md Ahoshan Habib |
+| Resource Hub, Idea Lab | Pritiv |
+
+---
+
+## Security
+
+- Passwords hashed with Werkzeug (scrypt); never stored in plain text
+- CSRF protection on every form via Flask-WTF
+- SQL injection prevented by SQLAlchemy's parameterised ORM
+- XSS mitigated by Jinja2 autoescaping, with explicit escaping in custom filters
+- Uploads validated by extension, size, and content (PDF magic bytes, Pillow verification), then stored under timestamped unique names
+- Ownership and role checks on every write route
+- Bans and suspensions enforced on every request
+- Secrets kept in `.env`, which is gitignored
+
+---
+
+## Deployment
+
+Deployed on Render as a Web Service.
+
+- **Build:** `pip install -r requirements.txt`
+- **Start:** `gunicorn -b 0.0.0.0:$PORT --timeout 120 app:app`
+- **Environment variables:** `SECRET_KEY`, `RESEND_API_KEY`
+
+Email is sent through the Resend HTTPS API from a verified domain, because Render blocks outbound SMTP ports. Note that the free instance type has an ephemeral filesystem — the SQLite database and uploaded files reset on each deploy.
+
+---
+
+## Roadmap
+
+- Team chat for accepted Idea Lab members
+- Skills on user profiles, searchable for finding collaborators
+- Split `app.py` into Flask Blueprints per module
+- Move from SQLite to PostgreSQL for persistent deployment
+- Automated end-to-end tests
+
+---
+
+## License
+
+Coursework submission for Multimedia University. Not licensed for reuse.

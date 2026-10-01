@@ -48,6 +48,7 @@ app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true',
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'codenest-foundation-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///codenest.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads', 'resources')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -113,8 +114,9 @@ def send_email_async(msg):
             except Exception as e:
                 print(f"[CodeNest Email Notice] Could not deliver email to {msg.recipients}: {e}", flush=True)
 
-    t = threading.Thread(target=_send, daemon=True)
-    t.start()
+    # Sent synchronously: a daemon thread can be killed when the worker is
+    # recycled (common on a cold start), silently dropping the email.
+    _send()
 
 # Automatically create all tables and sync new columns on startup
 with app.app_context():
