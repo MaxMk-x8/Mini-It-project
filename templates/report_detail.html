@@ -1,138 +1,415 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Review Report #{{ report.id }}</h2>
 
-<p>
-    {% if current_user.is_admin() %}
-        <a href="{{ url_for('admin_dashboard') }}">&larr; Back to Admin Dashboard</a>
-    {% else %}
-        <a href="{{ url_for('moderator_dashboard') }}">&larr; Back to Moderator Dashboard</a>
-    {% endif %}
-</p>
+<style>
+    /* ============================================================
+       Modern Glassmorphic Report Review Page
+       Matches CodeNest Home & Moderator Dashboard Design System
+       ============================================================ */
 
-<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 4px; background: #fafafa;">
-    <h3>Report Details</h3>
-    <p><strong>Faculty:</strong> {{ report.faculty }}</p>
-    <p><strong>Content Type:</strong> {{ report.content_type|capitalize }} (ID: #{{ report.content_id }})</p>
-    <p><strong>Status:</strong> 
-        {% if report.status == 'pending' %}
-            <span style="color: #d97706; font-weight: bold;">PENDING</span>
-        {% elif report.status == 'resolved' %}
-            <span style="color: #059669; font-weight: bold;">RESOLVED</span>
-        {% elif report.status == 'dismissed' %}
-            <span style="color: #6b7280; font-weight: bold;">DISMISSED</span>
-        {% elif report.status == 'content_removed' %}
-            <span style="color: #dc2626; font-weight: bold;">CONTENT REMOVED</span>
-        {% else %}
-            <span>{{ report.status }}</span>
-        {% endif %}
-    </p>
-    <p><strong>Reason:</strong> {{ report.reason }}</p>
-    <p><strong>Reporter:</strong> {{ report.reporter.username if report.reporter else 'Deleted User' }} ({{ report.reporter.role if report.reporter else 'User' }}) on {{ report.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</p>
-    <p><strong>Additional Details:</strong></p>
-    <blockquote style="background: #fff; border-left: 3px solid #ccc; padding: 8px 12px; margin: 0 0 10px 0;">
-        {{ report.details if report.details else 'No additional details provided.' }}
-    </blockquote>
-</div>
+    .report-detail-wrap {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 6px 0 40px;
+    }
 
-<div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 4px; background: #fff;">
-    <h3>Reported Content Preview</h3>
-    {% if target_content %}
-        {% if report.content_type == 'question' %}
-            <p><strong>Title:</strong> {{ target_content.title }}</p>
-            <p><strong>Category:</strong> {{ target_content.category }} | <strong>Faculty:</strong> {{ target_content.faculty }}</p>
-            <p><strong>Author:</strong> {{ target_content.author.username }}</p>
-            <p><strong>Content:</strong></p>
-            <div style="background: #f9f9f9; padding: 10px; border: 1px solid #eee;">{{ target_content.content }}</div>
-            <p><a href="{{ url_for('qa_detail', question_id=target_content.id) }}" target="_blank">View Live Question Page &rarr;</a></p>
-        {% elif report.content_type in ('answer', 'reply') %}
-            <p><strong>Question:</strong> {% if target_content.question %}<a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank">{{ target_content.question.title }}</a>{% else %}<em>(Question removed)</em>{% endif %}</p>
-            <p><strong>Type:</strong> {{ 'Reply' if target_content.parent_answer_id else 'Top-Level Answer' }}</p>
-            <p><strong>Author:</strong> {{ target_content.author.username if target_content.author else 'Unknown' }}</p>
-            <p><strong>Content:</strong></p>
-            <div style="background: #f9f9f9; padding: 10px; border: 1px solid #eee;">{{ target_content.content }}</div>
-            {% if target_content.question %}
-                <p><a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank">View in Question Discussion &rarr;</a></p>
-            {% endif %}
-        {% elif report.content_type == 'resource' %}
-            <p><strong>Title:</strong> {{ target_content.title }}</p>
-            <p><strong>Filename:</strong> {{ target_content.filename }} ({{ target_content.formatted_size }})</p>
-            <p><strong>Faculty:</strong> {{ target_content.faculty }} | <strong>Category:</strong> {{ target_content.category }}</p>
-            <p><strong>Uploader:</strong> {{ target_content.uploader.username }}</p>
-            <p><strong>Description:</strong> {{ target_content.description or 'None' }}</p>
-        {% endif %}
-    {% else %}
-        <p style="color: #b91c1c;"><em>The reported content has already been removed from the platform or deleted.</em></p>
-        {% if report.content_snippet %}
-            <p><strong>Saved Excerpt / Title:</strong></p>
-            <div style="background: #f9f9f9; padding: 10px; border: 1px solid #eee;">{{ report.content_snippet }}</div>
-        {% endif %}
-    {% endif %}
-</div>
+    .glass-hero-report {
+        position: relative;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.68);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.88);
+        border-radius: 22px;
+        box-shadow: 0 20px 50px -10px rgba(0, 51, 102, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+        padding: 30px 28px 24px;
+        margin-bottom: 24px;
+    }
+    .glass-hero-report::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 10%; right: 10%; height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 51, 102, 0.35), rgba(237, 28, 36, 0.35), transparent);
+    }
 
-{% if report.status == 'pending' %}
-<div style="border: 2px solid #2563eb; padding: 15px; border-radius: 4px; background: #eff6ff; margin-bottom: 20px;">
-    <h3 style="margin-top: 0; color: #1d4ed8;">Take Moderation Action</h3>
-    <form method="POST" action="{{ url_for('report_action', report_id=report.id) }}">
-        {{ form.hidden_tag() }}
+    .glass-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 16px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.92);
+        box-shadow: 0 4px 16px -2px rgba(0, 51, 102, 0.06);
+        margin-bottom: 12px;
+        font-size: 0.86rem;
+        font-weight: 600;
+        color: #334155;
+    }
 
-        <p>
-            {{ form.action.label }}<br>
-            {{ form.action() }}
-            {% for error in form.action.errors %}
-                <br><span style="color: red;">{{ error }}</span>
-            {% endfor %}
-        </p>
+    .report-title {
+        font-size: 1.7rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0 0 8px 0;
+        letter-spacing: -0.02em;
+    }
 
-        <p>
-            {{ form.decision_note.label }}<br>
-            {{ form.decision_note(rows=4, cols=60, placeholder="Explain the rationale for this decision (recorded in audit log)...") }}
-            {% for error in form.decision_note.errors %}
-                <br><span style="color: red;">{{ error }}</span>
-            {% endfor %}
-        </p>
+    .quick-link-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 0.86rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.2);
+        transition: all 0.2s ease;
+    }
+    .quick-link-back:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 51, 102, 0.3);
+    }
 
-        <p>
-            {{ form.submit() }}
-        </p>
-    </form>
-</div>
-{% else %}
-<div style="border: 1px solid #10b981; padding: 15px; border-radius: 4px; background: #ecfdf5; margin-bottom: 20px;">
-    <h3 style="margin-top: 0; color: #065f46;">Resolution History</h3>
-    <p><strong>Handled By:</strong> {{ report.reviewer.username if report.reviewer else 'Unknown' }} ({{ report.reviewer.role if report.reviewer else 'User' }})</p>
-    <p><strong>Action Taken:</strong> {{ report.action_taken }}</p>
-    <p><strong>Reviewed At:</strong> {{ report.reviewed_at.strftime('%Y-%m-%d %H:%M:%S UTC') if report.reviewed_at else 'N/A' }}</p>
-    <p><strong>Decision Note:</strong> {{ report.decision_note or 'No decision note recorded.' }}</p>
-</div>
-{% endif %}
+    /* Section Cards */
+    .glass-card-detail {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 10px 30px -8px rgba(0, 51, 102, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+        margin-bottom: 22px;
+    }
 
-{% set content_author = None %}
-{% if target_content %}
-    {% if report.content_type in ('question', 'answer', 'reply') %}
-        {% set content_author = target_content.author %}
-    {% elif report.content_type == 'resource' %}
-        {% set content_author = target_content.uploader %}
-    {% endif %}
-{% endif %}
+    .card-heading {
+        font-size: 1.15rem;
+        font-weight: 750;
+        color: #0f172a;
+        margin: 0 0 16px 0;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 
-{% if content_author and not content_author.is_admin() and (current_user.is_admin() or (current_user.is_moderator() and content_author.faculty == current_user.faculty)) %}
-<div style="border: 2px solid #ea580c; padding: 15px; border-radius: 4px; background: #fff7ed; margin-top: 20px;">
-    <h3 style="margin-top: 0; color: #c2410c;">Issue Official Warning to Author: {{ content_author.username }}</h3>
-    <p style="color: #4b5563; font-size: 0.9rem;">
-        Send an official disciplinary warning directly to <strong>{{ content_author.username }}</strong> regarding this reported content. The warning will be delivered immediately to their navbar Inbox.
-    </p>
-    <form method="POST" action="{{ url_for('issue_warning', user_id=content_author.id) }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div style="margin-bottom: 10px;">
-            <label for="warning_msg" style="font-weight: bold; font-size: 0.9rem; color: #374151;">Warning Message (min 5 chars):</label><br>
-            <textarea id="warning_msg" name="message" rows="3" style="width: 100%; box-sizing: border-box; margin-top: 5px; padding: 8px; border: 1px solid #fed7aa; border-radius: 4px;" placeholder="e.g. Your post in {{ report.faculty }} violated CodeNest community guidelines. Please ensure all contributions remain civil and constructive." required></textarea>
+    .meta-row {
+        display: flex;
+        margin-bottom: 10px;
+        font-size: 0.92rem;
+    }
+    .meta-label {
+        width: 150px;
+        color: #64748b;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+    .meta-val {
+        color: #0f172a;
+        font-weight: 500;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .status-pill.pending { background: rgba(254, 243, 199, 0.9); color: #b45309; border: 1px solid rgba(251, 191, 36, 0.6); }
+    .status-pill.resolved { background: rgba(220, 252, 231, 0.9); color: #15803d; border: 1px solid rgba(134, 239, 172, 0.8); }
+    .status-pill.dismissed { background: rgba(241, 245, 249, 0.95); color: #64748b; border: 1px solid rgba(203, 213, 225, 0.9); }
+    .status-pill.removed { background: rgba(254, 226, 226, 0.9); color: #b91c1c; border: 1px solid rgba(254, 202, 202, 0.9); }
+
+    .content-preview-box {
+        background: rgba(248, 250, 252, 0.8);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 0.92rem;
+        line-height: 1.6;
+        color: #334155;
+        margin: 12px 0;
+        white-space: pre-wrap;
+    }
+
+    /* Action Container */
+    .action-glass-card {
+        background: rgba(239, 246, 255, 0.7);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(191, 219, 254, 0.9);
+        border-radius: 18px;
+        padding: 24px;
+        margin-bottom: 22px;
+    }
+    .warning-glass-card {
+        background: rgba(255, 247, 237, 0.7);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(254, 215, 170, 0.9);
+        border-radius: 18px;
+        padding: 24px;
+        margin-top: 24px;
+    }
+
+    .form-control-styled {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 0.9rem;
+        outline: none;
+        transition: all 0.2s ease;
+        box-sizing: border-box;
+    }
+    .form-control-styled:focus {
+        border-color: #004FB6;
+        box-shadow: 0 0 0 3px rgba(0, 79, 182, 0.12);
+        background: #ffffff;
+    }
+
+    .btn-submit-action {
+        background: linear-gradient(135deg, #003366, #004FB6);
+        color: #ffffff;
+        border: none;
+        padding: 10px 22px;
+        border-radius: 10px;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 51, 102, 0.25);
+        transition: all 0.2s ease;
+    }
+    .btn-submit-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(0, 51, 102, 0.35);
+    }
+    .btn-warning-action {
+        background: linear-gradient(135deg, #ea580c, #c2410c);
+        color: #ffffff;
+        border: none;
+        padding: 10px 22px;
+        border-radius: 10px;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(234, 88, 12, 0.25);
+        transition: all 0.2s ease;
+    }
+    .btn-warning-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(234, 88, 12, 0.35);
+    }
+
+    /* Dark Mode */
+    [data-theme="dark"] .glass-hero-report,
+    [data-theme="dark"] .glass-card-detail {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: rgba(56, 189, 248, 0.18);
+        box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .report-title { color: #38bdf8; }
+    [data-theme="dark"] .card-heading { color: #f1f5f9; border-bottom-color: rgba(56, 189, 248, 0.18); }
+    [data-theme="dark"] .meta-label { color: #94a3b8; }
+    [data-theme="dark"] .meta-val { color: #f1f5f9; }
+    [data-theme="dark"] .content-preview-box {
+        background: rgba(30, 41, 59, 0.7);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #cbd5e1;
+    }
+    [data-theme="dark"] .action-glass-card {
+        background: rgba(14, 116, 144, 0.2);
+        border-color: rgba(56, 189, 248, 0.25);
+    }
+    [data-theme="dark"] .warning-glass-card {
+        background: rgba(120, 53, 15, 0.25);
+        border-color: rgba(245, 158, 11, 0.3);
+    }
+    [data-theme="dark"] .form-control-styled {
+        background: rgba(30, 41, 59, 0.85);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #f1f5f9;
+    }
+    [data-theme="dark"] .glass-badge {
+        background: rgba(30, 41, 59, 0.7);
+        border-color: rgba(56, 189, 248, 0.2);
+        color: #e2e8f0;
+    }
+</style>
+
+<div class="report-detail-wrap">
+    <!-- Header Hero Banner -->
+    <div class="glass-hero-report">
+        <div>
+            <div class="glass-badge">
+                <span>🛡️ Moderation Audit &bull; Faculty {{ report.faculty }}</span>
+            </div>
         </div>
-        <button type="submit" style="background: #ea580c; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-            Send Official Warning &rarr;
-        </button>
-    </form>
+
+        <h1 class="report-title">Review Report #{{ report.id }}</h1>
+
+        <div style="margin-top: 14px;">
+            {% if current_user.is_admin() %}
+                <a href="{{ url_for('admin_dashboard') }}" class="quick-link-back">&larr; Back to Admin Dashboard</a>
+            {% else %}
+                <a href="{{ url_for('moderator_dashboard') }}" class="quick-link-back">&larr; Back to Moderator Dashboard</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Report Metadata Card -->
+    <div class="glass-card-detail">
+        <h2 class="card-heading">📋 Report Metadata</h2>
+
+        <div class="meta-row">
+            <div class="meta-label">Faculty:</div>
+            <div class="meta-val"><strong>{{ report.faculty }}</strong></div>
+        </div>
+        <div class="meta-row">
+            <div class="meta-label">Content Type:</div>
+            <div class="meta-val">{{ report.content_type|capitalize }} (ID: #{{ report.content_id }})</div>
+        </div>
+        <div class="meta-row">
+            <div class="meta-label">Status:</div>
+            <div class="meta-val">
+                {% if report.status == 'pending' %}
+                    <span class="status-pill pending">⏳ Pending</span>
+                {% elif report.status == 'resolved' %}
+                    <span class="status-pill resolved">✔ Resolved</span>
+                {% elif report.status == 'dismissed' %}
+                    <span class="status-pill dismissed">✖ Dismissed</span>
+                {% elif report.status == 'content_removed' %}
+                    <span class="status-pill removed">🗑️ Content Removed</span>
+                {% else %}
+                    <span class="status-pill dismissed">{{ report.status }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="meta-row">
+            <div class="meta-label">Reason:</div>
+            <div class="meta-val" style="color: #b91c1c; font-weight: 700;">{{ report.reason }}</div>
+        </div>
+        <div class="meta-row">
+            <div class="meta-label">Reported By:</div>
+            <div class="meta-val">
+                {{ report.reporter.username if report.reporter else 'Deleted User' }} ({{ report.reporter.role if report.reporter else 'User' }}) on {{ report.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+            </div>
+        </div>
+
+        <div style="margin-top: 14px;">
+            <div class="meta-label" style="margin-bottom: 6px;">Additional Details:</div>
+            <div class="content-preview-box" style="margin-top: 4px;">{{ report.details if report.details else 'No additional details provided by reporter.' }}</div>
+        </div>
+    </div>
+
+    <!-- Reported Content Preview Card -->
+    <div class="glass-card-detail">
+        <h2 class="card-heading">📄 Reported Content Preview</h2>
+        {% if target_content %}
+            {% if report.content_type == 'question' %}
+                <div class="meta-row"><div class="meta-label">Title:</div><div class="meta-val"><strong>{{ target_content.title }}</strong></div></div>
+                <div class="meta-row"><div class="meta-label">Faculty / Cat:</div><div class="meta-val">{{ target_content.faculty }} &bull; {{ target_content.category }}</div></div>
+                <div class="meta-row"><div class="meta-label">Author:</div><div class="meta-val">@{{ target_content.author.username }}</div></div>
+                <div class="content-preview-box">{{ target_content.content }}</div>
+                <p style="margin: 10px 0 0;"><a href="{{ url_for('qa_detail', question_id=target_content.id) }}" target="_blank" style="color: #004FB6; font-weight: 700; text-decoration: none;">🔗 View Live Question Page &rarr;</a></p>
+            {% elif report.content_type in ('answer', 'reply') %}
+                <div class="meta-row"><div class="meta-label">Question:</div><div class="meta-val">{% if target_content.question %}<a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank" style="color: #004FB6; font-weight: 600;">{{ target_content.question.title }}</a>{% else %}<em>(Question removed)</em>{% endif %}</div></div>
+                <div class="meta-row"><div class="meta-label">Type:</div><div class="meta-val">{{ 'Reply' if target_content.parent_answer_id else 'Top-Level Answer' }}</div></div>
+                <div class="meta-row"><div class="meta-label">Author:</div><div class="meta-val">@{{ target_content.author.username if target_content.author else 'Unknown' }}</div></div>
+                <div class="content-preview-box">{{ target_content.content }}</div>
+                {% if target_content.question %}
+                    <p style="margin: 10px 0 0;"><a href="{{ url_for('qa_detail', question_id=target_content.question_id) }}" target="_blank" style="color: #004FB6; font-weight: 700; text-decoration: none;">🔗 View in Question Discussion &rarr;</a></p>
+                {% endif %}
+            {% elif report.content_type == 'resource' %}
+                <div class="meta-row"><div class="meta-label">Title:</div><div class="meta-val"><strong>{{ target_content.title }}</strong></div></div>
+                <div class="meta-row"><div class="meta-label">Filename:</div><div class="meta-val">{{ target_content.filename }} ({{ target_content.formatted_size }})</div></div>
+                <div class="meta-row"><div class="meta-label">Faculty / Cat:</div><div class="meta-val">{{ target_content.faculty }} &bull; {{ target_content.category }}</div></div>
+                <div class="meta-row"><div class="meta-label">Uploader:</div><div class="meta-val">@{{ target_content.uploader.username }}</div></div>
+                <div class="meta-row"><div class="meta-label">Description:</div><div class="meta-val">{{ target_content.description or 'None' }}</div></div>
+            {% endif %}
+        {% else %}
+            <p style="color: #b91c1c; font-weight: 600;"><em>The reported content has already been removed from the platform or deleted.</em></p>
+            {% if report.content_snippet %}
+                <div class="meta-label">Saved Excerpt / Title:</div>
+                <div class="content-preview-box">{{ report.content_snippet }}</div>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Moderation Action Form / Audit History -->
+    {% if report.status == 'pending' %}
+    <div class="action-glass-card">
+        <h2 class="card-heading" style="color: #004FB6;">⚖️ Take Moderation Action</h2>
+        <form method="POST" action="{{ url_for('report_action', report_id=report.id) }}">
+            {{ form.hidden_tag() }}
+
+            <div style="margin-bottom: 16px;">
+                <label style="font-weight: 700; display: block; margin-bottom: 6px; font-size: 0.9rem;">{{ form.action.label.text }}</label>
+                {{ form.action(class="form-control-styled") }}
+                {% for error in form.action.errors %}
+                    <span style="color: #dc2626; font-size: 0.84rem;">{{ error }}</span>
+                {% endfor %}
+            </div>
+
+            <div style="margin-bottom: 18px;">
+                <label style="font-weight: 700; display: block; margin-bottom: 6px; font-size: 0.9rem;">{{ form.decision_note.label.text }}</label>
+                {{ form.decision_note(rows=4, class="form-control-styled", placeholder="Explain the rationale for this decision (recorded in audit log)...") }}
+                {% for error in form.decision_note.errors %}
+                    <span style="color: #dc2626; font-size: 0.84rem;">{{ error }}</span>
+                {% endfor %}
+            </div>
+
+            <div>
+                {{ form.submit(class="btn-submit-action") }}
+            </div>
+        </form>
+    </div>
+    {% else %}
+    <div class="glass-card-detail" style="border-left: 5px solid #059669;">
+        <h2 class="card-heading" style="color: #059669;">✅ Resolution Audit History</h2>
+        <div class="meta-row"><div class="meta-label">Handled By:</div><div class="meta-val">{{ report.reviewer.username if report.reviewer else 'Unknown' }} ({{ report.reviewer.role if report.reviewer else 'User' }})</div></div>
+        <div class="meta-row"><div class="meta-label">Action Taken:</div><div class="meta-val"><strong>{{ report.action_taken }}</strong></div></div>
+        <div class="meta-row"><div class="meta-label">Reviewed At:</div><div class="meta-val">{{ report.reviewed_at.strftime('%Y-%m-%d %H:%M:%S UTC') if report.reviewed_at else 'N/A' }}</div></div>
+        <div class="meta-row"><div class="meta-label">Decision Note:</div><div class="meta-val">{{ report.decision_note or 'No decision note recorded.' }}</div></div>
+    </div>
+    {% endif %}
+
+    <!-- Warning Issuance Section -->
+    {% set content_author = None %}
+    {% if target_content %}
+        {% if report.content_type in ('question', 'answer', 'reply') %}
+            {% set content_author = target_content.author %}
+        {% elif report.content_type == 'resource' %}
+            {% set content_author = target_content.uploader %}
+        {% endif %}
+    {% endif %}
+
+    {% if content_author and not content_author.is_admin() and (current_user.is_admin() or (current_user.is_moderator() and content_author.faculty == current_user.faculty)) %}
+    <div class="warning-glass-card">
+        <h2 class="card-heading" style="color: #c2410c;">⚠️ Issue Official Warning to Author: @{{ content_author.username }}</h2>
+        <p style="color: #64748b; font-size: 0.9rem; margin-top: 0; line-height: 1.5;">
+            Send an official disciplinary warning directly to <strong>@{{ content_author.username }}</strong> regarding this reported content. The warning will appear immediately in their navbar Inbox with high priority.
+        </p>
+        <form method="POST" action="{{ url_for('issue_warning', user_id=content_author.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="margin-bottom: 14px;">
+                <label for="warning_msg" style="font-weight: 700; font-size: 0.88rem; display: block; margin-bottom: 6px;">Warning Message (min 5 chars):</label>
+                <textarea id="warning_msg" name="message" rows="3" class="form-control-styled" placeholder="e.g. Your post in {{ report.faculty }} violated CodeNest community guidelines. Please ensure all contributions remain civil and constructive." required></textarea>
+            </div>
+            <button type="submit" class="btn-warning-action">
+                Send Official Warning &rarr;
+            </button>
+        </form>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 
 {% endblock %}
